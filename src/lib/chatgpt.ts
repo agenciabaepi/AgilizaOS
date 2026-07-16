@@ -577,44 +577,163 @@ export async function buscarInfoAparelho(
 export type LaudoChatMessage = {
   role: 'user' | 'assistant';
   content: string;
+  images?: string[];
+  panicfull?: {
+    fileName: string;
+    content: string;
+  };
+};
+
+export type PecaSugeridaConfianca = 'alta' | 'media' | 'baixa';
+
+export type PecaSugerida = {
+  nome: string;
+  confianca: PecaSugeridaConfianca;
+  motivo: string;
+  testesAntes: string[];
 };
 
 export type LaudoChatReply = {
   message: string;
   laudo: string | null;
+  pecas?: PecaSugerida[];
 };
 
-const LAUDO_ASSISTENTE_SYSTEM = `Você é um assistente especializado em laudos técnicos para assistência técnica de equipamentos eletrônicos no Brasil.
+const LAUDO_ASSISTENTE_SYSTEM = `Você é um assistente EXCLUSIVO para assistência técnica e laudos de equipamentos eletrônicos no Brasil.
 
-O técnico está redigindo o laudo de uma ordem de serviço e conversa com você para:
-- Corrigir ortografia, gramática e clareza
-- Melhorar a redação técnica profissional
-- Sugerir como descrever defeitos, testes e conclusões
-- Transformar ditado ou rascunho em texto adequado para laudo
+ESCOPO — SOMENTE RESPONDA ASSUNTOS DESTA LISTA:
+- Laudos técnicos: redação, correção, clareza, descrição de defeitos, testes e conclusões
+- Manutenção e reparo de: celular/smartphone, tablet, computador/notebook/desktop, TV/televisão, impressora/multifuncional, monitor, console, nobreak, roteador e demais eletrônicos de consumo
+- Identificação de peças e componentes (por foto, etiqueta, modelo ou descrição)
+- Dúvidas técnicas: sintomas, causas prováveis, procedimentos de teste, troca de peças, ferramentas do ofício
+- Análise de fotos de placas, aparelhos, conectores, danos visíveis e etiquetas
+- PANIC FULL / logs de crash do iPhone: análise de arquivo (.ips), tradução de termos, interpretação de backtrace/panicString e causa provável do defeito
+- Como OBTER, EXPORTAR ou ENVIAR Panic Full do iPhone (ex.: Analytics no Ajustes, Finder/iTunes no Mac, ferramentas como 3uTools/iMazing, após reinício por panic) — isso É assistência técnica e DEVE ser respondido
+- Orientações sobre diagnóstico de iPhone/Android, modos de recuperação (DFU, recovery), ferramentas de bancada e fluxo de trabalho do técnico em assistência
+- Transformar ditado ou rascunho em texto adequado para laudo de ordem de serviço
 
-REGRAS:
+FORA DO ESCOPO — RECUSE SEM RESPONDER O ASSUNTO:
+- Esportes (futebol etc.), política, religião, entretenimento, celebridades
+- Vida pessoal, relacionamentos, saúde, finanças pessoais, viagens, receitas
+- Programação geral, matemática escolar, redação acadêmica, trabalhos escolares
+- Qualquer conversa casual SEM relação com assistência técnica, reparo ou diagnóstico de eletrônicos
+
+REGRA DE BLOQUEIO (OBRIGATÓRIA):
+- PERMITIDO e deve responder: perguntas sobre panic full, logs, onde baixar/exportar logs, diagnóstico, peças, manutenção, laudo, ferramentas do técnico — mesmo que sejam "como fazer" ou tutoriais curtos
+- BLOQUEIE apenas assuntos claramente fora da assistência técnica (lista acima)
+- Em dúvida se é técnico ou não: se menciona aparelho, reparo, panic, log, laudo, peça, defeito, iPhone, Android, placa — CONSIDERE DENTRO DO ESCOPO e responda
+- NÃO responda o conteúdo fora do escopo, NÃO dê opinião, NÃO contorne com resposta parcial
+- Na recusa retorne APENAS: "message" curta + "laudo": null + "pecas": []
+- Exemplo de recusa: "Sou assistente exclusivo para assistência técnica de eletrônicos. Não posso ajudar com esse assunto. Posso ajudar com laudo, panic full, peças, manutenção ou diagnóstico do equipamento."
+- Se o histórico tiver assuntos mistos, avalie SOMENTE a última mensagem do usuário para decidir
+
+REGRAS GERAIS (quando DENTRO do escopo):
 - Responda sempre em português brasileiro
 - Mantenha termos técnicos e informações factuais do técnico
 - NÃO invente defeitos, peças ou testes que o técnico não mencionou
-- Quando corrigir ou reescrever texto para o laudo, apresente o texto pronto para uso em parágrafos claros
-- Seja conversacional e objetivo; pode fazer perguntas curtas se faltar contexto
+- Seja conversacional e objetivo; pode fazer perguntas curtas se faltar contexto técnico
 - Não use markdown pesado; prefira texto corrido com parágrafos separados por linha em branco
-- Mensagens do usuário podem ser ditado bruto (transcrição de áudio): interprete o pedido e responda de forma conversacional
-- O técnico pode enviar FOTOS de placas, aparelhos, componentes ou defeitos visíveis. Analise apenas o que é visível na imagem; não invente danos que não aparecem na foto
-- Com FOTOS: leia com atenção TODOS os textos visíveis (etiquetas, silk screen, números de peça, MAC, FCC, WLAN, modelos como DW1707, conectores U.FL, etc.)
-- Identifique o componente com base no que está escrito e visível (ex.: placa WLAN M.2, fonte, placa-mãe, bateria, display)
-- NUNCA diga que "não consegue identificar" sem antes listar o que conseguiu ler na imagem e dar uma hipótese técnica fundamentada no que é visível
+- Mensagens do usuário podem ser ditado bruto (transcrição de áudio): interprete o pedido técnico
+- Com FOTOS: leia etiquetas, silk screen, números de peça, MAC, modelos; identifique componentes visíveis
+- Com PANIC FULL: explique em português claro o que o log indica; cite panicString, módulo/falha (ex. AppleSMC, ANS2, i2c, tristar), se sugere troca de peça ou reparo em placa; seja objetivo para o técnico
+- NUNCA diga que "não consegue identificar" sem listar o que leu na imagem ou no panic log e dar hipótese técnica fundamentada
+
+PEÇAS PROVÁVEIS (array "pecas"):
+- Quando houver base de diagnóstico (sintomas, panic full, foto, laudo, descrição do defeito), inclua "pecas" com até 5 hipóteses ordenadas da mais para a menos provável
+- Cada item: "nome" (peça/componente com nome técnico usado na bancada), "confianca" (alta|media|baixa), "motivo" (1-2 frases com fundamento técnico), "testesAntes" (array com 1-4 testes objetivos antes de trocar a peça)
+- Se o técnico pedir explicitamente sugestão de peça, priorize preencher "pecas" mesmo que "message" seja curta
+- NÃO invente peças sem relação com o que foi descrito, fotografado ou lido no panic log
+- Se não houver base para sugerir peças, use "pecas": []
+- NÃO liste peças em "message" nem em "laudo" — somente no array "pecas"
+
+LAUDO TÉCNICO (campo "laudo"):
+- Preencha "laudo" SOMENTE quando o técnico pedir EXPLICITAMENTE para gerar, redigir, escrever, montar ou corrigir o laudo (ex.: "gera o laudo", "texto para o laudo", "gerar laudo técnico")
+- Em TODAS as outras respostas (diagnóstico, panic full, foto, dúvidas, peças, explicações): use SEMPRE "laudo": null
+- NÃO gere laudo automaticamente só porque analisou panic full, foto ou descreveu o defeito
+- Quando o pedido for explícito: coloque o texto técnico completo e pronto para o documento em "laudo" (parágrafos claros) e uma confirmação curta em "message"
+- Use somente informações já discutidas no chat ou no laudo atual de referência; não invente testes ou conclusões novas
 
 FORMATO DE RESPOSTA (OBRIGATÓRIO):
 Retorne APENAS um JSON válido com esta estrutura exata:
 {
-  "message": "texto conversacional curto (explicação, confirmação ou pergunta)",
-  "laudo": "texto técnico do laudo pronto para o documento, ou null"
+  "message": "texto conversacional curto (explicação, confirmação, pergunta ou recusa fora do escopo)",
+  "laudo": "texto técnico do laudo pronto para o documento, ou null",
+  "pecas": [
+    {
+      "nome": "nome da peça ou componente",
+      "confianca": "alta",
+      "motivo": "por que esta peça é provável",
+      "testesAntes": ["teste 1", "teste 2"]
+    }
+  ]
 }
 
 REGRAS DO JSON:
-- "message": SOMENTE a parte conversacional. NUNCA inclua o texto do laudo aqui. Sem "---", sem blocos de laudo.
-- "laudo": SOMENTE o texto técnico do laudo (parágrafos claros). Sem "Claro!", sem "aqui está", sem despedidas. Use null quando não houver texto de laudo nesta resposta (ex.: só uma pergunta).`;
+- "message": SOMENTE a parte conversacional. NUNCA inclua o texto do laudo nem a lista de peças aqui. Sem "---", sem blocos de laudo.
+- "laudo": SOMENTE o texto técnico do laudo quando o técnico PEDIU explicitamente; caso contrário use null (padrão na maioria das respostas).
+- "pecas": array de sugestões técnicas; use [] quando não aplicável.
+
+PERSONALIZAÇÃO DO TÉCNICO (OBRIGATÓRIA quando o contexto informar o nome):
+- Chame o técnico pelo primeiro nome no INÍCIO de toda resposta em "message" (ex.: "Lucas, pelo panic log..." ou "Beleza, Lucas — vale testar o VBUS antes")
+- Isso vale em TODA resposta dentro do escopo, não só na primeira
+- Use o nome uma vez por resposta, de forma natural; não repita em toda frase
+- NUNCA use o nome do técnico em "laudo" nem em "pecas" — somente em "message"`;
+
+function normalizePecaSugerida(raw: unknown): PecaSugerida | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as {
+    nome?: unknown;
+    confianca?: unknown;
+    motivo?: unknown;
+    testesAntes?: unknown;
+  };
+  const nome = typeof item.nome === 'string' ? item.nome.trim() : '';
+  if (!nome) return null;
+  const confiancaRaw = typeof item.confianca === 'string' ? item.confianca.trim().toLowerCase() : '';
+  const confianca: PecaSugeridaConfianca =
+    confiancaRaw === 'alta' || confiancaRaw === 'media' || confiancaRaw === 'baixa'
+      ? confiancaRaw
+      : 'media';
+  const motivo = typeof item.motivo === 'string' ? item.motivo.trim() : '';
+  const testesAntes = Array.isArray(item.testesAntes)
+    ? item.testesAntes
+        .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+        .map((t) => t.trim())
+        .slice(0, 4)
+    : [];
+  return { nome, confianca, motivo, testesAntes };
+}
+
+function parsePecasSugeridas(raw: unknown): PecaSugerida[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizePecaSugerida).filter((p): p is PecaSugerida => p !== null).slice(0, 5);
+}
+
+const PANICFULL_MAX_CHARS = 120_000;
+
+function truncatePanicfullContent(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed.length <= PANICFULL_MAX_CHARS) return trimmed;
+  return `${trimmed.slice(0, PANICFULL_MAX_CHARS)}\n\n[... panic full truncado — início preservado ...]`;
+}
+
+function buildPanicfullBlock(fileName: string, content: string): string {
+  return `\n\n--- PANIC FULL IPHONE (${fileName}) ---\n${truncatePanicfullContent(content)}\n--- FIM PANIC FULL ---`;
+}
+
+function buildUserMessageText(m: LaudoChatMessage): string {
+  const base = m.content.trim();
+  const panic = m.panicfull?.content?.trim();
+
+  if (panic) {
+    const intro =
+      base ||
+      'Analise este Panic Full do iPhone: traduza os termos técnicos, explique a falha e indique a causa provável do defeito para assistência técnica.';
+    return `${intro}${buildPanicfullBlock(m.panicfull!.fileName || 'panic.ips', panic)}`;
+  }
+
+  return base;
+}
 
 function toLaudoApiMessage(
   m: LaudoChatMessage,
@@ -625,19 +744,21 @@ function toLaudoApiMessage(
   }
 
   const images = (m.images || []).filter((b) => typeof b === 'string' && b.length > 0).slice(0, 2);
+  const text = buildUserMessageText(m);
+
   if (images.length === 0) {
-    return { role: 'user', content: m.content.trim() };
+    return { role: 'user', content: text };
   }
 
   const userQuestion = m.content.trim();
-  const text = userQuestion
+  const visionText = userQuestion
     ? `${userQuestion}\n\n(Leia etiquetas e códigos visíveis na foto; identifique a peça/componente com base no que aparece na imagem.)`
     : 'Analise esta imagem no contexto de assistência técnica. Leia todas as etiquetas e textos visíveis, identifique a peça/componente e descreva o que observar para o laudo.';
 
   return {
     role: 'user',
     content: [
-      { type: 'text', text },
+      { type: 'text', text: visionText },
       ...images.map((base64) => ({
         type: 'image_url' as const,
         image_url: {
@@ -654,7 +775,7 @@ function toLaudoApiMessage(
  */
 export async function chatLaudoTecnico(
   messages: LaudoChatMessage[],
-  context?: { laudoAtual?: string; numeroOS?: string }
+  context?: { laudoAtual?: string; numeroOS?: string; nomeTecnico?: string; solicitarLaudo?: boolean }
 ): Promise<LaudoChatReply | null> {
   try {
     const client = getOpenAIClient();
@@ -664,11 +785,25 @@ export async function chatLaudoTecnico(
       (m) =>
         (m.role === 'user' || m.role === 'assistant') &&
         typeof m.content === 'string' &&
-        (m.content.trim().length > 0 || (m.images?.length ?? 0) > 0)
+        (m.content.trim().length > 0 ||
+          (m.images?.length ?? 0) > 0 ||
+          Boolean(m.panicfull?.content?.trim()))
     );
     if (valid.length === 0) return null;
 
     let systemContent = LAUDO_ASSISTENTE_SYSTEM;
+    if (context?.nomeTecnico) {
+      const primeiroNome = context.nomeTecnico.trim().split(/\s+/)[0] || context.nomeTecnico.trim();
+      systemContent += `\n\nTécnico atendido: ${context.nomeTecnico.trim()}.
+REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico por "${primeiroNome}" (ex.: "${primeiroNome}, ..."). Não omita o nome.`;
+    }
+    if (context?.solicitarLaudo === true) {
+      systemContent +=
+        '\n\nNESTA REQUISIÇÃO: o técnico PEDIU gerar laudo. Preencha "laudo" com o texto técnico completo.';
+    } else if (context?.solicitarLaudo === false) {
+      systemContent +=
+        '\n\nNESTA REQUISIÇÃO: o técnico NÃO pediu laudo. Retorne OBRIGATORIAMENTE "laudo": null. Não inclua texto de laudo na resposta.';
+    }
     if (context?.numeroOS) {
       systemContent += `\n\nContexto: ordem de serviço #${context.numeroOS}.`;
     }
@@ -689,6 +824,8 @@ export async function chatLaudoTecnico(
     );
     const hasVision = lastUserImageIdx >= 0;
 
+    const hasPanicfull = recent.some((m) => Boolean(m.panicfull?.content?.trim()));
+
     const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemContent },
       ...recent.map((m, i) =>
@@ -699,8 +836,8 @@ export async function chatLaudoTecnico(
     const completion = await client.chat.completions.create({
       model: hasVision ? 'gpt-4o' : 'gpt-4o-mini',
       messages: apiMessages,
-      max_tokens: 2000,
-      temperature: 0.5,
+      max_tokens: hasPanicfull ? 3500 : 2000,
+      temperature: 0.35,
       response_format: { type: 'json_object' },
     });
 
@@ -708,12 +845,17 @@ export async function chatLaudoTecnico(
     if (!raw) return null;
 
     try {
-      const parsed = JSON.parse(raw) as { message?: string; laudo?: string | null };
+      const parsed = JSON.parse(raw) as {
+        message?: string;
+        laudo?: string | null;
+        pecas?: unknown;
+      };
       const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
       const laudo =
         typeof parsed.laudo === 'string' && parsed.laudo.trim() ? parsed.laudo.trim() : null;
-      if (!message && !laudo) return null;
-      return { message, laudo };
+      const pecas = parsePecasSugeridas(parsed.pecas);
+      if (!message && !laudo && pecas.length === 0) return null;
+      return { message, laudo, ...(pecas.length > 0 ? { pecas } : {}) };
     } catch {
       return { message: raw, laudo: null };
     }

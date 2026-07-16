@@ -558,12 +558,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const temRecurso = useCallback(
     (recurso: string): boolean => {
-      if (sistemaLiberado) return true;
       return temAcessoRecurso(recurso, {
         planoRecursos: assinatura?.plano?.recursos_disponiveis ?? null,
         recursosCustomizados: empresaData?.recursos_customizados ?? null,
         isTrial: isTrialAtivo(),
         sistemaLiberado,
+        planoSlug,
       });
     },
     [
@@ -571,6 +571,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       empresaData?.recursos_customizados,
       isTrialAtivo,
       sistemaLiberado,
+      planoSlug,
     ]
   );
 

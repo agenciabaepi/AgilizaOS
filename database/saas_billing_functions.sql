@@ -77,7 +77,9 @@ BEGIN
   SELECT EXISTS (
     SELECT 1 FROM public.assinaturas a
     WHERE a.empresa_id = p_empresa_id
-      AND a.status = 'active'
+      AND a.status IN ('active', 'ativa')
+      -- Exige ao menos uma data de cobertura; active sem data NÃO libera acesso
+      AND (a.data_fim IS NOT NULL OR a.proxima_cobranca IS NOT NULL)
       AND (
         a.data_fim IS NULL
         OR (timezone('America/Sao_Paulo', a.data_fim))::date >= br_today

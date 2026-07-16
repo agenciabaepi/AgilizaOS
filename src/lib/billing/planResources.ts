@@ -21,22 +21,22 @@ export interface TemAcessoRecursoOpts {
   recursosCustomizados?: Record<string, boolean> | null;
   isTrial?: boolean;
   sistemaLiberado?: boolean;
+  /** Slug do plano (ex.: basico, completo, trial). */
+  planoSlug?: string | null;
 }
 
 /**
  * Verifica se a empresa tem acesso a um módulo.
  * - Módulos core (não premium): sempre liberados.
- * - Trial / sistema_liberado: todos os premium liberados.
+ * - Trial: todos os premium liberados.
  * - Override admin (`recursos_customizados`) tem prioridade sobre o plano.
+ * - Plano Básico (ou recursos do plano): respeita o plano — sistema_liberado NÃO libera premium do Básico.
+ * - sistema_liberado: só libera premium quando o plano não restringe o módulo.
  */
 export function temAcessoRecurso(modulo: string, opts: TemAcessoRecursoOpts): boolean {
   const key = normalizeModulo(modulo);
 
   if (!isPremiumModule(key)) {
-    return true;
-  }
-
-  if (opts.sistemaLiberado) {
     return true;
   }
 
@@ -51,6 +51,15 @@ export function temAcessoRecurso(modulo: string, opts: TemAcessoRecursoOpts): bo
   const planoRecursos = opts.planoRecursos ?? {};
   if (key in planoRecursos) {
     return readBool(planoRecursos[key]);
+  }
+
+  const slug = (opts.planoSlug || '').trim().toLowerCase();
+  if (slug === 'basico') {
+    return false;
+  }
+
+  if (opts.sistemaLiberado) {
+    return true;
   }
 
   return false;

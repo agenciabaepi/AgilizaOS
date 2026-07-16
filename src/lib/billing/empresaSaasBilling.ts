@@ -53,7 +53,11 @@ export function computeAssinaturaVencidaPorBilling(
     return true;
   }
 
-  if (assinatura.status === 'active') {
+  if (assinatura.status === 'active' || assinatura.status === 'ativa') {
+    // Active sem nenhuma data de cobertura = vencida (não liberar indefinidamente)
+    if (!assinatura.data_fim && !assinatura.proxima_cobranca) {
+      return true;
+    }
     if (assinatura.data_fim) {
       const d0 = diff(assinatura.data_fim);
       if (d0 !== null && d0 < 0) return true;

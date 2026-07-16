@@ -18,17 +18,24 @@ function PlanoCard({
   plano,
   destaque,
   planoAtualSlug,
+  precisaRenovar,
 }: {
   plano: PlanoPublico;
   destaque?: boolean;
   planoAtualSlug: string | null;
+  /** Assinatura/trial vencido: permite pagar de novo o plano atual */
+  precisaRenovar: boolean;
 }) {
   const isAtual = planoAtualSlug === plano.slug;
   const isCompleto = plano.slug === PLANO_SLUGS.COMPLETO;
   const premiumList = Object.values(PREMIUM_MODULES);
 
+  // Plano atual ativo → só informa; plano atual vencido → renovar; outros → assinar/upgrade
+  const podeAssinar = !isAtual || precisaRenovar;
   const ctaLabel = isAtual
-    ? 'Plano atual'
+    ? precisaRenovar
+      ? 'Renovar agora'
+      : 'Plano atual'
     : isCompleto && planoAtualSlug === PLANO_SLUGS.BASICO
       ? 'Fazer upgrade'
       : 'Assinar este plano';
@@ -48,7 +55,7 @@ function PlanoCard({
       )}
       {isAtual && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 text-xs font-semibold rounded-full bg-gray-900 text-white dark:bg-white dark:text-gray-900">
-          Seu plano
+          {precisaRenovar ? 'Renovar' : 'Seu plano'}
         </span>
       )}
 
@@ -99,7 +106,7 @@ function PlanoCard({
         })}
       </ul>
 
-      {isAtual ? (
+      {!podeAssinar ? (
         <button
           type="button"
           disabled
@@ -111,7 +118,7 @@ function PlanoCard({
         <Link
           href={`/assinatura/pagar/${plano.slug}`}
           className={`w-full py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-            destaque
+            destaque || (isAtual && precisaRenovar)
               ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-[#D1FE6E] dark:text-gray-900 dark:hover:bg-[#B8E55A]'
               : 'border border-gray-300 text-gray-900 hover:bg-gray-50 dark:border-zinc-600 dark:text-white dark:hover:bg-zinc-700'
           }`}
@@ -145,10 +152,11 @@ export default function PlanosAssinaturaCards({
   subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e CRM WhatsApp.',
 }: PlanosAssinaturaCardsProps) {
   const { basico, completo, ready, loading } = usePlanosPublicos();
-  const { planoSlug, assinatura } = useSubscription();
+  const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired } = useSubscription();
 
   const planoAtualSlug =
     planoSlug && planoSlug !== PLANO_SLUGS.TRIAL ? planoSlug : null;
+  const precisaRenovar = isAssinaturaVencida() || isTrialExpired();
 
   return (
     <section id={id} className="scroll-mt-6">
@@ -159,6 +167,11 @@ export default function PlanosAssinaturaCards({
           <p className="text-sm mt-2 text-gray-700 dark:text-gray-300">
             Plano atual:{' '}
             <span className="font-semibold">{assinatura.plano.nome}</span>
+            {precisaRenovar && (
+              <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">
+                — vencido, renove para continuar
+              </span>
+            )}
           </p>
         )}
       </div>
@@ -173,8 +186,17 @@ export default function PlanosAssinaturaCards({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <PlanoCard plano={basico} planoAtualSlug={planoAtualSlug} />
-          <PlanoCard plano={completo} destaque planoAtualSlug={planoAtualSlug} />
+          <PlanoCard
+            plano={basico}
+            planoAtualSlug={planoAtualSlug}
+            precisaRenovar={precisaRenovar}
+          />
+          <PlanoCard
+            plano={completo}
+            destaque
+            planoAtualSlug={planoAtualSlug}
+            precisaRenovar={precisaRenovar}
+          />
         </div>
       )}
     </section>

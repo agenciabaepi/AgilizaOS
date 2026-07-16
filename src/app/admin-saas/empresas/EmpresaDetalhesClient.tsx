@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
-import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash, FiEdit2 } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash, FiEdit2, FiCreditCard } from 'react-icons/fi';
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import AdminEmpresaClientesSection from './AdminEmpresaClientesSection';
 import AdminEmpresaUsuariosSection from './AdminEmpresaUsuariosSection';
+import AdminEmpresaPagamentosSection from './AdminEmpresaPagamentosSection';
 import PremiumRecursosForm from '@/components/admin/PremiumRecursosForm';
 import AdminAlterarPlanoModal from '@/components/admin/AdminAlterarPlanoModal';
 import type { PremiumModule } from '@/config/planModules';
+
+type AbaEmpresa = 'geral' | 'pagamentos';
 
 function formatarDataCurta(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -355,6 +358,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [salvandoTrial, setSalvandoTrial] = useState(false);
   const [storageMb, setStorageMb] = useState<number | null>(null);
   const [carregandoStorage, setCarregandoStorage] = useState(false);
+  const [aba, setAba] = useState<AbaEmpresa>('geral');
 
   // Função para recarregar dados da empresa (`silent` evita spinner em atualizações após modais)
   const recarregarEmpresa = async (opts?: { silent?: boolean }) => {
@@ -697,6 +701,40 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           </Button>
         </div>
       </div>
+
+      {/* Abas */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex gap-1" aria-label="Abas da empresa">
+          <button
+            type="button"
+            onClick={() => setAba('geral')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              aba === 'geral'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Visão geral
+          </button>
+          <button
+            type="button"
+            onClick={() => setAba('pagamentos')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              aba === 'pagamentos'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FiCreditCard className="w-4 h-4" />
+            Pagamentos
+          </button>
+        </nav>
+      </div>
+
+      {aba === 'pagamentos' ? (
+        <AdminEmpresaPagamentosSection empresaId={empresaId} />
+      ) : (
+      <>
 
       {/* Resumo rápido */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
@@ -1202,6 +1240,9 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           ) : null}
         </div>
       </div>
+
+      </>
+      )}
 
       {/* Modais */}
       {showAlterarPlano && empresa ? (

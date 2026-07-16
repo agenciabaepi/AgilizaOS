@@ -331,7 +331,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const temRecurso = useCallback(
     (recurso: string): boolean => {
-      if (empresaData?.sistema_liberado) return true;
       return temAcessoRecurso(recurso, {
         planoRecursos: recursosPlano,
         recursosCustomizados: empresaData?.recursos_customizados ?? null,

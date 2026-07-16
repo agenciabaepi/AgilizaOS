@@ -32,6 +32,7 @@ export async function empresaTemRecurso(
     recursosCustomizados: ctx.recursosCustomizados,
     isTrial: ctx.isTrial,
     sistemaLiberado: ctx.sistemaLiberado,
+    planoSlug: ctx.planoSlug,
   });
 }
 
