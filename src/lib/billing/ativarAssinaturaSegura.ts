@@ -394,7 +394,7 @@ export async function repararAssinaturaComAsaas(
   // 4) Fallback: pega o último confirmado e tenta de novo
   try {
     const customers = await listCustomersByEmail(email);
-    const flat = [];
+    const flat: Awaited<ReturnType<typeof listPaymentsByCustomer>> = [];
     for (const c of customers) {
       flat.push(...(await listPaymentsByCustomer(c.id)));
     }
