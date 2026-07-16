@@ -420,6 +420,22 @@ export default function AssinaturaPage() {
           </div>
 
           {/* Resumo da assinatura (vencimento e dias restantes) */}
+          {!statusCanceladoOuInativo &&
+            !emTesteGratis &&
+            diasRest != null &&
+            diasRest >= 0 &&
+            diasRest <= 7 && (
+              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                {diasRest === 0
+                  ? 'Sua assinatura vence hoje.'
+                  : diasRest === 1
+                    ? 'Sua assinatura vence amanhã.'
+                    : `Sua assinatura vence em ${diasRest} dias.`}{' '}
+                Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
+                a partir do vencimento atual, não da data do pagamento.
+              </div>
+            )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Plano</p>

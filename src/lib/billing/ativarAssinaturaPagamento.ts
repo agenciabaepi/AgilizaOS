@@ -14,7 +14,8 @@ export async function ativarAssinaturaPorPagamento(
   empresaId: string,
   now: string,
   dataFim: Date,
-  planoSlug?: string | null
+  planoSlug?: string | null,
+  opts?: { asaasPaymentId?: string | null; observacaoExtra?: string | null }
 ): Promise<boolean> {
   const slug =
     planoSlug === PLANO_SLUGS.BASICO || planoSlug === PLANO_SLUGS.COMPLETO
@@ -38,10 +39,10 @@ export async function ativarAssinaturaPorPagamento(
       .limit(1)
       .maybeSingle();
     if (!fallback?.id) return false;
-    return applyActivation(supabase, empresaId, fallback.id, fallback.preco, now, dataFim);
+    return applyActivation(supabase, empresaId, fallback.id, fallback.preco, now, dataFim, opts);
   }
 
-  return applyActivation(supabase, empresaId, plano.id, plano.preco, now, dataFim);
+  return applyActivation(supabase, empresaId, plano.id, plano.preco, now, dataFim, opts);
 }
 
 async function applyActivation(
@@ -50,9 +51,9 @@ async function applyActivation(
   planoId: string,
   valor: number,
   now: string,
-  dataFim: Date
+  dataFim: Date,
+  opts?: { asaasPaymentId?: string | null; observacaoExtra?: string | null }
 ): Promise<boolean> {
-  // Preferir a assinatura governante (mesma do app), não só a mais recente
   const { data: empresa } = await supabase
     .from('empresas')
     .select('created_at, dias_trial')
@@ -78,6 +79,16 @@ async function applyActivation(
   }
 
   const dataFimIso = dataFim.toISOString();
+  const payId = opts?.asaasPaymentId ? String(opts.asaasPaymentId).trim() : '';
+  const extra = opts?.observacaoExtra ? String(opts.observacaoExtra).trim() : '';
+  const observacoes = [
+    '[auto] Renovada/ativada por pagamento confirmado no Asaas',
+    payId ? `payment:${payId}` : '',
+    extra,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   const payload = {
     plano_id: planoId,
     status: 'active' as const,
@@ -87,7 +98,7 @@ async function applyActivation(
     proxima_cobranca: dataFimIso,
     valor: typeof valor === 'number' ? valor : 0,
     updated_at: now,
-    observacoes: '[auto] Renovada/ativada por pagamento confirmado no Asaas',
+    observacoes,
   };
 
   if (assinaturaId) {

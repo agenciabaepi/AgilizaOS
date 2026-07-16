@@ -5,13 +5,18 @@ import {
   listCustomersByEmail,
   listPaymentsByCustomer,
   parseAsaasBillingDate,
-  pickLatestConfirmedAsaasPayment,
 } from '@/lib/asaas';
 import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import { confirmarCupomUso } from '@/lib/billing/cupomServer';
 import { activeRowCalendarValid } from '@/lib/billing/pickAssinatura';
+import {
+  calcularCoberturaAposPagamento,
+  isoToYmd,
+  maxCoberturaYmdFromAssinatura,
+  DIAS_ACESSO_PAGAMENTO,
+} from '@/lib/billing/calcularCoberturaPagamento';
 
-export const DIAS_ACESSO_PAGAMENTO = 30;
+export { DIAS_ACESSO_PAGAMENTO };
 
 export type ProcessarPagamentoResult =
   | { ok: true; alreadyActive?: boolean; activated?: boolean }
@@ -30,7 +35,6 @@ type PagamentoRow = {
 
 function valoresCompativeis(valorPagamento: number, valorAsaas: number): boolean {
   if (!Number.isFinite(valorPagamento) || !Number.isFinite(valorAsaas)) return false;
-  // Tolerância maior: cupom / arredondamento não podem impedir liberação
   return Math.abs(valorPagamento - valorAsaas) <= 1.0;
 }
 
@@ -45,38 +49,37 @@ function maxCoberturaYmd(assinatura: {
   data_fim?: string | null;
   proxima_cobranca?: string | null;
 }): string | null {
-  const dates = [assinatura.data_fim, assinatura.proxima_cobranca]
-    .filter(Boolean)
-    .map((iso) => {
-      const d = new Date(String(iso));
-      return Number.isNaN(d.getTime()) ? null : toYmd(d);
-    })
-    .filter(Boolean) as string[];
-  if (!dates.length) return null;
-  return dates.sort().at(-1) ?? null;
+  return maxCoberturaYmdFromAssinatura(assinatura);
 }
 
 /**
- * Assinatura só está "já ativa" para este pagamento se:
- * - status active
- * - tem data de cobertura
- * - cobertura civil >= fim deste pagamento (pago + 30)
+ * Assinatura já cobre o fim esperado deste pagamento (com empilhamento).
  */
 function assinaturaJaCobrePagamento(
   assinatura: Record<string, unknown> | null,
-  coberturaPagamentoYmd: string
+  coberturaEsperadaYmd: string,
+  asaasPaymentId?: string
 ): boolean {
   if (!assinatura) return false;
   const status = String(assinatura.status || '');
   if (status !== 'active' && status !== 'ativa') return false;
   if (!activeRowCalendarValid(assinatura)) return false;
-  if (!assinatura.data_fim && !assinatura.proxima_cobranca) return false;
+
+  const obs = String(assinatura.observacoes || '');
+  if (asaasPaymentId && obs.includes(`payment:${asaasPaymentId}`)) {
+    const cob = maxCoberturaYmd({
+      data_fim: assinatura.data_fim as string | null,
+      proxima_cobranca: assinatura.proxima_cobranca as string | null,
+    });
+    return !!cob && cob >= coberturaEsperadaYmd;
+  }
+
   const cob = maxCoberturaYmd({
     data_fim: assinatura.data_fim as string | null,
     proxima_cobranca: assinatura.proxima_cobranca as string | null,
   });
   if (!cob) return false;
-  return cob >= coberturaPagamentoYmd;
+  return cob >= coberturaEsperadaYmd;
 }
 
 /**
@@ -144,20 +147,37 @@ export async function processarPagamentoConfirmado(
     parseAsaasBillingDate(paymentAsaas.paymentDate) ??
     parseAsaasBillingDate(paymentAsaas.dueDate) ??
     (row.paid_at ? new Date(row.paid_at) : new Date());
-  const dataFim = new Date(dataInicio);
-  dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
-  const coberturaYmd = toYmd(dataFim);
+  const paymentYmd =
+    isoToYmd(paymentAsaas.paymentDate) ||
+    isoToYmd(paymentAsaas.dueDate) ||
+    isoToYmd(row.paid_at) ||
+    toYmd(dataInicio);
   const nowIso = dataInicio.toISOString();
 
   const { data: assinaturaAtual } = await supabase
     .from('assinaturas')
-    .select('id, status, data_fim, proxima_cobranca')
+    .select('id, status, data_fim, proxima_cobranca, observacoes')
     .eq('empresa_id', empresaId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (assinaturaJaCobrePagamento(assinaturaAtual as Record<string, unknown> | null, coberturaYmd)) {
+  const coberturaAtual = maxCoberturaYmdFromAssinatura(
+    assinaturaAtual as { data_fim?: string | null; proxima_cobranca?: string | null } | null
+  );
+  const { coberturaYmd, dataFimIso, adiantou } = calcularCoberturaAposPagamento({
+    dataPagamentoYmd: paymentYmd,
+    coberturaAtualYmd: coberturaAtual,
+  });
+  const dataFim = new Date(dataFimIso);
+
+  if (
+    assinaturaJaCobrePagamento(
+      assinaturaAtual as Record<string, unknown> | null,
+      coberturaYmd,
+      asaasPaymentId
+    )
+  ) {
     // Garante status local alinhado
     if (row.status !== 'approved') {
       await supabase
@@ -187,7 +207,13 @@ export async function processarPagamentoConfirmado(
     empresaId,
     nowIso,
     dataFim,
-    row.plano_slug
+    row.plano_slug,
+    {
+      asaasPaymentId,
+      observacaoExtra: adiantou
+        ? `(adiantamento: +${DIAS_ACESSO_PAGAMENTO}d a partir de ${coberturaAtual})`
+        : null,
+    }
   );
 
   if (!ativou) {
@@ -323,13 +349,6 @@ function toYmdUtc(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function addDaysYmd(ymd: string, days: number): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return toYmdUtc(dt);
-}
-
 function hojeYmdUtc(): string {
   // Dia civil em São Paulo (evita liberar/bloquear no fuso errado perto da meia-noite)
   try {
@@ -433,7 +452,7 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
     };
   }
 
-  const baseYmd =
+  const paymentYmd =
     (latest.paymentDate && /^\d{4}-\d{2}-\d{2}/.test(latest.paymentDate)
       ? latest.paymentDate.slice(0, 10)
       : null) ||
@@ -442,17 +461,49 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
       : null) ||
     hojeYmdUtc();
 
-  const coberturaYmd = addDaysYmd(baseYmd, DIAS_ACESSO_PAGAMENTO);
+  const { data: assinaturaRows } = await supabase
+    .from('assinaturas')
+    .select('id, status, data_fim, proxima_cobranca, observacoes')
+    .eq('empresa_id', empresaId)
+    .order('updated_at', { ascending: false })
+    .limit(10);
+
+  const assinaturaAtual =
+    (assinaturaRows || []).find((r) => {
+      const s = String(r.status || '');
+      return s === 'active' || s === 'ativa' || s === 'expired' || s === 'trial';
+    }) || assinaturaRows?.[0] || null;
+
+  const coberturaAtual = maxCoberturaYmdFromAssinatura(assinaturaAtual);
+  const obsAtual = String(assinaturaAtual?.observacoes || '');
+  const jaAplicouEstePagamento = obsAtual.includes(`payment:${latest.id}`);
+
+  const { coberturaYmd, dataFimIso, adiantou, baseYmd } = calcularCoberturaAposPagamento({
+    dataPagamentoYmd: paymentYmd,
+    coberturaAtualYmd: coberturaAtual,
+  });
+
   const dataInicio =
     parseAsaasBillingDate(latest.paymentDate) ??
     parseAsaasBillingDate(latest.dueDate) ??
     new Date();
   const nowIso = dataInicio.toISOString();
-  const dataFimIso = `${coberturaYmd}T12:00:00.000Z`;
   const dataFim = new Date(dataFimIso);
+  const hoje = hojeYmdUtc();
 
-  // Cobertura já no passado? Não liberar com pagamento antigo
-  if (coberturaYmd < hojeYmdUtc()) {
+  // Já processou este pagamento e cobertura ainda válida → não empilha de novo
+  if (jaAplicouEstePagamento && coberturaAtual && coberturaAtual >= hoje) {
+    return {
+      ok: true,
+      activated: true,
+      alreadyActive: true,
+      coberturaAte: coberturaAtual,
+      paymentId: latest.id,
+    };
+  }
+
+  // Cobertura já no passado e pagamento também não cobre hoje?
+  if (coberturaYmd < hoje) {
     return {
       ok: false,
       error: `Último pagamento Asaas cobre só até ${coberturaYmd} (já passou)`,
@@ -491,7 +542,12 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
   }
 
   // Ativação "oficial" (plano / arquivar trials)
-  await ativarAssinaturaPorPagamento(supabase, empresaId, nowIso, dataFim, planoSlug);
+  await ativarAssinaturaPorPagamento(supabase, empresaId, nowIso, dataFim, planoSlug, {
+    asaasPaymentId: latest.id,
+    observacaoExtra: adiantou
+      ? `(adiantamento: +${DIAS_ACESSO_PAGAMENTO}d a partir de ${baseYmd})`
+      : null,
+  });
 
   // Nuclear: sempre grava datas na(s) assinatura(s) da empresa — não confiar só no caminho acima
   const payloadAssinatura = {
@@ -500,7 +556,7 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
     proxima_cobranca: dataFimIso,
     data_trial_fim: null,
     updated_at: new Date().toISOString(),
-    observacoes: `[auto] Liberação forçada pelo pagamento Asaas ${latest.id} (cobertura até ${coberturaYmd})`,
+    observacoes: `[auto] Liberação forçada payment:${latest.id} (cobertura até ${coberturaYmd}${adiantou ? ', adiantamento' : ''})`,
   };
 
   const { data: rowsUpd, error: updErr } = await supabase

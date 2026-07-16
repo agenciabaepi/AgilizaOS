@@ -43,7 +43,7 @@ export type ResumoCiclosPagamento = {
   ciclosEsperados: number;
   ciclosPagos: number;
   ciclosFaltando: number;
-  /** Último dia coberto pelo último pagamento aprovado (paid_at + 30) */
+  /** Último dia coberto (com empilhamento de pagamentos antecipados) */
   coberturaAte: string | null;
   /** Data do último pagamento aprovado */
   ultimoPagamentoEm: string | null;
@@ -96,10 +96,12 @@ export function isPagamentoConfirmado(status: string | null | undefined): boolea
 }
 
 /**
- * Cobertura real: cada pagamento aprovado libera exatamente `diasCiclo` dias
- * a partir da data do pagamento (não janelas artificiais).
+ * Cobertura real com empilhamento:
+ * cada pagamento aprovado adiciona `diasCiclo` dias a partir de
+ * max(dataPagamento, coberturaAnterior).
  *
- * Ex.: pago em 11/06 → cobre até 11/07. Em 15/07 = atrasado / próxima cobrança pendente.
+ * Ex.: cobria até 15/08 e pagou em 08/08 → novo fim = 14/09 (adiantamento).
+ * Ex.: venceu em 11/07 e pagou em 16/07 → novo fim = 15/08.
  */
 export function buildCiclosMensais(
   pagamentos: PagamentoCicloInput[],
@@ -124,11 +126,15 @@ export function buildCiclosMensais(
   const valorTotalPago = pagos.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
 
   const ciclos: CicloMensal[] = [];
+  let coberturaAcumulada: string | null = null;
 
   for (let i = 0; i < pagos.length; i++) {
     const p = pagos[i];
-    const inicio = p.dataRef;
-    const fim = addCalendarDays(inicio, diasCiclo);
+    const adiantou = !!(coberturaAcumulada && coberturaAcumulada > p.dataRef);
+    const base = adiantou ? coberturaAcumulada! : p.dataRef;
+    const inicio = base;
+    const fim = addCalendarDays(base, diasCiclo);
+    coberturaAcumulada = fim;
 
     ciclos.push({
       indice: i + 1,
@@ -148,7 +154,7 @@ export function buildCiclosMensais(
 
   const ultimo = pagos[pagos.length - 1];
   const ultimoPagamentoEm = ultimo?.dataRef ?? null;
-  const coberturaAte = ultimo ? addCalendarDays(ultimo.dataRef, diasCiclo) : null;
+  const coberturaAte = coberturaAcumulada;
 
   const emDia = !!coberturaAte && coberturaAte >= hoje;
   const diasAtrasoAtual =

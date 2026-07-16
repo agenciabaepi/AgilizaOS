@@ -2,7 +2,7 @@
 
 import './globals.css';
 import '../styles/print.css';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { suppressLogsInProduction } from '@/utils/logger';
@@ -27,42 +27,12 @@ import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
 import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
+import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
 
 function AuthContent({ children }: { children: React.ReactNode }) {
-  const { isLoggingOut, session, empresaData } = useAuth();
+  const { isLoggingOut, empresaData } = useAuth();
   useRealtimeNotificacoes(empresaData?.id);
 
-  const [banner, setBanner] = useState<{ texto: string } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setBanner(null);
-    async function checkVencimento() {
-      try {
-        if (!session || !empresaData?.id) return;
-        const params = new URLSearchParams({ empresaId: empresaData.id });
-        const res = await fetch(`/api/admin-saas/minha-assinatura?${params.toString()}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const json = await res.json();
-        const proxima = json?.assinatura?.proxima_cobranca ? new Date(json.assinatura.proxima_cobranca) : null;
-        const status = json?.assinatura?.status || '';
-        if (!proxima) return;
-        const hoje = new Date();
-        const d0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-        const amanha = new Date(d0);
-        amanha.setDate(d0.getDate() + 1);
-        const proxDateOnly = new Date(proxima.getFullYear(), proxima.getMonth(), proxima.getDate());
-        if (
-          status === 'active' &&
-          proxDateOnly.getTime() === amanha.getTime()
-        ) {
-          if (!cancelled) setBanner({ texto: `Seu acesso vence amanhã (${proxima.toLocaleDateString('pt-BR')}). Garanta a renovação para não interromper o uso.` });
-        }
-      } catch {}
-    }
-    checkVencimento();
-    return () => { cancelled = true; };
-  }, [session?.user?.id, empresaData?.id]);
   return isLoggingOut ? (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
       <span style={{ fontSize: 24 }}>Saindo...</span>
@@ -70,16 +40,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   ) : (
     <>
       <ImpersonationBanner />
-      {banner && (
-        <div style={{
-          position: 'sticky', top: 0, zIndex: 60,
-          background: '#FEF9C3', color: '#92400E',
-          borderBottom: '1px solid #FDE68A',
-          padding: '10px 16px', textAlign: 'center', fontSize: 14
-        }}>
-          {banner.texto}
-        </div>
-      )}
+      <SubscriptionExpiryBanner />
       {children}
     </>
   );

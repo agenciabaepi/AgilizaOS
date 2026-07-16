@@ -200,8 +200,8 @@ export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
             Pagamentos e ciclos mensais
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Cobertura real = data do pagamento + {diasCiclo} dias. Ex.: pago em 11/06 cobre até 11/07;
-            em 15/07 deve aparecer atrasado e bloquear o acesso.
+            Cobertura = pagamento + {diasCiclo} dias, empilhada se pagar antecipado. Ex.: cobria até
+            15/08 e pagou em 08/08 → novo fim 14/09. Se já venceu, pago em 16/07 cobre até 15/08.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
