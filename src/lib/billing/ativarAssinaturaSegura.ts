@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getPayment, isPaymentConfirmed, parseAsaasBillingDate } from '@/lib/asaas';
+import {
+  getPayment,
+  isPaymentConfirmed,
+  listCustomersByEmail,
+  listPaymentsByCustomer,
+  parseAsaasBillingDate,
+  pickLatestConfirmedAsaasPayment,
+} from '@/lib/asaas';
 import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import { confirmarCupomUso } from '@/lib/billing/cupomServer';
 import { activeRowCalendarValid } from '@/lib/billing/pickAssinatura';
@@ -286,6 +293,125 @@ export async function reconciliarPagamentosPendentesEmpresa(
       code: 'not_confirmed',
     }
   );
+}
+
+/**
+ * Reparo forte: usa cobranças locais + Asaas (e-mail da empresa).
+ * Garante vínculo local e ativa a assinatura no último pagamento confirmado.
+ * Usar em sincronizar e ao carregar /api/assinatura/minha quando ainda bloqueado.
+ */
+export async function repararAssinaturaComAsaas(
+  supabase: SupabaseClient,
+  empresaId: string
+): Promise<ProcessarPagamentoResult> {
+  // 1) Tentativa rápida pelas cobranças já no banco
+  const local = await reconciliarPagamentosPendentesEmpresa(supabase, empresaId);
+  if (local.ok) return local;
+
+  // 2) Busca no Asaas pelo e-mail da empresa
+  const { data: empresa } = await supabase
+    .from('empresas')
+    .select('id, email')
+    .eq('id', empresaId)
+    .maybeSingle();
+
+  const email = typeof empresa?.email === 'string' ? empresa.email.trim() : '';
+  if (!email) {
+    return local.ok
+      ? local
+      : {
+          ok: false,
+          error: local.error || 'Empresa sem e-mail para consultar Asaas',
+          code: local.code || 'sem_email',
+        };
+  }
+
+  let confirmedIds: string[] = [];
+  try {
+    const customers = await listCustomersByEmail(email);
+    const all: { id: string; paymentDate?: string; dueDate?: string; value?: number }[] = [];
+    for (const c of customers) {
+      const payments = await listPaymentsByCustomer(c.id);
+      for (const p of payments) {
+        if (!p?.id || !isPaymentConfirmed(p.status || '')) continue;
+        all.push({
+          id: p.id,
+          paymentDate: p.paymentDate,
+          dueDate: p.dueDate,
+          value: p.value,
+        });
+      }
+    }
+    // Mais recentes primeiro
+    all.sort((a, b) => {
+      const da = a.paymentDate || a.dueDate || '';
+      const db = b.paymentDate || b.dueDate || '';
+      return String(db).localeCompare(String(da));
+    });
+    confirmedIds = all.map((p) => p.id);
+
+    // Garante vínculo local para cada cobrança confirmada (até 10)
+    for (const p of all.slice(0, 10)) {
+      const { data: existing } = await supabase
+        .from('pagamentos')
+        .select('id')
+        .eq('mercadopago_payment_id', p.id)
+        .maybeSingle();
+
+      if (!existing?.id) {
+        const paidAt =
+          parseAsaasBillingDate(p.paymentDate)?.toISOString() ||
+          parseAsaasBillingDate(p.dueDate)?.toISOString() ||
+          new Date().toISOString();
+        await supabase.from('pagamentos').insert({
+          empresa_id: empresaId,
+          mercadopago_payment_id: p.id,
+          status: 'PENDING',
+          valor: Number(p.value) || 0,
+          paid_at: null,
+          created_at: paidAt,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('repararAssinaturaComAsaas Asaas:', e);
+    return local;
+  }
+
+  if (!confirmedIds.length) return local;
+
+  // 3) Processa do mais recente ao mais antigo
+  let lastError: ProcessarPagamentoResult = local;
+  for (const paymentId of confirmedIds.slice(0, 10)) {
+    const result = await processarPagamentoConfirmado(supabase, {
+      asaasPaymentId: paymentId,
+      empresaId,
+    });
+    if (result.ok) return result;
+    lastError = result;
+  }
+
+  // 4) Fallback: pega o último confirmado e tenta de novo
+  try {
+    const customers = await listCustomersByEmail(email);
+    const flat = [];
+    for (const c of customers) {
+      flat.push(...(await listPaymentsByCustomer(c.id)));
+    }
+    const latest = pickLatestConfirmedAsaasPayment(flat);
+    if (latest?.id) {
+      const result = await processarPagamentoConfirmado(supabase, {
+        asaasPaymentId: latest.id,
+        empresaId,
+      });
+      if (result.ok) return result;
+      lastError = result;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return lastError;
 }
 
 /** Assinatura `active` só é válida com pagamento aprovado, liberação admin ou observação de concessão admin. */

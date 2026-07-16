@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 import {
   corrigirAssinaturaAtivaIndevida,
+  repararAssinaturaComAsaas,
 } from '@/lib/billing/ativarAssinaturaSegura';
 import {
   computeAcessoBloqueadoServidor,
@@ -15,7 +16,8 @@ export const runtime = 'nodejs';
 
 /**
  * Resumo da assinatura da empresa do usuário logado.
- * Usa service role após validar auth para não depender de RLS em `assinaturas`/`planos` no browser.
+ * Se o acesso ainda estiver bloqueado mas houver pagamento confirmado no Asaas,
+ * tenta reparar/ativar automaticamente antes de responder.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -85,19 +87,32 @@ export async function GET(req: NextRequest) {
 
     let assinaturaRows = rows;
     if (aErr || !rows?.length) {
-      const acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
-        empresaId,
-        assinatura: null,
-        empresaCreatedAt,
-        empresaDiasTrial,
-        sistemaLiberado,
-      });
-      return NextResponse.json({
-        assinatura: null,
-        empresa_created_at: empresaCreatedAt,
-        sistema_liberado: sistemaLiberado,
-        acesso_bloqueado: acessoBloqueado,
-      });
+      // Sem linha: ainda tenta reparar se houver pagamento Asaas
+      if (!sistemaLiberado) {
+        await repararAssinaturaComAsaas(admin, empresaId);
+        const { data: rowsNovas } = await admin
+          .from('assinaturas')
+          .select('*')
+          .eq('empresa_id', empresaId)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (rowsNovas?.length) assinaturaRows = rowsNovas;
+      }
+      if (!assinaturaRows?.length) {
+        const acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
+          empresaId,
+          assinatura: null,
+          empresaCreatedAt,
+          empresaDiasTrial,
+          sistemaLiberado,
+        });
+        return NextResponse.json({
+          assinatura: null,
+          empresa_created_at: empresaCreatedAt,
+          sistema_liberado: sistemaLiberado,
+          acesso_bloqueado: acessoBloqueado,
+        });
+      }
     }
 
     const { data: rowsAtualizados } = await admin
@@ -110,29 +125,19 @@ export async function GET(req: NextRequest) {
       assinaturaRows = rowsAtualizados;
     }
 
-    const row = pickAssinaturaParaContexto(
-      assinaturaRows as Record<string, unknown>[],
+    let row = pickAssinaturaParaContexto(
+      (assinaturaRows || []) as Record<string, unknown>[],
       empresaCreatedAt,
       empresaDiasTrial
     )!;
-    const rowSanitizada = await corrigirAssinaturaAtivaIndevida(
+    let rowSanitizada = await corrigirAssinaturaAtivaIndevida(
       admin,
       empresaId,
       row,
       sistemaLiberado
     );
-    let planos: Record<string, unknown> | null = null;
-    const planoId = rowSanitizada.plano_id as string | undefined;
-    if (planoId) {
-      const { data: p } = await admin
-        .from('planos')
-        .select('nome, descricao, preco, slug, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis')
-        .eq('id', planoId)
-        .maybeSingle();
-      planos = p as Record<string, unknown> | null;
-    }
 
-    const acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
+    let acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
       empresaId,
       assinatura: {
         status: String(rowSanitizada.status),
@@ -145,6 +150,61 @@ export async function GET(req: NextRequest) {
       empresaDiasTrial,
       sistemaLiberado,
     });
+
+    // Pagou no Asaas mas assinatura ainda vencida → reparar e recarregar
+    if (acessoBloqueado && !sistemaLiberado) {
+      const reparo = await repararAssinaturaComAsaas(admin, empresaId);
+      if (reparo.ok) {
+        const { data: rowsApos } = await admin
+          .from('assinaturas')
+          .select('*')
+          .eq('empresa_id', empresaId)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (rowsApos?.length) {
+          const picked = pickAssinaturaParaContexto(
+            rowsApos as Record<string, unknown>[],
+            empresaCreatedAt,
+            empresaDiasTrial
+          );
+          if (picked) {
+            row = picked;
+            rowSanitizada = await corrigirAssinaturaAtivaIndevida(
+              admin,
+              empresaId,
+              picked,
+              sistemaLiberado
+            );
+          }
+        }
+        acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
+          empresaId,
+          assinatura: {
+            status: String(rowSanitizada.status),
+            data_trial_fim: rowSanitizada.data_trial_fim as string | null | undefined,
+            proxima_cobranca: rowSanitizada.proxima_cobranca as string | null | undefined,
+            data_fim: rowSanitizada.data_fim as string | null | undefined,
+            observacoes: rowSanitizada.observacoes as string | null | undefined,
+          },
+          empresaCreatedAt,
+          empresaDiasTrial,
+          sistemaLiberado,
+        });
+      }
+    }
+
+    let planos: Record<string, unknown> | null = null;
+    const planoId = rowSanitizada.plano_id as string | undefined;
+    if (planoId) {
+      const { data: p } = await admin
+        .from('planos')
+        .select(
+          'nome, descricao, preco, slug, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis'
+        )
+        .eq('id', planoId)
+        .maybeSingle();
+      planos = p as Record<string, unknown> | null;
+    }
 
     return NextResponse.json({
       assinatura: { ...rowSanitizada, planos },

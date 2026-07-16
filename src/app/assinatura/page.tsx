@@ -313,17 +313,20 @@ export default function AssinaturaPage() {
       ? diasRestantes(assinatura.proxima_cobranca)
       : null;
 
-  const labelStatus = assinatura?.status === 'active'
-    ? 'Ativa'
-    : assinatura?.status === 'trial'
-      ? 'Trial'
-      : assinatura?.status === 'cancelled'
-        ? 'Cancelada'
-        : assinatura?.status === 'expired'
-          ? 'Expirada'
-          : assinatura?.status === 'suspended'
-            ? 'Suspensa'
-            : assinatura?.status || '—';
+  const labelStatus =
+    diasRest !== null && diasRest < 0
+      ? 'Vencida'
+      : assinatura?.status === 'active'
+        ? 'Ativa'
+        : assinatura?.status === 'trial'
+          ? 'Trial'
+          : assinatura?.status === 'cancelled'
+            ? 'Cancelada'
+            : assinatura?.status === 'expired'
+              ? 'Expirada'
+              : assinatura?.status === 'suspended'
+                ? 'Suspensa'
+                : assinatura?.status || '—';
 
   return (
     <AuthGuardFinal>
@@ -499,6 +502,13 @@ export default function AssinaturaPage() {
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json', ...authHeader },
                   });
+                  const json = await res.json().catch(() => null);
+                  if (res.ok && json?.activated) {
+                    dispatchAssinaturaUpdated();
+                    // Recarrega para limpar badge "Assinatura Expirada" e guard
+                    window.location.reload();
+                    return;
+                  }
                   if (res.ok) dispatchAssinaturaUpdated();
                 } catch {
                   /* segue para recarregar lista */

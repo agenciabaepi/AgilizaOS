@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { reconciliarPagamentosPendentesEmpresa } from '@/lib/billing/ativarAssinaturaSegura';
+import { reconciliarPagamentosPendentesEmpresa, repararAssinaturaComAsaas } from '@/lib/billing/ativarAssinaturaSegura';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,8 +41,8 @@ async function getAuthUser(req: NextRequest) {
 }
 
 /**
- * Reconcilia cobranças locais pendentes com o Asaas.
- * Nunca ativa assinatura por “último PIX do e-mail” — só cobranças registradas em `pagamentos`.
+ * Reconcilia com Asaas e libera assinatura se houver pagamento confirmado.
+ * Repara inclusive quando a cobrança existe só no Asaas ou ficou approved sem ativar.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -62,11 +62,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Usuário ou empresa não encontrados' }, { status: 403 });
     }
 
-    const result = await reconciliarPagamentosPendentesEmpresa(admin, usuario.empresa_id);
+    // Reparo completo (local + Asaas)
+    let result = await repararAssinaturaComAsaas(admin, usuario.empresa_id);
+    if (!result.ok) {
+      result = await reconciliarPagamentosPendentesEmpresa(admin, usuario.empresa_id);
+    }
 
     if (!result.ok) {
       const status =
-        result.code === 'sem_pendentes' || result.code === 'not_confirmed' ? 404 : 400;
+        result.code === 'sem_pendentes' || result.code === 'not_confirmed' || result.code === 'sem_email'
+          ? 404
+          : 400;
       return NextResponse.json({
         ok: false,
         activated: false,
