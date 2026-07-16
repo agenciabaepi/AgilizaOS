@@ -525,6 +525,47 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     acessoBloqueadoServidor,
   ]);
 
+  // Se assinatura parece vencida mas pode haver pagamento confirmado no Asaas → reconciliar 1x
+  const reconcileAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !empresaIdAtual || !user) return;
+    if (loadedEmpresaId !== empresaIdAtual) return;
+    if (!isAssinaturaVencida()) {
+      reconcileAttemptedRef.current = null;
+      return;
+    }
+    const key = `${user.id}:${empresaIdAtual}`;
+    if (reconcileAttemptedRef.current === key) return;
+    reconcileAttemptedRef.current = key;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = { cache: 'no-store' };
+        if (session?.access_token) {
+          (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch('/api/assinatura/sincronizar', {
+          credentials: 'include',
+          headers,
+        });
+        const json = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok && json?.ok && json?.activated) {
+          dispatchAssinaturaUpdated();
+          void fetchAssinaturaRef.current({ silent: false });
+        }
+      } catch {
+        /* silencioso — usuário pode clicar Atualizar em /assinatura */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, empresaIdAtual, user?.id, loadedEmpresaId, isAssinaturaVencida, assinatura?.proxima_cobranca, assinatura?.data_fim]);
+
   const podeCriar = useCallback(
     (tipo: 'usuarios' | 'produtos' | 'servicos' | 'clientes' | 'ordens' | 'fornecedores'): boolean => {
       if (!limites) return true;

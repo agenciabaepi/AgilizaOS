@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import {
-  getPayment,
-  isPaymentConfirmed,
-} from '@/lib/asaas';
+import { getPayment, isPaymentConfirmed } from '@/lib/asaas';
 import { processarPagamentoConfirmado } from '@/lib/billing/ativarAssinaturaSegura';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Status do pagamento Asaas + ativação da assinatura.
+ * Só retorna activated=true quando a assinatura foi liberada de fato.
+ */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdmin();
 
     if (mockApprove && paymentId.startsWith('mock_')) {
-      return NextResponse.json({ status: 'approved' });
+      return NextResponse.json({ status: 'approved', activated: false, mock: true });
     }
 
     const payment = await getPayment(paymentId);
@@ -39,15 +40,24 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (!approvedThisPayment) {
-      return NextResponse.json({ status: statusAsaas });
+      return NextResponse.json({
+        status: statusAsaas,
+        activated: false,
+        asaasStatus: statusAsaas,
+      });
     }
 
     if (!pagamentoRow?.empresa_id) {
       console.warn(
-        'pagamentos/status: pagamento confirmado no Asaas sem vínculo local — assinatura NÃO ativada',
+        'pagamentos/status: Asaas confirmado sem vínculo local — assinatura NÃO ativada',
         paymentId
       );
-      return NextResponse.json({ status: 'approved' });
+      return NextResponse.json({
+        status: 'approved',
+        activated: false,
+        code: 'pagamento_nao_vinculado',
+        error: 'Pagamento confirmado no Asaas, mas sem vínculo local para liberar assinatura',
+      });
     }
 
     const result = await processarPagamentoConfirmado(supabase, {
@@ -56,16 +66,23 @@ export async function GET(req: NextRequest) {
     });
 
     if (!result.ok) {
-      console.warn('pagamentos/status: falha ao processar pagamento confirmado:', result);
+      console.warn('pagamentos/status: falha ao ativar assinatura:', result);
+      return NextResponse.json({
+        status: 'approved',
+        activated: false,
+        code: result.code,
+        error: result.error,
+      });
     }
 
-    return NextResponse.json({ status: 'approved' });
+    return NextResponse.json({
+      status: 'approved',
+      activated: true,
+      alreadyActive: result.alreadyActive === true,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao consultar status';
     console.error('GET /api/admin-saas/pagamentos/status:', err);
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message, activated: false }, { status: 500 });
   }
 }

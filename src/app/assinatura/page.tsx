@@ -258,6 +258,35 @@ export default function AssinaturaPage() {
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
+  // Ao abrir a página com assinatura vencida, tenta liberar se houver pagamento confirmado
+  useEffect(() => {
+    if (!empresaData?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = { cache: 'no-store' };
+        if (session?.access_token) {
+          (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch('/api/assinatura/sincronizar', {
+          credentials: 'include',
+          headers,
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          dispatchAssinaturaUpdated();
+          await carregar();
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaData?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const pendentes = itens.filter((p) => {
     const s = (getStatus(p) || '').toLowerCase();
     return s === 'pending' || !getDataPagamento(p);

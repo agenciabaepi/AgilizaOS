@@ -9,6 +9,7 @@ import {
   toDateOnlyPagamento,
 } from '@/lib/billing/verificarCiclosPagamento';
 import { DIAS_ACESSO_PAGAMENTO } from '@/lib/billing/ativarAssinaturaSegura';
+import { reconciliarPagamentosPendentesEmpresa } from '@/lib/billing/ativarAssinaturaSegura';
 import {
   getPayment,
   listCustomersByEmail,
@@ -182,6 +183,24 @@ export async function GET(
     let sincronizado = false;
     let sincronizacaoMsg: string | null = null;
 
+    // Se há pagamento confirmado cobrindo hoje, mas assinatura ainda bloqueia → forçar reconciliação
+    if (resumo.emDia && resumo.coberturaAte) {
+      const syncResult = await reconciliarPagamentosPendentesEmpresa(supabase, empresaId);
+      if (syncResult.ok) {
+        sincronizado = true;
+        sincronizacaoMsg =
+          'Assinatura liberada a partir do pagamento confirmado no Asaas (reconciliação automática).';
+        const reloaded = await loadAssinaturaGovernanteAdmin(
+          supabase,
+          empresaId,
+          empresa.created_at,
+          empresa.dias_trial
+        );
+        if (reloaded) assinaturaAtual = reloaded;
+      }
+    }
+
+    // Se datas no banco estão à frente da cobertura real → encurtar
     if (
       assinaturaAtual?.id &&
       resumo.coberturaAte &&
@@ -213,6 +232,45 @@ export async function GET(
       } else {
         sincronizacaoMsg = `Falha ao corrigir assinatura: ${syncErr.message}`;
         console.error('sync assinatura cobertura:', syncErr);
+      }
+    }
+
+    // Se há cobertura real (pago) e assinatura está expired/atrasada → alinhar datas + active
+    if (
+      assinaturaAtual?.id &&
+      resumo.coberturaAte &&
+      resumo.emDia &&
+      (assinaturaAtual.status === 'expired' ||
+        assinaturaAtual.status === 'cancelled' ||
+        (() => {
+          const prox = assinaturaAtual.proxima_cobranca || assinaturaAtual.data_fim;
+          if (!prox) return true;
+          return toDateOnlyPagamento(prox) < resumo.coberturaAte!;
+        })())
+    ) {
+      const coberturaIso = `${resumo.coberturaAte}T12:00:00.000Z`;
+      const { error: extErr } = await supabase
+        .from('assinaturas')
+        .update({
+          status: 'active',
+          data_fim: coberturaIso,
+          proxima_cobranca: coberturaIso,
+          updated_at: new Date().toISOString(),
+          observacoes: '[auto] Liberada: pagamento confirmado cobrindo o período atual',
+        })
+        .eq('id', assinaturaAtual.id);
+
+      if (!extErr) {
+        sincronizado = true;
+        sincronizacaoMsg =
+          (sincronizacaoMsg ? sincronizacaoMsg + ' ' : '') +
+          `Assinatura ativada até ${resumo.coberturaAte} com base no último pagamento.`;
+        assinaturaAtual = {
+          ...assinaturaAtual,
+          status: 'active',
+          data_fim: coberturaIso,
+          proxima_cobranca: coberturaIso,
+        };
       }
     }
 

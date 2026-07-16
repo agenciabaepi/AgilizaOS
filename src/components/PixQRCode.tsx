@@ -275,8 +275,13 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       const json = await res.json();
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
-        if (json.status === 'approved') {
+        if (json.status === 'approved' && json.activated === true) {
           handlePaymentApproved();
+        } else if (json.status === 'approved' && json.activated === false) {
+          setError(
+            json.error ||
+              'Pagamento confirmado, mas a assinatura ainda não liberou. Clique em Verificar novamente.'
+          );
         }
       }
     } catch (_) {
@@ -297,7 +302,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       const json = await res.json();
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
-        if (json.status === 'approved') {
+        if (json.status === 'approved' && (json.activated === true || json.mock === true)) {
           handlePaymentApproved();
         }
       }
@@ -327,7 +332,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
         const json = await res.json();
         if (res.ok && json?.status) {
           setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
-          if (json.status === 'approved') {
+          if (json.status === 'approved' && json.activated === true) {
             if (!stopped) handlePaymentApproved();
           }
         } else if (res.status === 401) {

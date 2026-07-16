@@ -67,11 +67,17 @@ export async function GET(req: NextRequest) {
     if (!result.ok) {
       const status =
         result.code === 'sem_pendentes' || result.code === 'not_confirmed' ? 404 : 400;
-      return NextResponse.json({ ok: false, error: result.error, code: result.code }, { status });
+      return NextResponse.json({
+        ok: false,
+        activated: false,
+        error: result.error,
+        code: result.code,
+      }, { status });
     }
 
     return NextResponse.json({
       ok: true,
+      activated: true,
       alreadyActive: result.alreadyActive === true,
       message: result.alreadyActive
         ? 'Assinatura já estava ativa para o último pagamento confirmado.'

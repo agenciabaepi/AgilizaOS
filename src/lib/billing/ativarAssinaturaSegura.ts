@@ -6,10 +6,8 @@ import { activeRowCalendarValid } from '@/lib/billing/pickAssinatura';
 
 export const DIAS_ACESSO_PAGAMENTO = 30;
 
-const VALOR_TOLERANCIA = 0.05;
-
 export type ProcessarPagamentoResult =
-  | { ok: true; alreadyActive?: boolean }
+  | { ok: true; alreadyActive?: boolean; activated?: boolean }
   | { ok: false; error: string; code?: string };
 
 type PagamentoRow = {
@@ -25,12 +23,59 @@ type PagamentoRow = {
 
 function valoresCompativeis(valorPagamento: number, valorAsaas: number): boolean {
   if (!Number.isFinite(valorPagamento) || !Number.isFinite(valorAsaas)) return false;
-  return Math.abs(valorPagamento - valorAsaas) <= VALOR_TOLERANCIA;
+  // Tolerância maior: cupom / arredondamento não podem impedir liberação
+  return Math.abs(valorPagamento - valorAsaas) <= 1.0;
+}
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function maxCoberturaYmd(assinatura: {
+  data_fim?: string | null;
+  proxima_cobranca?: string | null;
+}): string | null {
+  const dates = [assinatura.data_fim, assinatura.proxima_cobranca]
+    .filter(Boolean)
+    .map((iso) => {
+      const d = new Date(String(iso));
+      return Number.isNaN(d.getTime()) ? null : toYmd(d);
+    })
+    .filter(Boolean) as string[];
+  if (!dates.length) return null;
+  return dates.sort().at(-1) ?? null;
+}
+
+/**
+ * Assinatura só está "já ativa" para este pagamento se:
+ * - status active
+ * - tem data de cobertura
+ * - cobertura civil >= fim deste pagamento (pago + 30)
+ */
+function assinaturaJaCobrePagamento(
+  assinatura: Record<string, unknown> | null,
+  coberturaPagamentoYmd: string
+): boolean {
+  if (!assinatura) return false;
+  const status = String(assinatura.status || '');
+  if (status !== 'active' && status !== 'ativa') return false;
+  if (!activeRowCalendarValid(assinatura)) return false;
+  if (!assinatura.data_fim && !assinatura.proxima_cobranca) return false;
+  const cob = maxCoberturaYmd({
+    data_fim: assinatura.data_fim as string | null,
+    proxima_cobranca: assinatura.proxima_cobranca as string | null,
+  });
+  if (!cob) return false;
+  return cob >= coberturaPagamentoYmd;
 }
 
 /**
  * Único caminho para ativar/renovar assinatura após PIX.
- * Exige cobrança registrada em `pagamentos` + confirmação no Asaas para o mesmo ID.
+ * Ordem crítica: ativar assinatura PRIMEIRO, só então marcar pagamento approved.
+ * Assim, se a ativação falhar, sincronizar ainda consegue retentar.
  */
 export async function processarPagamentoConfirmado(
   supabase: SupabaseClient,
@@ -71,20 +116,6 @@ export async function processarPagamentoConfirmado(
 
   const row = pagamento as PagamentoRow;
 
-  if (row.status === 'approved' && row.paid_at) {
-    const { data: assinatura } = await supabase
-      .from('assinaturas')
-      .select('id, status, data_fim, proxima_cobranca')
-      .eq('empresa_id', empresaId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (assinatura && activeRowCalendarValid(assinatura as Record<string, unknown>)) {
-      return { ok: true, alreadyActive: true };
-    }
-  }
-
   let paymentAsaas;
   try {
     paymentAsaas = await getPayment(asaasPaymentId);
@@ -102,43 +133,48 @@ export async function processarPagamentoConfirmado(
     };
   }
 
-  const valorLocal = Number(row.valor ?? 0);
-  const valorAsaas = Number(paymentAsaas.value ?? 0);
-  if (!valoresCompativeis(valorLocal, valorAsaas)) {
-    return {
-      ok: false,
-      error: 'Valor da cobrança não confere com o pagamento confirmado',
-      code: 'valor_divergente',
-    };
-  }
-
   const dataInicio =
     parseAsaasBillingDate(paymentAsaas.paymentDate) ??
     parseAsaasBillingDate(paymentAsaas.dueDate) ??
-    new Date();
+    (row.paid_at ? new Date(row.paid_at) : new Date());
   const dataFim = new Date(dataInicio);
   dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
+  const coberturaYmd = toYmd(dataFim);
   const nowIso = dataInicio.toISOString();
 
-  const { error: updatePagamentoErr } = await supabase
-    .from('pagamentos')
-    .update({
-      status: 'approved',
-      paid_at: nowIso,
-      valor: valorAsaas,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', row.id)
-    .eq('empresa_id', empresaId);
+  const { data: assinaturaAtual } = await supabase
+    .from('assinaturas')
+    .select('id, status, data_fim, proxima_cobranca')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (updatePagamentoErr) {
-    return { ok: false, error: updatePagamentoErr.message, code: 'update_pagamento' };
+  if (assinaturaJaCobrePagamento(assinaturaAtual as Record<string, unknown> | null, coberturaYmd)) {
+    // Garante status local alinhado
+    if (row.status !== 'approved') {
+      await supabase
+        .from('pagamentos')
+        .update({
+          status: 'approved',
+          paid_at: row.paid_at || nowIso,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', row.id)
+        .eq('empresa_id', empresaId);
+    }
+    return { ok: true, alreadyActive: true, activated: true };
   }
 
-  if (row.cupom_uso_id) {
-    await confirmarCupomUso(supabase, row.cupom_uso_id, row.id);
+  const valorLocal = Number(row.valor ?? 0);
+  const valorAsaas = Number(paymentAsaas.value ?? 0);
+  if (valorLocal > 0 && valorAsaas > 0 && !valoresCompativeis(valorLocal, valorAsaas)) {
+    console.warn(
+      `processarPagamentoConfirmado: valor diverge local=${valorLocal} asaas=${valorAsaas} — seguindo com valor Asaas`
+    );
   }
 
+  // 1) Ativar assinatura ANTES de marcar approved (permite retry se falhar)
   const ativou = await ativarAssinaturaPorPagamento(
     supabase,
     empresaId,
@@ -150,43 +186,76 @@ export async function processarPagamentoConfirmado(
   if (!ativou) {
     return {
       ok: false,
-      error: 'Pagamento confirmado, mas falha ao atualizar assinatura',
+      error: 'Pagamento confirmado no Asaas, mas falha ao atualizar assinatura',
       code: 'ativacao_falhou',
     };
   }
 
-  return { ok: true };
+  // 2) Só então marca pagamento como approved
+  const { error: updatePagamentoErr } = await supabase
+    .from('pagamentos')
+    .update({
+      status: 'approved',
+      paid_at: nowIso,
+      valor: Number.isFinite(valorAsaas) && valorAsaas > 0 ? valorAsaas : valorLocal,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', row.id)
+    .eq('empresa_id', empresaId);
+
+  if (updatePagamentoErr) {
+    // Assinatura já liberada — não falhar o fluxo por isso
+    console.warn('processarPagamentoConfirmado: assinatura ok, falha ao marcar pagamento:', updatePagamentoErr);
+  }
+
+  if (row.cupom_uso_id) {
+    await confirmarCupomUso(supabase, row.cupom_uso_id, row.id);
+  }
+
+  return { ok: true, activated: true };
 }
 
 /**
- * Reconcilia apenas cobranças locais pendentes da empresa (nunca busca “qualquer PIX” por e-mail).
+ * Reconcilia cobranças da empresa com o Asaas e garante assinatura liberada.
+ * Inclui:
+ * - pendentes (PENDING etc.)
+ * - approved locais cuja assinatura ainda está vencida/atrasada (retry)
  */
 export async function reconciliarPagamentosPendentesEmpresa(
   supabase: SupabaseClient,
   empresaId: string
 ): Promise<ProcessarPagamentoResult> {
-  const { data: pendentes, error } = await supabase
+  const { data: candidatos, error } = await supabase
     .from('pagamentos')
-    .select('mercadopago_payment_id')
+    .select('mercadopago_payment_id, status, paid_at, created_at')
     .eq('empresa_id', empresaId)
     .not('mercadopago_payment_id', 'is', null)
-    .neq('status', 'approved')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(30);
 
   if (error) {
     return { ok: false, error: error.message, code: 'db_error' };
   }
 
-  if (!pendentes?.length) {
+  if (!candidatos?.length) {
     return {
       ok: false,
-      error: 'Nenhuma cobrança pendente encontrada para esta empresa',
+      error: 'Nenhuma cobrança encontrada para esta empresa',
       code: 'sem_pendentes',
     };
   }
 
-  for (const p of pendentes) {
+  // Prioriza mais recentes; tenta pending primeiro, depois approved (retry)
+  const ordenados = [...candidatos].sort((a, b) => {
+    const aPending = String(a.status || '').toLowerCase() !== 'approved' ? 0 : 1;
+    const bPending = String(b.status || '').toLowerCase() !== 'approved' ? 0 : 1;
+    if (aPending !== bPending) return aPending - bPending;
+    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  });
+
+  let lastError: ProcessarPagamentoResult | null = null;
+
+  for (const p of ordenados) {
     const paymentId = p.mercadopago_payment_id;
     if (!paymentId || String(paymentId).startsWith('mock_')) continue;
 
@@ -196,16 +265,27 @@ export async function reconciliarPagamentosPendentesEmpresa(
     });
 
     if (result.ok) return result;
-    if (result.code !== 'not_confirmed' && result.code !== 'asaas_error') {
-      return result;
+
+    // Continua tentando outros se só "ainda não confirmado"
+    if (result.code === 'not_confirmed' || result.code === 'asaas_error') {
+      lastError = result;
+      continue;
     }
+    // Divergência / vínculo: tenta próximo
+    if (result.code === 'valor_divergente' || result.code === 'pagamento_nao_vinculado') {
+      lastError = result;
+      continue;
+    }
+    lastError = result;
   }
 
-  return {
-    ok: false,
-    error: 'Nenhum pagamento pendente foi confirmado no gateway',
-    code: 'not_confirmed',
-  };
+  return (
+    lastError || {
+      ok: false,
+      error: 'Nenhum pagamento confirmado no gateway para liberar a assinatura',
+      code: 'not_confirmed',
+    }
+  );
 }
 
 /** Assinatura `active` só é válida com pagamento aprovado, liberação admin ou observação de concessão admin. */
@@ -216,7 +296,7 @@ export async function assinaturaAtivaTemDireito(
   sistemaLiberado: boolean
 ): Promise<boolean> {
   if (sistemaLiberado) return true;
-  if (String(assinatura.status) !== 'active') return true;
+  if (String(assinatura.status) !== 'active' && String(assinatura.status) !== 'ativa') return true;
 
   const obs = String(assinatura.observacoes || '').toLowerCase();
   if (obs.includes('pelo admin') || obs.includes('concedida pelo admin')) {
@@ -244,7 +324,9 @@ export async function corrigirAssinaturaAtivaIndevida(
   assinatura: Record<string, unknown>,
   sistemaLiberado: boolean
 ): Promise<Record<string, unknown>> {
-  if (String(assinatura.status) !== 'active') return assinatura;
+  if (String(assinatura.status) !== 'active' && String(assinatura.status) !== 'ativa') {
+    return assinatura;
+  }
 
   const temDireito = await assinaturaAtivaTemDireito(
     supabase,
