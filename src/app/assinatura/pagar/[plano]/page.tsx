@@ -8,7 +8,7 @@ import PixQRCode from '@/components/PixQRCode';
 import CupomDescontoInput, { type CupomAplicado } from '@/components/billing/CupomDescontoInput';
 import { Button } from '@/components/Button';
 import { formatarValorAssinatura, usePlanosPublicos } from '@/hooks/usePlanosPublicos';
-import { PLANO_SLUGS, PREMIUM_MODULES, type PlanoSlug } from '@/config/planModules';
+import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleLabelWithStatus, type PlanoSlug } from '@/config/planModules';
 import { FiArrowLeft } from 'react-icons/fi';
 
 function PagarPlanoSkeleton() {
@@ -51,6 +51,8 @@ export default function AssinaturaPagarPlanoPage() {
           nome: planoDb.nome,
           descricao: planoDb.descricao,
           valor: planoDb.preco,
+          personalizado: planoDb.personalizado === true,
+          precoCatalogo: planoDb.preco_catalogo,
           premium: slug === PLANO_SLUGS.COMPLETO,
         }
       : null;
@@ -107,13 +109,18 @@ export default function AssinaturaPagarPlanoPage() {
                         </div>
                       )}
                       <div className="text-[11px] text-gray-500">mensal</div>
+                      {plano.personalizado && (
+                        <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
+                          Valor personalizado
+                        </div>
+                      )}
                     </div>
                   </div>
                   <ul className="mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-2">
                     <li>✓ Sistema completo de gestão</li>
                     {plano.premium ? (
                       Object.values(PREMIUM_MODULES).map((m) => (
-                        <li key={m.label}>✓ {m.label}</li>
+                        <li key={m.label}>✓ {premiumModuleLabelWithStatus(m)}</li>
                       ))
                     ) : (
                       <li>✓ Sem módulos premium (upgrade disponível depois)</li>

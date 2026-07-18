@@ -166,6 +166,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">WhatsApp CRM</h2>
+            <p className="text-amber-700 text-sm font-medium">Em desenvolvimento</p>
             <p className="text-gray-600 text-sm">
               Integração via{' '}
               <a

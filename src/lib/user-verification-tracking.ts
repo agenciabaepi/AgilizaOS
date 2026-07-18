@@ -27,11 +27,14 @@ export function resolveVerificacaoEmailStatus(u: UsuarioVerificacaoRow): Verific
 }
 
 export const VERIFICACAO_EMAIL_LABEL: Record<VerificacaoEmailStatus, string> = {
-  verificado_codigo: 'Verificado por código',
+  verificado_codigo: 'Confirmado por SMS',
   liberado_admin: 'Liberado pelo admin',
-  verificado_cadastro: 'Verificado no cadastro',
+  verificado_cadastro: 'Confirmado no cadastro',
   pendente: 'Pendente',
 };
+
+/** Alias semântico — colunas no DB ainda usam email_verificado*. */
+export const VERIFICACAO_CONTA_LABEL = VERIFICACAO_EMAIL_LABEL;
 
 export function formatarDataAdmin(iso: string | null | undefined): string {
   if (!iso) return '—';

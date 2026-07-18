@@ -76,16 +76,21 @@ export async function GET(
 
     let planoNome = 'Assinatura';
     let planoSlug: string | null = null;
+    let precoCatalogo: number | null = null;
     if (assinatura?.plano_id) {
       try {
         const { data: plano } = await supabase
           .from('planos')
-          .select('nome, slug')
+          .select('nome, slug, preco')
           .eq('id', assinatura.plano_id)
           .limit(1)
           .single();
         if (plano?.nome) planoNome = plano.nome;
         if (plano?.slug) planoSlug = plano.slug;
+        if (plano?.preco != null) {
+          const n = Number(plano.preco);
+          if (Number.isFinite(n) && n > 0) precoCatalogo = n;
+        }
       } catch {}
     }
     if (tf.trialImplicito && tf.dataTrialFim && !planoSlug) {
@@ -137,6 +142,7 @@ export async function GET(
       plano: { id: assinatura?.plano_id || null, nome: planoNome, slug: planoSlug },
       assinaturaStatus: assinatura?.status || null,
       valorMensal: Number.isFinite(valorMensal as number) ? (valorMensal as number) : null,
+      precoCatalogo,
       proximaCobranca: assinatura?.proxima_cobranca || null,
       vencido,
       cobrancaStatus,

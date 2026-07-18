@@ -76,7 +76,7 @@ const tabsConfig: TabConfig[] = [
   { name: 'Status', description: 'Fluxo das ordens de serviço', group: 'operacao', icon: Activity, Component: StatusPage, permissao: 'status', requerRecurso: null },
   { name: 'Link Público', description: 'Página de acompanhamento', group: 'geral', icon: Link2, Component: LinkPublicoPage, permissao: 'link-publico', requerRecurso: null },
   { name: 'Catálogo', description: 'Produtos e serviços', group: 'integracoes', icon: BookOpen, Component: CatalogoPage, permissao: 'catalogo-config', requerRecurso: null },
-  { name: 'WhatsApp', description: 'CRM WhatsApp — inbox e automações', group: 'integracoes', icon: MessageCircle, Component: WhatsAppPage, permissao: 'whatsapp', requerRecurso: null },
+  { name: 'WhatsApp', description: 'CRM WhatsApp — em desenvolvimento', group: 'integracoes', icon: MessageCircle, Component: WhatsAppPage, permissao: 'whatsapp', requerRecurso: null },
   { name: 'Avisos', description: 'Comunicados internos', group: 'sistema', icon: Bell, Component: AvisosPage, permissao: 'avisos', requerRecurso: null },
 ]
 

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
-import { normalizeEmail } from '@/lib/email'
-import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification'
+import { normalizeEmail } from '@/lib/smtp-config'
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification'
 
 export async function POST(request: NextRequest) {
   try {
-    if (!EMAIL_VERIFICATION_ENABLED) {
-      return NextResponse.json({ error: 'Verificação de e-mail desativada' }, { status: 404 })
+    if (!SMS_VERIFICATION_ENABLED) {
+      return NextResponse.json({ error: 'Verificação por SMS desativada' }, { status: 404 })
     }
 
     const body = await request.json().catch(() => ({}))
@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
 
     const email = normalizeEmail(emailRaw)
 
-    // Buscar código válido
     const { data: codigoVerificacao, error: codigoError } = await getSupabaseAdmin()
       .from('codigo_verificacao')
       .select(`
@@ -50,24 +49,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Marcar código como usado
     const { error: updateCodigoError } = await getSupabaseAdmin()
       .from('codigo_verificacao')
       .update({
         usado: true,
-        usado_em: new Date().toISOString()
+        usado_em: new Date().toISOString(),
       })
       .eq('id', codigoVerificacao.id)
 
     if (updateCodigoError) {
       console.error('Erro ao marcar código como usado:', updateCodigoError)
-      return NextResponse.json(
-        { error: 'Erro interno do servidor' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
-    // Marcar email como verificado
     const { error: updateUsuarioError } = await getSupabaseAdmin()
       .from('usuarios')
       .update({
@@ -77,27 +71,20 @@ export async function POST(request: NextRequest) {
       .eq('id', codigoVerificacao.usuario_id)
 
     if (updateUsuarioError) {
-      console.error('Erro ao marcar email como verificado:', updateUsuarioError)
-      return NextResponse.json(
-        { error: 'Erro interno do servidor' },
-        { status: 500 }
-      )
+      console.error('Erro ao marcar conta como verificada:', updateUsuarioError)
+      return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Email verificado com sucesso',
+      message: 'Conta confirmada com sucesso',
       usuario: {
         id: codigoVerificacao.usuario_id,
-        email_verificado: true
-      }
+        email_verificado: true,
+      },
     })
-
   } catch (error) {
     console.error('Erro na API de verificação de código:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

@@ -360,7 +360,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
             <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
           )}
           {podeVerWhatsApp && matchesSearch('WhatsApp') && (
-            <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
+            <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp (em desenvolvimento)" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
                   {podeVer('lembretes') && matchesSearch('Lembretes') && (
@@ -578,7 +578,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                 <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
               )}
               {podeVerWhatsApp && (
-                <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
+                <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp (em desenvolvimento)" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
               )}
               {/* Lembretes */}
               {podeVer('lembretes') && (

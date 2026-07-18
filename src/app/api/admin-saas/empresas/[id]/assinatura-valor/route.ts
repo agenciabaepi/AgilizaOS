@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import {
+  resolveAssinaturaIdParaAlteracao,
+} from '@/lib/billing/adminEmpresaAssinatura';
 
 function parseValorMonetarioInput(v: unknown): number | null {
   if (v == null || v === '') return null;
@@ -44,22 +47,53 @@ export async function POST(
 
     const supabase = getSupabaseAdmin();
 
-    const { data: assinatura, error: findErr } = await supabase
-      .from('assinaturas')
-      .select('id, observacoes')
-      .eq('empresa_id', empresaId)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    const { data: empresa } = await supabase
+      .from('empresas')
+      .select('id, created_at, dias_trial')
+      .eq('id', empresaId)
       .maybeSingle();
 
-    if (findErr || !assinatura?.id) {
+    if (!empresa) {
+      return NextResponse.json({ ok: false, message: 'Empresa não encontrada' }, { status: 404 });
+    }
+
+    let assinaturaId = await resolveAssinaturaIdParaAlteracao(
+      supabase,
+      empresaId,
+      empresa.created_at,
+      empresa.dias_trial
+    );
+
+    if (!assinaturaId) {
+      const { data: latest } = await supabase
+        .from('assinaturas')
+        .select('id, observacoes')
+        .eq('empresa_id', empresaId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      assinaturaId = latest?.id ?? null;
+    }
+
+    if (!assinaturaId) {
       return NextResponse.json(
-        { ok: false, message: 'Não há assinatura registrada para esta empresa. Use "Alterar assinatura" para criar ou trocar o plano.' },
+        {
+          ok: false,
+          message:
+            'Não há assinatura registrada para esta empresa. Use "Alterar assinatura" para criar ou trocar o plano.',
+        },
         { status: 404 }
       );
     }
 
-    const obsAnterior = typeof assinatura.observacoes === 'string' ? assinatura.observacoes.trim() : '';
+    const { data: assinatura } = await supabase
+      .from('assinaturas')
+      .select('id, observacoes')
+      .eq('id', assinaturaId)
+      .maybeSingle();
+
+    const obsAnterior =
+      typeof assinatura?.observacoes === 'string' ? assinatura.observacoes.trim() : '';
     const linha = `[admin] Valor mensal ajustado manualmente para R$ ${valor.toFixed(2)} em ${new Date().toISOString()}`;
     const observacoes = obsAnterior ? `${obsAnterior}\n${linha}` : linha;
 
@@ -70,13 +104,14 @@ export async function POST(
         observacoes,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', assinatura.id);
+      .eq('id', assinaturaId)
+      .eq('empresa_id', empresaId);
 
     if (upErr) {
       return NextResponse.json({ ok: false, message: upErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, valor });
+    return NextResponse.json({ ok: true, valor, assinatura_id: assinaturaId });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, message: err?.message || 'Erro inesperado' },

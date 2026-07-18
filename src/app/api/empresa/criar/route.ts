@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { MS_TRIAL_GRATIS } from '@/config/trial';
-import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
-import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email';
-import { isSmtpConfigured } from '@/lib/smtp-config';
-import { issueVerificationCode } from '@/lib/verification-code';
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification';
+import { normalizeEmail } from '@/lib/smtp-config';
+import { isBrasilSmsConfigured } from '@/lib/brasilsms';
+import { sendVerificationSmsToUsuario } from '@/lib/verification-sms';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -28,11 +28,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'E-mail inválido.' }, { status: 400 });
   }
 
-  // Normalizar cpf e cnpj
   const cpf = cpfOriginal?.replace(/\D/g, '') || null;
   const cnpj = cnpjOriginal?.replace(/\D/g, '') || null;
 
-  // Verificar se o email já existe
   const { data: emailExistente } = await supabaseAdmin
     .from('empresas')
     .select('id')
@@ -43,7 +41,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'E-mail já cadastrado.' }, { status: 400 });
   }
 
-  // Verificar se o CPF já existe
   if (cpf) {
     const { data: cpfExistente } = await supabaseAdmin
       .from('empresas')
@@ -56,7 +53,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Verificar se o CNPJ já existe
   if (cnpj) {
     const { data: cnpjExistente } = await supabaseAdmin
       .from('empresas')
@@ -69,7 +65,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Criar usuário no Supabase Auth
   const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password: senha,
@@ -88,7 +83,6 @@ export async function POST(request: Request) {
 
   const user_id = authUser.user.id;
 
-  // 2. Criar empresa
   const { data: empresa, error: empresaError } = await supabaseAdmin
     .from('empresas')
     .insert({
@@ -111,7 +105,7 @@ export async function POST(request: Request) {
     console.error('Erro ao criar empresa:', empresaError);
     return NextResponse.json({ error: 'Erro ao criar empresa', details: empresaError }, { status: 500 });
   }
-  // 3. Cadastrar usuário na tabela 'usuarios'
+
   const { data: usuario, error: usuarioError } = await supabaseAdmin
     .from('usuarios')
     .insert({
@@ -119,10 +113,11 @@ export async function POST(request: Request) {
       auth_user_id: user_id,
       nome,
       email,
-      usuario: email.split('@')[0], // Usar parte do email como usuário
+      usuario: email.split('@')[0],
       empresa_id: empresa.id,
       nivel: 'admin',
-      email_verificado: !EMAIL_VERIFICATION_ENABLED,
+      whatsapp: whatsapp || null,
+      email_verificado: !SMS_VERIFICATION_ENABLED,
     })
     .select()
     .single();
@@ -131,64 +126,62 @@ export async function POST(request: Request) {
     console.error('Erro ao salvar usuário:', usuarioError);
     return NextResponse.json({ error: 'Erro ao salvar usuário', details: usuarioError }, { status: 500 });
   }
-  // 4. Criar assinatura trial
+
   try {
-          // Buscar plano trial
-      const { data: planoTrial } = await supabaseAdmin
-        .from('planos')
-        .select('*')
-        .eq('nome', 'Trial')
-        .single();
+    const { data: planoTrial } = await supabaseAdmin
+      .from('planos')
+      .select('*')
+      .eq('nome', 'Trial')
+      .single();
 
-      if (planoTrial) {
-        // Alinhar ao trial implícito (empresa.created_at + DIAS_TRIAL_GRATIS), não ao relógio do request
-        const dataInicio = empresa.created_at
-          ? new Date(empresa.created_at as string)
-          : new Date();
-        const dataTrialFim = new Date(dataInicio.getTime() + MS_TRIAL_GRATIS);
+    if (planoTrial) {
+      const dataInicio = empresa.created_at
+        ? new Date(empresa.created_at as string)
+        : new Date();
+      const dataTrialFim = new Date(dataInicio.getTime() + MS_TRIAL_GRATIS);
 
-        const { error: assinaturaError } = await supabaseAdmin
-          .from('assinaturas')
-          .insert({
-            empresa_id: empresa.id,
-            plano_id: planoTrial.id,
-            status: 'trial',
-            data_inicio: dataInicio.toISOString(),
-            data_trial_fim: dataTrialFim.toISOString(),
-            valor: 0
-          });
+      const { error: assinaturaError } = await supabaseAdmin
+        .from('assinaturas')
+        .insert({
+          empresa_id: empresa.id,
+          plano_id: planoTrial.id,
+          status: 'trial',
+          data_inicio: dataInicio.toISOString(),
+          data_trial_fim: dataTrialFim.toISOString(),
+          valor: 0
+        });
 
       if (assinaturaError) {
         console.error('Erro ao criar assinatura trial:', assinaturaError);
-        // Não falhar a criação da empresa por causa da assinatura
-      } else {
-        }
+      }
     }
   } catch (error) {
     console.error('Erro ao criar assinatura trial:', error);
-    // Não falhar a criação da empresa por causa da assinatura
   }
 
-  // 5. Enviar código de verificação por email (quando habilitado)
-  let emailEnviado = false;
-  if (EMAIL_VERIFICATION_ENABLED) {
-    try {
-      if (!isSmtpConfigured()) {
-        console.error('❌ Cadastro sem envio de e-mail: SMTP_PASS/EMAIL_PASS não configurado');
-      } else {
-        const issued = await issueVerificationCode(supabaseAdmin, usuario.id, email);
+  let smsEnviado = false;
+  let telefoneMascarado: string | null = null;
 
-        if (!issued.ok) {
-          console.error('Erro ao salvar código de verificação:', issued.error);
+  if (SMS_VERIFICATION_ENABLED) {
+    try {
+      if (!isBrasilSmsConfigured()) {
+        console.error('❌ Cadastro sem envio de SMS: BRASILSMS_API_TOKEN não configurado');
+      } else {
+        const result = await sendVerificationSmsToUsuario(supabaseAdmin, {
+          usuarioId: usuario.id,
+          email,
+          force: true,
+        });
+
+        if (!result.ok) {
+          console.error('Erro ao enviar SMS de verificação:', result.error);
         } else {
-          emailEnviado = await enviarEmailVerificacao(email, issued.codigo, nomeEmpresa);
-          if (!emailEnviado) {
-            console.error('Erro ao enviar email de verificação para:', email);
-          }
+          smsEnviado = true;
+          telefoneMascarado = result.telefoneDisplay;
         }
       }
     } catch (error) {
-      console.error('Erro ao enviar código de verificação:', error);
+      console.error('Erro ao enviar código de verificação por SMS:', error);
     }
   }
 
@@ -196,11 +189,14 @@ export async function POST(request: Request) {
     sucesso: true,
     empresa_id: empresa.id,
     usuario_id: usuario.id,
-    email_enviado: emailEnviado,
-    message: EMAIL_VERIFICATION_ENABLED
-      ? emailEnviado
-        ? 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.'
-        : 'Cadastro realizado! Use "Reenviar código" na tela de login se não receber o e-mail em alguns minutos.'
+    sms_enviado: smsEnviado,
+    telefone: telefoneMascarado,
+    /** @deprecated compat com front antigo */
+    email_enviado: smsEnviado,
+    message: SMS_VERIFICATION_ENABLED
+      ? smsEnviado
+        ? 'Cadastro realizado com sucesso! Enviamos um código por SMS para confirmar sua conta.'
+        : 'Cadastro realizado! Use "Reenviar código" na próxima tela se não receber o SMS em alguns minutos.'
       : 'Cadastro realizado com sucesso! Faça login para começar a usar o sistema.',
   });
 }

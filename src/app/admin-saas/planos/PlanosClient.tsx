@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FiSave, FiCheck, FiAlertCircle } from 'react-icons/fi';
-import { PREMIUM_MODULES, PLANO_SLUGS, type PremiumModule } from '@/config/planModules';
+import { PREMIUM_MODULES, PLANO_SLUGS, premiumModuleStatusBadge, type PremiumModule } from '@/config/planModules';
 
 type PlanoRow = {
   id: string;
@@ -107,7 +107,7 @@ export default function PlanosClient() {
     <div className="space-y-6 max-w-3xl">
       <p className="text-sm text-gray-600">
         Defina o preço mensal de cada plano. Os módulos premium do plano Completo são fixos (NF, IA e CRM
-        WhatsApp).
+        WhatsApp — em desenvolvimento).
       </p>
 
       {message && (
@@ -197,6 +197,11 @@ export default function PlanosClient() {
                       }`}
                     />
                     {info.label}
+                    {premiumModuleStatusBadge(info.status) && (
+                      <span className="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">
+                        {premiumModuleStatusBadge(info.status)}
+                      </span>
+                    )}
                     {!plano.recursos_disponiveis?.[key] && (
                       <span className="text-xs text-gray-400">(não incluído)</span>
                     )}

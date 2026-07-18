@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
-import { usuarioPassouVerificacaoEmail } from '@/lib/user-verification-tracking';
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification';
+import { avaliarGateVerificacao } from '@/lib/verification-gate';
 
 /**
  * Resolve nome de usuário ou e-mail → e-mail canônico do Auth (onde a senha é validada).
@@ -38,54 +38,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
-    let emailVerificado = EMAIL_VERIFICATION_ENABLED
-      ? usuarioPassouVerificacaoEmail(usuario)
-      : true;
-    let empresaVerificada = emailVerificado;
-
-    if (!EMAIL_VERIFICATION_ENABLED) {
+    if (!SMS_VERIFICATION_ENABLED) {
       return NextResponse.json({
         email: authUser.user.email,
         email_verificado: true,
         nivel: usuario.nivel,
         empresa_verificada: true,
+        pode_entrar: true,
       });
     }
 
-    // Contas legadas já em uso: não exigir código novamente
-    if (!emailVerificado && usuario.empresa_id) {
-      const { count: ordensCount } = await admin
-        .from('ordens_servico')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuario.empresa_id);
-
-      if ((ordensCount ?? 0) > 0) {
-        emailVerificado = true;
-        empresaVerificada = true;
-        await admin
-          .from('usuarios')
-          .update({ email_verificado: true })
-          .eq('auth_user_id', usuario.auth_user_id)
-          .eq('email_verificado', false);
-      }
-    }
-
-    if (usuario.nivel !== 'admin' && usuario.empresa_id && !empresaVerificada) {
-      const { count } = await admin
-        .from('usuarios')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuario.empresa_id)
-        .eq('nivel', 'admin')
-        .or('email_verificado.eq.true,verificacao_liberada_admin.eq.true');
-
-      empresaVerificada = (count ?? 0) > 0;
-    }
+    const gate = await avaliarGateVerificacao({ authUserId: usuario.auth_user_id });
 
     return NextResponse.json({
       email: authUser.user.email,
-      email_verificado: emailVerificado,
+      email_verificado: gate.email_verificado,
       nivel: usuario.nivel,
-      empresa_verificada: empresaVerificada,
+      empresa_verificada: gate.empresa_verificada,
+      pode_entrar: gate.pode_entrar,
+      motivo: gate.motivo,
     });
   } catch (error) {
     console.error('Erro POST /api/auth/resolve-username:', error);

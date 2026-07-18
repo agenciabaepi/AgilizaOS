@@ -4,7 +4,7 @@ import { isAdminAuthorized } from '@/lib/admin-auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 /**
- * PATCH — libera verificação de e-mail sem código (admin SaaS).
+ * PATCH — libera confirmação de conta sem código SMS (admin SaaS).
  * Body: { liberar: true }
  */
 export async function PATCH(

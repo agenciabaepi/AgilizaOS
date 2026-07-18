@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { FiCheck, FiX, FiArrowRight } from 'react-icons/fi';
 import { usePlanosPublicos, formatarPrecoBRL } from '@/hooks/usePlanosPublicos';
 import { useSubscription } from '@/hooks/useSubscription';
-import { PLANO_SLUGS, PREMIUM_MODULES } from '@/config/planModules';
+import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleStatusBadge } from '@/config/planModules';
 import type { PlanoPublico } from '@/hooks/usePlanosPublicos';
 
 const RECURSOS_CORE = [
@@ -71,6 +71,18 @@ function PlanoCard({
           {formatarPrecoBRL(plano.preco)}
         </span>
         <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/mês</span>
+        {plano.personalizado && (
+          <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1 font-medium">
+            Valor personalizado da sua empresa
+            {plano.preco_catalogo != null &&
+              Math.abs(plano.preco_catalogo - plano.preco) > 0.009 && (
+                <span className="text-gray-500 dark:text-gray-400 font-normal">
+                  {' '}
+                  (catálogo {formatarPrecoBRL(plano.preco_catalogo)})
+                </span>
+              )}
+          </p>
+        )}
       </div>
 
       <ul className="space-y-2 mb-4 flex-grow">
@@ -88,6 +100,7 @@ function PlanoCard({
       <ul className="space-y-1.5 mb-6">
         {premiumList.map((mod) => {
           const incluido = isCompleto;
+          const badge = premiumModuleStatusBadge(mod.status);
           return (
             <li
               key={mod.label}
@@ -96,11 +109,24 @@ function PlanoCard({
               }`}
             >
               {incluido ? (
-                <FiCheck className="w-4 h-4 text-[#6B8F2E] shrink-0" />
+                <FiCheck className="w-4 h-4 text-[#6B8F2E] shrink-0 mt-0.5" />
               ) : (
-                <FiX className="w-4 h-4 text-gray-300 shrink-0" />
+                <FiX className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
               )}
-              <span>{mod.label}</span>
+              <span>
+                {mod.label}
+                {badge && (
+                  <span
+                    className={`ml-1.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      mod.status === 'development'
+                        ? 'text-amber-700 dark:text-amber-400'
+                        : 'text-sky-700 dark:text-sky-400'
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </span>
             </li>
           );
         })}
@@ -149,7 +175,7 @@ interface PlanosAssinaturaCardsProps {
 export default function PlanosAssinaturaCards({
   id = 'planos-assinatura',
   titulo = 'Escolha seu plano',
-  subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e CRM WhatsApp.',
+  subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e CRM WhatsApp (em desenvolvimento).',
 }: PlanosAssinaturaCardsProps) {
   const { basico, completo, ready, loading } = usePlanosPublicos();
   const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired } = useSubscription();

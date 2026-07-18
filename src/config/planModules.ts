@@ -27,12 +27,29 @@ export const PREMIUM_MODULES = {
   },
   whatsapp_crm: {
     label: 'CRM WhatsApp',
-    description: 'Inbox, automações e atendimento via WhatsApp',
-    status: 'beta' as const,
+    description: 'Inbox, automações e atendimento via WhatsApp — em desenvolvimento',
+    status: 'development' as const,
   },
 } as const;
 
 export type PremiumModule = keyof typeof PREMIUM_MODULES;
+export type PremiumModuleStatus = 'active' | 'planned' | 'development' | 'beta';
+
+/** Badge exibido ao lado do módulo (planos, admin, checkout). */
+export function premiumModuleStatusBadge(
+  status: PremiumModuleStatus | (typeof PREMIUM_MODULES)[PremiumModule]['status']
+): string | null {
+  if (status === 'planned') return 'Em breve';
+  if (status === 'development') return 'Em desenvolvimento';
+  if (status === 'beta') return 'Beta';
+  return null;
+}
+
+/** Label com sufixo de status para textos corridos. */
+export function premiumModuleLabelWithStatus(mod: (typeof PREMIUM_MODULES)[PremiumModule]): string {
+  const badge = premiumModuleStatusBadge(mod.status);
+  return badge ? `${mod.label} (${badge.toLowerCase()})` : mod.label;
+}
 
 /** Aliases legados → módulo canônico. */
 export const LEGACY_MODULE_ALIASES: Record<string, PremiumModule> = {

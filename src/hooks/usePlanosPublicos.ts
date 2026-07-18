@@ -9,11 +9,13 @@ export interface PlanoPublico {
   nome: string;
   descricao: string;
   preco: number;
+  preco_catalogo?: number;
+  personalizado?: boolean;
   recursos_disponiveis: Record<string, boolean>;
 }
 
 /**
- * Planos vendáveis (Básico + Completo) com preços do admin.
+ * Planos vendáveis (Básico + Completo). Com sessão, aplica valor personalizado da empresa.
  */
 export function usePlanosPublicos() {
   const [planos, setPlanos] = useState<PlanoPublico[]>([]);
@@ -21,17 +23,33 @@ export function usePlanosPublicos() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/planos/publicos', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
+    (async () => {
+      try {
+        const headers: HeadersInit = {};
+        try {
+          const { supabase } = await import('@/lib/supabaseClient');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            headers.Authorization = `Bearer ${session.access_token}`;
+          }
+        } catch {
+          /* sem sessão — preços de catálogo */
+        }
+        const res = await fetch('/api/planos/publicos', {
+          cache: 'no-store',
+          credentials: 'include',
+          headers,
+        });
+        const data = await res.json();
         if (!cancelled && Array.isArray(data?.planos)) {
           setPlanos(data.planos);
         }
-      })
-      .catch(() => {})
-      .finally(() => {
+      } catch {
+        /* ignore */
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

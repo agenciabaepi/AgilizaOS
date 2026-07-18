@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/Button';
 import { FiCheck, FiX as FiXIcon } from 'react-icons/fi';
 import {
   PLANO_SLUGS,
   PREMIUM_MODULES,
   PLANOS_VENDA,
+  premiumModuleStatusBadge,
   type PlanoSlug,
   type PremiumModule,
 } from '@/config/planModules';
@@ -37,6 +38,8 @@ export type AdminAlterarPlanoModalProps = {
   empresaNome: string;
   planoAtualId?: string | null;
   planoAtualNome?: string | null;
+  /** Pré-seleciona Básico/Completo ao abrir (ex.: botão "Atribuir Completo") */
+  planoInicialSlug?: PlanoSlug | null;
   valorMensalAtual?: number | null;
   onClose: () => void;
   onSuccess: () => void | Promise<void>;
@@ -47,6 +50,7 @@ export default function AdminAlterarPlanoModal({
   empresaNome,
   planoAtualId,
   planoAtualNome,
+  planoInicialSlug,
   valorMensalAtual,
   onClose,
   onSuccess,
@@ -59,11 +63,11 @@ export default function AdminAlterarPlanoModal({
   const [limparRecursos, setLimparRecursos] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const valorInicializadoRef = useRef(false);
 
   useEffect(() => {
-    const v = valorMensalAtual;
-    setValorMensalStr(v != null && Number.isFinite(Number(v)) ? String(Number(v)) : '');
-  }, [empresaId, valorMensalAtual]);
+    valorInicializadoRef.current = false;
+  }, [empresaId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,9 +87,14 @@ export default function AdminAlterarPlanoModal({
         if (cancelled) return;
         setPlanos(vendaveis);
 
-        if (planoAtualId && vendaveis.some((p) => p.id === planoAtualId)) {
-          setPlanoSelecionadoId(planoAtualId);
-        } else if (planoAtualNome) {
+        let selectedId = '';
+        if (planoInicialSlug) {
+          const bySlug = vendaveis.find((p) => p.slug === planoInicialSlug);
+          if (bySlug) selectedId = bySlug.id;
+        }
+        if (!selectedId && planoAtualId && vendaveis.some((p) => p.id === planoAtualId)) {
+          selectedId = planoAtualId;
+        } else if (!selectedId && planoAtualNome) {
           const nomeNorm = planoAtualNome.toLowerCase().trim();
           const match = vendaveis.find(
             (p) =>
@@ -93,8 +102,9 @@ export default function AdminAlterarPlanoModal({
               p.slug === nomeNorm ||
               (nomeNorm === 'trial' && p.slug === PLANO_SLUGS.BASICO)
           );
-          if (match) setPlanoSelecionadoId(match.id);
+          if (match) selectedId = match.id;
         }
+        if (selectedId) setPlanoSelecionadoId(selectedId);
       } catch (e) {
         if (!cancelled) {
           setErro(e instanceof Error ? e.message : 'Erro ao carregar planos');
@@ -107,9 +117,44 @@ export default function AdminAlterarPlanoModal({
     return () => {
       cancelled = true;
     };
-  }, [planoAtualId, planoAtualNome]);
+  }, [planoAtualId, planoAtualNome, planoInicialSlug]);
 
   const planoSelecionado = planos.find((p) => p.id === planoSelecionadoId);
+
+  function selecionarPlano(id: string) {
+    setPlanoSelecionadoId(id);
+    const plano = planos.find((p) => p.id === id);
+    if (!plano) return;
+    const mesmoPlanoAtual = !!planoAtualId && id === planoAtualId;
+    if (
+      mesmoPlanoAtual &&
+      valorMensalAtual != null &&
+      Number.isFinite(Number(valorMensalAtual))
+    ) {
+      setValorMensalStr(String(Number(valorMensalAtual)));
+    } else {
+      setValorMensalStr(String(Number(plano.preco) || ''));
+    }
+  }
+
+  // Valor inicial quando planos carregam / seleção inicial
+  useEffect(() => {
+    if (!planoSelecionadoId || !planos.length || valorInicializadoRef.current) return;
+    const plano = planos.find((p) => p.id === planoSelecionadoId);
+    if (!plano) return;
+    const mesmoPlanoAtual = !!planoAtualId && plano.id === planoAtualId;
+    if (
+      mesmoPlanoAtual &&
+      valorMensalAtual != null &&
+      Number.isFinite(Number(valorMensalAtual))
+    ) {
+      setValorMensalStr(String(Number(valorMensalAtual)));
+    } else {
+      setValorMensalStr(String(Number(plano.preco) || ''));
+    }
+    valorInicializadoRef.current = true;
+  }, [planoSelecionadoId, planos, planoAtualId, valorMensalAtual]);
+
   const planoAtualIdVendavel =
     planoAtualId && planos.some((p) => p.id === planoAtualId) ? planoAtualId : null;
   const mudouPlano = planoSelecionadoId && planoSelecionadoId !== planoAtualIdVendavel;
@@ -204,7 +249,7 @@ export default function AdminAlterarPlanoModal({
                     <button
                       key={plano.id}
                       type="button"
-                      onClick={() => setPlanoSelecionadoId(plano.id)}
+                      onClick={() => selecionarPlano(plano.id)}
                       className={`text-left rounded-xl border p-4 transition-all ${
                         selected
                           ? 'border-gray-900 ring-2 ring-gray-900 bg-gray-50'
@@ -240,6 +285,11 @@ export default function AdminAlterarPlanoModal({
                               <FiXIcon className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                             )}
                             {m.label}
+                            {premiumModuleStatusBadge(m.status) && (
+                              <span className="text-[9px] uppercase tracking-wide text-amber-700 font-semibold">
+                                {premiumModuleStatusBadge(m.status)}
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -254,13 +304,13 @@ export default function AdminAlterarPlanoModal({
             <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-600">
               {planoSelecionado.slug === PLANO_SLUGS.BASICO
                 ? 'Gestão completa da assistência, sem módulos premium (NF, IA e CRM WhatsApp).'
-                : 'Inclui todos os módulos premium: Nota Fiscal, IA e CRM WhatsApp.'}
+                : 'Inclui módulos premium: Nota Fiscal, IA e CRM WhatsApp (em desenvolvimento).'}
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Valor mensal (R$) — opcional
+              Valor mensal para o plano {planoSelecionado?.nome || 'selecionado'} (R$)
             </label>
             <input
               type="text"
@@ -269,13 +319,27 @@ export default function AdminAlterarPlanoModal({
               onChange={(e) => setValorMensalStr(e.target.value)}
               placeholder={
                 planoSelecionado
-                  ? `Padrão: ${formatarPrecoBRL(Number(planoSelecionado.preco))}`
+                  ? `Catálogo: ${formatarPrecoBRL(Number(planoSelecionado.preco))}`
                   : 'Ex: 149,90'
               }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Deixe em branco para usar o preço cadastrado em Planos e preços.
+              Este valor fica gravado na assinatura e é o que o usuário vê ao renovar.
+              {planoSelecionado && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="text-gray-800 underline underline-offset-2"
+                    onClick={() =>
+                      setValorMensalStr(String(Number(planoSelecionado.preco) || ''))
+                    }
+                  >
+                    Usar catálogo ({formatarPrecoBRL(Number(planoSelecionado.preco))})
+                  </button>
+                </>
+              )}
             </p>
           </div>
 

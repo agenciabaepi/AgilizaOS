@@ -50,7 +50,7 @@ WHERE slug = 'basico';
 INSERT INTO planos (nome, descricao, preco, periodo, ativo, slug, recursos_disponiveis, limite_usuarios)
 SELECT
   'Completo',
-  'Sistema completo + Nota Fiscal + IA + CRM WhatsApp',
+  'Sistema completo + Nota Fiscal + IA + CRM WhatsApp (em desenvolvimento)',
   149.90,
   'mensal',
   true,
@@ -62,7 +62,7 @@ WHERE NOT EXISTS (SELECT 1 FROM planos WHERE slug = 'completo');
 UPDATE planos
 SET
   nome = 'Completo',
-  descricao = 'Sistema completo + Nota Fiscal + IA + CRM WhatsApp',
+  descricao = 'Sistema completo + Nota Fiscal + IA + CRM WhatsApp (em desenvolvimento)',
   recursos_disponiveis = '{"nota_fiscal":true,"ia":true,"whatsapp_crm":true}'::jsonb,
   ativo = true
 WHERE slug = 'completo';

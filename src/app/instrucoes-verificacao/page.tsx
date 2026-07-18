@@ -2,13 +2,14 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { FiMail, FiArrowRight, FiCheckCircle } from 'react-icons/fi'
+import { FiSmartphone, FiArrowRight, FiCheckCircle } from 'react-icons/fi'
 import { useToast } from '@/hooks/useToast'
 import Image from 'next/image'
 import logo from '@/assets/imagens/logopreto.png'
 
 function InstrucoesVerificacaoContent() {
   const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -19,7 +20,6 @@ function InstrucoesVerificacaoContent() {
     if (emailParam) {
       setEmail(emailParam)
     } else {
-      // Se não tem email, redireciona para login
       router.push('/login')
     }
   }, [searchParams, router])
@@ -32,7 +32,7 @@ function InstrucoesVerificacaoContent() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/email/reenviar-codigo', {
+      const response = await fetch('/api/verificacao/reenviar-codigo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +43,13 @@ function InstrucoesVerificacaoContent() {
       const data = await response.json()
 
       if (response.ok) {
-        addToast('Novo código enviado para seu email!', 'success')
+        if (data.telefone) setTelefone(data.telefone)
+        addToast(
+          data.telefone
+            ? `Novo código enviado por SMS para ${data.telefone}!`
+            : 'Novo código enviado por SMS!',
+          'success'
+        )
       } else {
         addToast(data.error || 'Erro ao reenviar código', 'error')
       }
@@ -58,7 +64,6 @@ function InstrucoesVerificacaoContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Image
@@ -69,38 +74,40 @@ function InstrucoesVerificacaoContent() {
               className="h-10 w-auto"
             />
           </div>
-          
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiMail className="w-8 h-8 text-blue-600" />
+
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FiSmartphone className="w-8 h-8 text-emerald-700" />
           </div>
-          
+
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Verificação de Email
+            Confirme sua conta
           </h1>
-          
+
           <p className="text-gray-600">
-            Enviamos um código de verificação para:
+            Enviamos um código de verificação por SMS
+            {telefone ? ':' : ' para o WhatsApp cadastrado.'}
           </p>
-          
-          <p className="text-blue-600 font-medium mt-1">
-            {email}
-          </p>
+
+          {telefone ? (
+            <p className="text-emerald-700 font-medium mt-1">{telefone}</p>
+          ) : (
+            <p className="text-gray-500 text-sm mt-1">{email}</p>
+          )}
         </div>
 
-        {/* Instruções */}
         <div className="space-y-4 mb-8">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <FiCheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <FiCheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
               <div>
-                <h3 className="font-medium text-blue-900 mb-2">
+                <h3 className="font-medium text-emerald-900 mb-2">
                   Próximos passos:
                 </h3>
-                <ol className="text-sm text-blue-800 space-y-2">
-                  <li>1. Verifique sua caixa de entrada</li>
-                  <li>2. Procure pelo email do Consert</li>
+                <ol className="text-sm text-emerald-800 space-y-2">
+                  <li>1. Abra as mensagens SMS do celular</li>
+                  <li>2. Procure a mensagem do Consert</li>
                   <li>3. Copie o código de 6 dígitos</li>
-                  <li>4. Faça login e insira o código</li>
+                  <li>4. Faça login e informe o código</li>
                 </ol>
               </div>
             </div>
@@ -111,19 +118,18 @@ function InstrucoesVerificacaoContent() {
               <FiCheckCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
               <div>
                 <h3 className="font-medium text-yellow-900 mb-1">
-                  Não encontrou o email?
+                  Não recebeu o SMS?
                 </h3>
                 <ul className="text-sm text-yellow-800 space-y-1">
-                  <li>• Verifique sua pasta de spam</li>
+                  <li>• Confira se o WhatsApp do cadastro está correto</li>
                   <li>• Aguarde alguns minutos</li>
-                  <li>• Clique em "Reenviar código" abaixo</li>
+                  <li>• Clique em &quot;Reenviar código&quot; abaixo</li>
                 </ul>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Botões */}
         <div className="space-y-3">
           <button
             onClick={handleIrParaLogin}
@@ -142,7 +148,6 @@ function InstrucoesVerificacaoContent() {
           </button>
         </div>
 
-        {/* Informações adicionais */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
             O código é válido por 24 horas

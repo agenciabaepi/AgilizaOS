@@ -108,7 +108,7 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
     const nome = usuario.nome || usuario.email || 'usuário';
     if (
       !window.confirm(
-        `Liberar verificação de e-mail para "${nome}" sem código?\n\nO usuário poderá entrar mesmo com verificação de e-mail ativa no sistema.`
+        `Liberar confirmação de conta para "${nome}" sem código SMS?\n\nO usuário poderá entrar mesmo com verificação por SMS ativa no sistema.`
       )
     ) {
       return;
@@ -147,7 +147,7 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Usuários da empresa</h2>
             <p className="text-sm text-gray-500">
-              Primeiro login, verificação de e-mail e acesso para suporte.
+              Primeiro login, confirmação por SMS e acesso para suporte.
             </p>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
                 <th className="px-3 py-2">Login</th>
                 <th className="px-3 py-2">Nível</th>
                 <th className="px-3 py-2">Primeiro login</th>
-                <th className="px-3 py-2">Verificação e-mail</th>
+                <th className="px-3 py-2">Confirmação SMS</th>
                 <th className="px-3 py-2 text-right">Ações</th>
               </tr>
             </thead>
@@ -273,7 +273,7 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
 
       <p className="mt-4 text-xs text-gray-500 flex items-start gap-1.5">
         <FiExternalLink className="shrink-0 mt-0.5" size={12} />
-        Primeiro login é registrado na primeira entrada bem-sucedida. Verificação por código grava data em{' '}
+        Primeiro login é registrado na primeira entrada bem-sucedida. Confirmação por SMS grava data em{' '}
         <code className="text-[10px] bg-gray-50 px-1 rounded">email_verificado_em</code>.
       </p>
     </div>

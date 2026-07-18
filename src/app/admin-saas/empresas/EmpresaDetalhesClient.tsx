@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
-import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash, FiEdit2, FiCreditCard } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash, FiEdit2, FiCreditCard, FiAlertTriangle, FiTrash2 } from 'react-icons/fi';
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import AdminEmpresaClientesSection from './AdminEmpresaClientesSection';
@@ -11,7 +11,9 @@ import AdminEmpresaUsuariosSection from './AdminEmpresaUsuariosSection';
 import AdminEmpresaPagamentosSection from './AdminEmpresaPagamentosSection';
 import PremiumRecursosForm from '@/components/admin/PremiumRecursosForm';
 import AdminAlterarPlanoModal from '@/components/admin/AdminAlterarPlanoModal';
+import AdminEmpresaValorPorPlano from '@/components/admin/AdminEmpresaValorPorPlano';
 import type { PremiumModule } from '@/config/planModules';
+import type { PlanoSlug } from '@/config/planModules';
 
 type AbaEmpresa = 'geral' | 'pagamentos';
 
@@ -28,6 +30,7 @@ function formatarDataCurta(iso: string | null | undefined) {
 }
 
 const PRESETS_DIAS_TRIAL = [7, 15, 30, 60, 90] as const;
+const EXCLUIR_EMPRESA_FRASE = 'EXCLUIR PERMANENTEMENTE';
 
 type EmpresaDetalhes = {
   id: string;
@@ -54,10 +57,12 @@ type EmpresaDetalhes = {
   };
   dias_trial?: number | null;
   billing?: {
-    plano: { id: string | null; nome: string };
+    plano: { id: string | null; nome: string; slug?: string | null };
     assinaturaStatus: string | null;
     /** Valor mensal gravado em `assinaturas.valor` (pode diferir do preço do plano) */
     valorMensal?: number | null;
+    /** Preço de catálogo do plano atual */
+    precoCatalogo?: number | null;
     proximaCobranca: string | null;
     vencido: boolean;
     cobrancaStatus: string;
@@ -345,13 +350,12 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [error, setError] = useState<string | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaDetalhes | null>(null);
   const [showAlterarPlano, setShowAlterarPlano] = useState(false);
+  const [planoInicialAlterar, setPlanoInicialAlterar] = useState<PlanoSlug | null>(null);
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
   const [showEditarDadosEmpresa, setShowEditarDadosEmpresa] = useState(false);
   const [salvandoAtivo, setSalvandoAtivo] = useState(false);
   const [salvandoLiberado, setSalvandoLiberado] = useState(false);
   const [cancelandoAssinatura, setCancelandoAssinatura] = useState(false);
-  const [valorAssinaturaInline, setValorAssinaturaInline] = useState('');
-  const [salvandoValorAssinatura, setSalvandoValorAssinatura] = useState(false);
   const [diasTrialInput, setDiasTrialInput] = useState(String(DIAS_TRIAL_GRATIS));
   const [contarTrialDe, setContarTrialDe] = useState<'hoje' | 'criacao'>('hoje');
   const [dataTrialFimInput, setDataTrialFimInput] = useState('');
@@ -359,27 +363,44 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [storageMb, setStorageMb] = useState<number | null>(null);
   const [carregandoStorage, setCarregandoStorage] = useState(false);
   const [aba, setAba] = useState<AbaEmpresa>('geral');
+  const [showExcluirEmpresa, setShowExcluirEmpresa] = useState(false);
+  const [excluirNomeConfirm, setExcluirNomeConfirm] = useState('');
+  const [excluirFraseConfirm, setExcluirFraseConfirm] = useState('');
+  const [excluindoEmpresa, setExcluindoEmpresa] = useState(false);
+  const [erroExcluirEmpresa, setErroExcluirEmpresa] = useState<string | null>(null);
+  const [empresaExcluida, setEmpresaExcluida] = useState(false);
+  /** Evita reload/erro "Empresa não encontrada" após exclusão bem-sucedida. */
+  const empresaExcluidaRef = useRef(false);
 
   // Função para recarregar dados da empresa (`silent` evita spinner em atualizações após modais)
   const recarregarEmpresa = async (opts?: { silent?: boolean }) => {
-    if (!empresaId) return;
+    if (!empresaId || empresaExcluidaRef.current) return;
     const silent = opts?.silent === true;
     if (!silent) setLoading(true);
     try {
       const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store', credentials: 'include' });
       const json = await res.json();
+      if (empresaExcluidaRef.current) return;
       if (!res.ok || !json.ok) {
         const msg = json.message || (typeof json.error === 'string' ? json.error : json.error?.message) || 'Falha ao carregar empresa';
+        const notFound =
+          res.status === 404 ||
+          /não encontrada|nao encontrada|not found/i.test(String(msg));
+        if (notFound) {
+          router.replace('/admin-saas/empresas');
+          return;
+        }
         throw new Error(msg);
       }
       setEmpresa(json.empresa);
     } catch (e: any) {
+      if (empresaExcluidaRef.current) return;
       console.error(e);
       if (!silent) setError(e.message || 'Não foi possível carregar os detalhes da empresa');
       else alert(e.message || 'Não foi possível atualizar os dados');
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && !empresaExcluidaRef.current) setLoading(false);
     }
   };
 
@@ -391,7 +412,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   }, [empresaId]);
 
   useEffect(() => {
-    if (!empresaId || loading) return;
+    if (!empresaId || loading || empresaExcluidaRef.current) return;
     let cancelled = false;
     setCarregandoStorage(true);
     setStorageMb(null);
@@ -403,11 +424,13 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           credentials: 'include',
         });
         const json = await res.json();
-        if (!cancelled && res.ok && json.ok) {
+        if (!cancelled && !empresaExcluidaRef.current && res.ok && json.ok) {
           setStorageMb(typeof json.usoMb === 'number' ? json.usoMb : 0);
         }
       } catch (e) {
-        console.error('Erro ao carregar storage:', e);
+        if (!empresaExcluidaRef.current) {
+          console.error('Erro ao carregar storage:', e);
+        }
       } finally {
         if (!cancelled) setCarregandoStorage(false);
       }
@@ -420,10 +443,6 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
   useEffect(() => {
     if (!empresa) return;
-    const v = empresa.billing?.valorMensal;
-    setValorAssinaturaInline(
-      v != null && Number.isFinite(Number(v)) ? String(Number(v)) : ''
-    );
     const dias =
       empresa.billing?.diasTrial ??
       empresa.dias_trial ??
@@ -435,7 +454,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
         setDataTrialFimInput(d.toISOString().slice(0, 10));
       }
     }
-  }, [empresa?.id, empresa?.billing?.valorMensal, empresa?.billing?.diasTrial, empresa?.billing?.dataTrialFim, empresa?.dias_trial]);
+  }, [empresa?.id, empresa?.billing?.diasTrial, empresa?.billing?.dataTrialFim, empresa?.dias_trial]);
 
   async function patchEmpresa(payload: Record<string, unknown>) {
     const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
@@ -485,37 +504,6 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
   async function handleReject() {
     await patchEmpresa({ status: 'reprovada', ativo: false });
-  }
-
-  async function salvarValorAssinaturaInline() {
-    if (!empresa) return;
-    const trimmed = valorAssinaturaInline.trim();
-    const n = trimmed
-      ? parseFloat(trimmed.replace(/\./g, '').replace(',', '.'))
-      : NaN;
-    if (!Number.isFinite(n) || n <= 0) {
-      alert('Informe um valor válido maior que zero.');
-      return;
-    }
-    setSalvandoValorAssinatura(true);
-    try {
-      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}/assinatura-valor`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ valor: n }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao salvar valor');
-      }
-      await recarregarEmpresa();
-    } catch (e: any) {
-      alert(e.message || 'Erro ao salvar valor da assinatura');
-    } finally {
-      setSalvandoValorAssinatura(false);
-    }
   }
 
   async function salvarPrazoTrial() {
@@ -568,6 +556,15 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
+
+  if (empresaExcluida) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 h-64 text-gray-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        <p className="text-sm">Empresa excluída. Redirecionando…</p>
       </div>
     );
   }
@@ -788,6 +785,18 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
                 currency: 'BRL',
               })}
               <span className="text-gray-400"> /mês</span>
+              {empresa.billing.precoCatalogo != null &&
+                Math.abs(Number(empresa.billing.valorMensal) - Number(empresa.billing.precoCatalogo)) >
+                  0.009 && (
+                  <span className="block text-xs text-emerald-700 mt-0.5 font-medium">
+                    Personalizado (catálogo{' '}
+                    {Number(empresa.billing.precoCatalogo).toLocaleString('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    })}
+                    )
+                  </span>
+                )}
             </p>
           )}
           {empresa.billing?.dataTrialFim &&
@@ -855,52 +864,21 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            {(empresa.billing?.assinaturaStatus === 'active' ||
-              empresa.billing?.assinaturaStatus === 'ativa' ||
-              empresa.billing?.assinaturaStatus === 'trial') && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-800">Valor mensal manual</h3>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[160px]">
-                    <label htmlFor="valor-assinatura-inline" className="block text-xs font-medium text-gray-600 mb-1">
-                      Valor em reais
-                    </label>
-                    <input
-                      id="valor-assinatura-inline"
-                      type="text"
-                      inputMode="decimal"
-                      value={valorAssinaturaInline}
-                      onChange={(e) => setValorAssinaturaInline(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      placeholder="Ex: 149,90"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={salvandoValorAssinatura}
-                    onClick={salvarValorAssinaturaInline}
-                    className="bg-gray-900 hover:bg-gray-800 text-white"
-                  >
-                    {salvandoValorAssinatura ? 'Salvando...' : 'Salvar valor'}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Atualiza só o valor na assinatura, sem trocar o plano. Se não houver linha em assinaturas, use
-                  &quot;Alterar assinatura&quot; nas ações rápidas.
-                </p>
-              </div>
-            )}
+            <AdminEmpresaValorPorPlano
+              empresaId={empresaId}
+              planoAtualSlug={empresa.billing?.plano?.slug}
+              planoAtualNome={empresa.billing?.plano?.nome}
+              valorMensalAtual={empresa.billing?.valorMensal}
+              precoCatalogoAtual={empresa.billing?.precoCatalogo}
+              assinaturaStatus={empresa.billing?.assinaturaStatus}
+              onSaved={() => recarregarEmpresa({ silent: true })}
+              onAlterarAssinatura={(slug) => {
+                setPlanoInicialAlterar(slug ?? null);
+                setShowAlterarPlano(true);
+              }}
+            />
 
-            <div
-              className={`space-y-4 ${
-                !(empresa.billing?.assinaturaStatus === 'active' ||
-                  empresa.billing?.assinaturaStatus === 'ativa' ||
-                  empresa.billing?.assinaturaStatus === 'trial')
-                  ? 'lg:col-span-2'
-                  : ''
-              }`}
-            >
+            <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-800">Configurar prazo de teste</h3>
               <div className="flex flex-wrap gap-2">
                 {PRESETS_DIAS_TRIAL.map((d) => (
@@ -1191,7 +1169,10 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h2>
         <div className="flex flex-wrap gap-3">
           <Button
-            onClick={() => setShowAlterarPlano(true)}
+            onClick={() => {
+              setPlanoInicialAlterar(null);
+              setShowAlterarPlano(true);
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <FiDollarSign className="mr-2" />
@@ -1241,6 +1222,36 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
         </div>
       </div>
 
+      {/* Zona de perigo — exclusão permanente */}
+      <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="mt-0.5 rounded-lg bg-red-50 p-2 text-red-600">
+            <FiAlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-red-900">Zona de perigo</h2>
+            <p className="text-sm text-red-700/90 mt-1 max-w-2xl">
+              Excluir esta empresa remove de forma permanente usuários, clientes, ordens de serviço,
+              produtos, pagamentos, arquivos no storage e demais dados vinculados. Esta ação não pode ser desfeita.
+              Prefira <strong>Desativar</strong> se quiser apenas bloquear o acesso.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={() => {
+            setErroExcluirEmpresa(null);
+            setExcluirNomeConfirm('');
+            setExcluirFraseConfirm('');
+            setShowExcluirEmpresa(true);
+          }}
+          className="bg-red-700 hover:bg-red-800 text-white"
+        >
+          <FiTrash2 className="mr-2" />
+          Excluir empresa permanentemente
+        </Button>
+      </div>
+
       </>
       )}
 
@@ -1251,10 +1262,15 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           empresaNome={empresa.nome}
           planoAtualId={empresa.billing?.plano?.id}
           planoAtualNome={empresa.billing?.plano?.nome}
+          planoInicialSlug={planoInicialAlterar}
           valorMensalAtual={empresa.billing?.valorMensal}
-          onClose={() => setShowAlterarPlano(false)}
+          onClose={() => {
+            setShowAlterarPlano(false);
+            setPlanoInicialAlterar(null);
+          }}
           onSuccess={async () => {
             setShowAlterarPlano(false);
+            setPlanoInicialAlterar(null);
             await recarregarEmpresa();
           }}
         />
@@ -1279,6 +1295,132 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           empresaId={empresaId}
           onSuccess={() => recarregarEmpresa({ silent: true })}
         />
+      ) : null}
+
+      {showExcluirEmpresa && empresa ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => {
+            if (!excluindoEmpresa) setShowExcluirEmpresa(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-red-100 bg-red-50 flex items-start gap-3">
+              <FiAlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-lg font-semibold text-red-900">Excluir empresa permanentemente</h3>
+                <p className="text-sm text-red-800 mt-1">
+                  Você está prestes a apagar <strong>{empresa.nome}</strong> e todos os dados vinculados
+                  (OS, clientes, usuários, storage, etc.). Irreversível.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Só a empresa selecionada será afetada. Confirme digitando o nome e a frase de segurança.
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Digite o nome da empresa: <span className="font-semibold text-gray-900">{empresa.nome}</span>
+                </label>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                  value={excluirNomeConfirm}
+                  onChange={(e) => setExcluirNomeConfirm(e.target.value)}
+                  placeholder={empresa.nome}
+                  disabled={excluindoEmpresa}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Digite <span className="font-mono font-semibold text-red-700">{EXCLUIR_EMPRESA_FRASE}</span>
+                </label>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                  value={excluirFraseConfirm}
+                  onChange={(e) => setExcluirFraseConfirm(e.target.value)}
+                  placeholder={EXCLUIR_EMPRESA_FRASE}
+                  disabled={excluindoEmpresa}
+                  autoComplete="off"
+                />
+              </div>
+
+              {erroExcluirEmpresa && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {erroExcluirEmpresa}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={excluindoEmpresa}
+                  onClick={() => setShowExcluirEmpresa(false)}
+                  className="border-gray-300"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    excluindoEmpresa ||
+                    excluirNomeConfirm.trim() !== empresa.nome.trim() ||
+                    excluirFraseConfirm.trim() !== EXCLUIR_EMPRESA_FRASE
+                  }
+                  className="bg-red-700 hover:bg-red-800 text-white disabled:opacity-40"
+                  onClick={async () => {
+                    if (!empresa) return;
+                    setErroExcluirEmpresa(null);
+                    setExcluindoEmpresa(true);
+                    try {
+                      const res = await fetch(`/api/admin-saas/empresas/${empresaId}/excluir`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          confirmacaoNome: excluirNomeConfirm,
+                          confirmacaoTexto: excluirFraseConfirm,
+                        }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok || !json.ok) {
+                        throw new Error(json.message || 'Falha ao excluir empresa');
+                      }
+                      // Marca antes de qualquer re-render/reload para não tratar 404 como erro
+                      empresaExcluidaRef.current = true;
+                      setEmpresaExcluida(true);
+                      setShowExcluirEmpresa(false);
+                      setEmpresa(null);
+                      setError(null);
+                      router.replace('/admin-saas/empresas');
+                    } catch (e: unknown) {
+                      if (!empresaExcluidaRef.current) {
+                        setErroExcluirEmpresa(
+                          e instanceof Error ? e.message : 'Erro ao excluir empresa'
+                        );
+                      }
+                    } finally {
+                      if (!empresaExcluidaRef.current) {
+                        setExcluindoEmpresa(false);
+                      }
+                    }
+                  }}
+                >
+                  <FiTrash2 className="mr-2" />
+                  {excluindoEmpresa ? 'Excluindo… isso pode demorar' : 'Confirmar exclusão permanente'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

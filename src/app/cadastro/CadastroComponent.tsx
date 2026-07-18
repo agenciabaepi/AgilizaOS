@@ -15,7 +15,7 @@ import {
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
 import { LANDING_TRIAL } from '@/config/landing';
-import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification';
 
 export default function CadastroEmpresa() {
   const [step, setStep] = useState(1);
@@ -267,12 +267,12 @@ export default function CadastroEmpresa() {
       }
       
       toast.success(result.message || 'Cadastro realizado com sucesso!');
-      if (EMAIL_VERIFICATION_ENABLED && result.email_enviado === false) {
-        toast.error('Não foi possível enviar o e-mail agora. Na próxima tela, use "Reenviar código".');
+      if (SMS_VERIFICATION_ENABLED && result.sms_enviado === false) {
+        toast.error('Não foi possível enviar o SMS agora. Na próxima tela, use "Reenviar código".');
       }
       
       setTimeout(() => {
-        if (EMAIL_VERIFICATION_ENABLED) {
+        if (SMS_VERIFICATION_ENABLED) {
           router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
         } else {
           router.push('/login');

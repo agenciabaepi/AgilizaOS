@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PLANO_SLUGS } from '@/config/planModules';
 import { normalizarCodigoCupom, parseCupomRpcResult } from '@/lib/billing/cupomDesconto';
+import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 
 export async function obterPrecoPlano(
   admin: SupabaseClient,
@@ -17,6 +18,70 @@ export async function obterPrecoPlano(
     .maybeSingle();
   const preco = data?.preco != null ? Number(data.preco) : NaN;
   return Number.isFinite(preco) && preco > 0 ? preco : null;
+}
+
+export type PrecoCobrancaEmpresa = {
+  preco: number;
+  precoCatalogo: number;
+  personalizado: boolean;
+};
+
+/**
+ * Preço que a empresa deve pagar pelo plano:
+ * se a assinatura vigente for desse plano e tiver `valor` > 0, usa esse valor
+ * (preço personalizado no admin); senão, preço do catálogo.
+ */
+export async function obterPrecoCobrancaEmpresa(
+  admin: SupabaseClient,
+  empresaId: string,
+  planoSlug: string
+): Promise<PrecoCobrancaEmpresa | null> {
+  const precoCatalogo = await obterPrecoPlano(admin, planoSlug);
+  if (precoCatalogo == null) return null;
+
+  const [{ data: empresa }, { data: rows }] = await Promise.all([
+    admin.from('empresas').select('created_at, dias_trial').eq('id', empresaId).maybeSingle(),
+    admin
+      .from('assinaturas')
+      .select(
+        'id, valor, status, plano_id, created_at, data_fim, proxima_cobranca, data_trial_fim'
+      )
+      .eq('empresa_id', empresaId)
+      .order('created_at', { ascending: false })
+      .limit(30),
+  ]);
+
+  const picked = pickAssinaturaParaContexto(
+    (rows || []) as Record<string, unknown>[],
+    empresa?.created_at as string | null | undefined,
+    typeof empresa?.dias_trial === 'number' ? empresa.dias_trial : null
+  );
+
+  if (!picked?.plano_id) {
+    return { preco: precoCatalogo, precoCatalogo, personalizado: false };
+  }
+
+  const { data: planoRow } = await admin
+    .from('planos')
+    .select('slug')
+    .eq('id', picked.plano_id as string)
+    .maybeSingle();
+
+  const slugAssinatura = String(planoRow?.slug || '').toLowerCase();
+  if (slugAssinatura !== planoSlug) {
+    return { preco: precoCatalogo, precoCatalogo, personalizado: false };
+  }
+
+  const valorAssinatura = Number(picked.valor);
+  if (!Number.isFinite(valorAssinatura) || valorAssinatura <= 0) {
+    return { preco: precoCatalogo, precoCatalogo, personalizado: false };
+  }
+
+  return {
+    preco: valorAssinatura,
+    precoCatalogo,
+    personalizado: Math.abs(valorAssinatura - precoCatalogo) > 0.009,
+  };
 }
 
 export async function validarCupomDesconto(

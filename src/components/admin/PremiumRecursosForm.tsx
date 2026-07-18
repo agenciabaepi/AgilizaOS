@@ -46,7 +46,12 @@ export default function PremiumRecursosForm({
             {info.status === 'planned' && (
               <span className="ml-1 text-[10px] uppercase tracking-wide text-amber-600">Em breve</span>
             )}
-            {info.status === 'beta' && (
+            {info.status === 'development' && (
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-amber-700">
+                Em desenvolvimento
+              </span>
+            )}
+            {(info.status as string) === 'beta' && (
               <span className="ml-1 text-[10px] uppercase tracking-wide text-blue-600">Beta</span>
             )}
           </span>

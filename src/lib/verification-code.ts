@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { gerarCodigoVerificacao, normalizeEmail } from '@/lib/email'
+import { normalizeEmail } from '@/lib/smtp-config'
 
 const HORAS_VALIDADE = 24
+
+export function gerarCodigoVerificacao(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
 
 export type IssueVerificationCodeResult =
   | { ok: true; codigo: string; id: string }

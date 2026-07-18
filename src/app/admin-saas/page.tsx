@@ -1,7 +1,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { redirect } from 'next/navigation';
+import AdminSmsSaldoCard from './AdminSmsSaldoCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +64,8 @@ export default async function AdminSaaSPage() {
       </div>
 
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
+        <AdminSmsSaldoCard />
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-start justify-between mb-4">
             <div className="h-12 w-12 rounded-lg bg-blue-50 flex items-center justify-center">

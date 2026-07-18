@@ -11,7 +11,7 @@ import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import { getDashboardPath } from '@/lib/dashboardRouting';
-import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification';
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');
@@ -90,7 +90,7 @@ function LoginClientInner() {
       window.location.href = '/empresa-desativada';
     }
     
-    if (email && verificacao === 'pending' && EMAIL_VERIFICATION_ENABLED) {
+    if (email && verificacao === 'pending' && SMS_VERIFICATION_ENABLED) {
       setPendingEmail(email.trim().toLowerCase());
       setShowVerification(true);
     }
@@ -98,26 +98,27 @@ function LoginClientInner() {
 
   // Reenvia código automaticamente ao abrir a tela de verificação (cadastro ou login)
   useEffect(() => {
-    if (!EMAIL_VERIFICATION_ENABLED) return;
+    if (!SMS_VERIFICATION_ENABLED) return;
     if (!showVerification || !pendingEmail || autoResendDone.current) return;
     autoResendDone.current = true;
 
     (async () => {
       try {
-        const response = await fetch('/api/email/reenviar-codigo', {
+        const response = await fetch('/api/verificacao/reenviar-codigo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: pendingEmail }),
         });
         const data = await response.json();
         if (response.ok) {
+          const dest = data.telefone ? ` (${data.telefone})` : '';
           if (data.reused) {
-            addToast('success', 'Código reenviado para seu e-mail.');
+            addToast('success', `Código reenviado por SMS${dest}.`);
           } else {
-            addToast('success', 'Código enviado para seu e-mail.');
+            addToast('success', `Código enviado por SMS${dest}.`);
           }
         } else if (response.status === 503) {
-          addToast('error', data.error || 'Serviço de e-mail indisponível no momento.');
+          addToast('error', data.error || 'Serviço de SMS indisponível no momento.');
         }
       } catch {
         /* usuário pode clicar em Reenviar código */
@@ -130,33 +131,79 @@ function LoginClientInner() {
     setIsMounted(true);
   }, []);
 
-  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, redirecionar para o destino (redirect param) ou dashboard correta por role
+  // 🔒 Se já logado: só redireciona se a conta estiver confirmada (SMS)
   const didRedirectLoggedIn = useRef(false);
   useEffect(() => {
     if (!auth.user || !auth.session || auth.loading) return;
     if (didRedirectLoggedIn.current) return;
-    didRedirectLoggedIn.current = true;
-    // Ler redirect da URL (fallback: window.location para garantir que pegamos o param)
-    const redirectTo = searchParams.get('redirect') ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null);
-    if (redirectTo && typeof redirectTo === 'string') {
-      const path = decodeURIComponent(redirectTo).trim();
-      const isInternalPath = path.startsWith('/') && !path.startsWith('//') && path.indexOf('://') === -1;
-      if (isInternalPath && path !== '/login' && !path.startsWith('/login') && !path.startsWith('/cadastro')) {
-        router.replace(path);
+    if (showVerification) return;
+
+    let cancelled = false;
+    (async () => {
+      if (!SMS_VERIFICATION_ENABLED) {
+        didRedirectLoggedIn.current = true;
+        const redirectTo = searchParams.get('redirect') ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null);
+        if (redirectTo && typeof redirectTo === 'string') {
+          const path = decodeURIComponent(redirectTo).trim();
+          const isInternalPath = path.startsWith('/') && !path.startsWith('//') && path.indexOf('://') === -1;
+          if (isInternalPath && path !== '/login' && !path.startsWith('/login') && !path.startsWith('/cadastro')) {
+            router.replace(path);
+            return;
+          }
+        }
+        router.replace(getDashboardPath({ nivel: auth.usuarioData?.nivel }));
         return;
       }
-    }
-    const dashboardPath = getDashboardPath({ nivel: auth.usuarioData?.nivel });
-    router.replace(dashboardPath);
-  }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, searchParams, router]);
 
-  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, mostrar loading
-  if (auth.user && auth.session && !auth.loading) {
+      try {
+        const res = await fetch('/api/auth/verification-gate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auth_user_id: auth.user.id }),
+        });
+        const gate = await res.json();
+        if (cancelled) return;
+
+        if (!gate.pode_entrar) {
+          const email = gate.email || auth.user.email || '';
+          setPendingEmail(email);
+          setShowVerification(true);
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+            auth.clearSession();
+          } catch { /* ignore */ }
+          addToast('warning', gate.motivo || 'Confirme sua conta com o código SMS antes de entrar.');
+          return;
+        }
+
+        didRedirectLoggedIn.current = true;
+        const redirectTo = searchParams.get('redirect') ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null);
+        if (redirectTo && typeof redirectTo === 'string') {
+          const path = decodeURIComponent(redirectTo).trim();
+          const isInternalPath = path.startsWith('/') && !path.startsWith('//') && path.indexOf('://') === -1;
+          if (isInternalPath && path !== '/login' && !path.startsWith('/login') && !path.startsWith('/cadastro')) {
+            router.replace(path);
+            return;
+          }
+        }
+        router.replace(getDashboardPath({ nivel: auth.usuarioData?.nivel }));
+      } catch {
+        /* mantém na tela de login */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, searchParams, router, showVerification, addToast, auth]);
+
+  // 🔒 Enquanto valida sessão / confirmação, não mostra form de senha se já autenticado
+  if (auth.user && auth.session && !auth.loading && !showVerification) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecionando...</p>
+          <p className="mt-4 text-gray-600">Verificando conta...</p>
         </div>
       </div>
     );
@@ -173,7 +220,7 @@ function LoginClientInner() {
     setVerifyingCode(true);
 
     try {
-      const response = await fetch('/api/email/verificar-codigo', {
+      const response = await fetch('/api/verificacao/verificar-codigo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +234,7 @@ function LoginClientInner() {
       const data = await response.json();
 
       if (response.ok) {
-        addToast('success', 'Email verificado com sucesso! Agora faça login com sua senha.');
+        addToast('success', 'Conta confirmada! Agora faça login com sua senha.');
         setLoginInput(pendingEmail);
         window.history.replaceState({}, '', '/login');
         setShowVerification(false);
@@ -208,7 +255,7 @@ function LoginClientInner() {
     setVerifyingCode(true);
 
     try {
-      const response = await fetch('/api/email/reenviar-codigo', {
+      const response = await fetch('/api/verificacao/reenviar-codigo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -219,7 +266,8 @@ function LoginClientInner() {
       const data = await response.json();
 
       if (response.ok) {
-        addToast('success', data.reused ? 'Código ainda válido — confira seu e-mail.' : 'Novo código enviado para seu email!');
+        const dest = data.telefone ? ` para ${data.telefone}` : '';
+        addToast('success', data.reused ? `Código reenviado por SMS${dest}.` : `Novo código enviado por SMS${dest}!`);
       } else {
         addToast('error', data.error || 'Erro ao reenviar código');
       }
@@ -269,25 +317,43 @@ function LoginClientInner() {
       }
       emailToLogin = result.email;
 
-      // Admin: confirmar email com código antes do primeiro login
-      if (EMAIL_VERIFICATION_ENABLED && result.nivel === 'admin' && !result.email_verificado) {
+      // Bloqueia login sem confirmação SMS (fonte de verdade do servidor)
+      if (SMS_VERIFICATION_ENABLED && result.pode_entrar === false) {
         setIsSubmitting(false);
         loginInProgress.current = false;
         setPendingEmail(emailToLogin);
-        setShowVerification(true);
-        addToast('warning', 'Confirme seu email. Digite o código de 6 dígitos enviado para sua caixa de entrada.');
+        if (result.nivel === 'admin') {
+          setShowVerification(true);
+          addToast('warning', result.motivo || 'Confirme sua conta com o código SMS antes de entrar.');
+        } else {
+          addToast(
+            'error',
+            result.motivo ||
+              'A conta da empresa ainda não foi confirmada. Peça ao administrador para confirmar o SMS.'
+          );
+        }
         return;
       }
 
-      // Demais usuários: empresa precisa ter admin com email verificado
-      if (EMAIL_VERIFICATION_ENABLED && result.nivel !== 'admin' && !result.empresa_verificada) {
-        setIsSubmitting(false);
-        loginInProgress.current = false;
-        addToast(
-          'error',
-          'A conta da empresa ainda não foi confirmada. Peça ao administrador para verificar o email.'
-        );
-        return;
+      // Fallback se API antiga não enviar pode_entrar
+      if (SMS_VERIFICATION_ENABLED && result.pode_entrar === undefined) {
+        if (result.nivel === 'admin' && !result.email_verificado) {
+          setIsSubmitting(false);
+          loginInProgress.current = false;
+          setPendingEmail(emailToLogin);
+          setShowVerification(true);
+          addToast('warning', 'Confirme sua conta. Digite o código de 6 dígitos enviado por SMS.');
+          return;
+        }
+        if (result.nivel !== 'admin' && !result.empresa_verificada) {
+          setIsSubmitting(false);
+          loginInProgress.current = false;
+          addToast(
+            'error',
+            'A conta da empresa ainda não foi confirmada. Peça ao administrador para confirmar o SMS.'
+          );
+          return;
+        }
       }
     } catch {
       setIsSubmitting(false);
@@ -343,6 +409,39 @@ function LoginClientInner() {
       loginInProgress.current = false;
       addToast('error', 'Erro ao autenticar usuário. Tente novamente.');
       return;
+    }
+
+    // Revalida confirmação SMS DEPOIS da senha (impede bypass / sessão inválida)
+    if (SMS_VERIFICATION_ENABLED) {
+      try {
+        const gateRes = await fetch('/api/auth/verification-gate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auth_user_id: session.user.id }),
+        });
+        const gate = await gateRes.json();
+        if (!gate.pode_entrar) {
+          await supabase.auth.signOut({ scope: 'local' });
+          auth.clearSession();
+          setIsSubmitting(false);
+          loginInProgress.current = false;
+          setPendingEmail(emailToLogin);
+          if ((gate.nivel || '').toLowerCase() === 'admin') {
+            setShowVerification(true);
+            addToast('warning', gate.motivo || 'Confirme sua conta com o código SMS antes de entrar.');
+          } else {
+            addToast('error', gate.motivo || 'Conta da empresa não confirmada.');
+          }
+          return;
+        }
+      } catch {
+        await supabase.auth.signOut({ scope: 'local' });
+        auth.clearSession();
+        setIsSubmitting(false);
+        loginInProgress.current = false;
+        addToast('error', 'Não foi possível validar a confirmação da conta. Tente novamente.');
+        return;
+      }
     }
     
     // Buscar dados do usuário
@@ -743,10 +842,10 @@ function LoginClientInner() {
                 {/* Header */}
                 <div className="text-center mb-8">
                   <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
-                    Verificar Email
+                    Confirmar conta
                   </h1>
                   <p className="text-gray-600 font-light">
-                    Digite o código de 6 dígitos enviado para seu email ao se cadastrar.
+                    Digite o código de 6 dígitos enviado por SMS no cadastro.
                   </p>
                   <p className="text-blue-600 font-medium mt-1">
                     {pendingEmail}
@@ -818,7 +917,7 @@ function LoginClientInner() {
                     </div>
                     <div className="text-sm">
                       <p className="text-yellow-800 font-medium">Código válido por 24 horas</p>
-                      <p className="text-yellow-700 mt-1">Verifique sua caixa de spam se não encontrar o email.</p>
+                      <p className="text-yellow-700 mt-1">Não recebeu? Aguarde alguns minutos ou toque em Reenviar código.</p>
                     </div>
                   </div>
                 </div>

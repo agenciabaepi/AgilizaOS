@@ -1,2 +1,5 @@
-/** Verificação de e-mail com código no cadastro / primeiro login. */
-export const EMAIL_VERIFICATION_ENABLED = false;
+/** @deprecated Prefer `@/config/sms-verification` — mantido para imports legados. */
+export {
+  SMS_VERIFICATION_ENABLED,
+  EMAIL_VERIFICATION_ENABLED,
+} from '@/config/sms-verification';

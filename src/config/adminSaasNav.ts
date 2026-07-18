@@ -13,6 +13,7 @@ import {
   FiCheckSquare,
   FiDroplet,
   FiPercent,
+  FiMessageCircle,
 } from 'react-icons/fi';
 
 export type AdminSaasNavLink = {
@@ -30,6 +31,7 @@ export const ADMIN_SAAS_NAV_LINKS: AdminSaasNavLink[] = [
   { href: '/admin-saas/tickets', label: 'Tickets', icon: FiMessageSquare },
   { href: '/admin-saas/notificacoes', label: 'Notificações', icon: FiBell },
   { href: '/admin-saas/usuarios', label: 'Usuários', icon: FiUsers },
+  { href: '/admin-saas/sms', label: 'SMS', icon: FiMessageCircle },
   { href: '/admin-saas/tipos-equipamento', label: 'Tipos equip.', icon: FiPackage },
   { href: '/admin-saas/aparelhos', label: 'Aparelhos', icon: FiSmartphone },
   { href: '/admin-saas/cores', label: 'Cores', icon: FiDroplet },

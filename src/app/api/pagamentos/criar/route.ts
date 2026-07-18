@@ -9,7 +9,7 @@ import {
 } from '@/lib/asaas';
 import { PLANO_SLUGS } from '@/config/planModules';
 import {
-  obterPrecoPlano,
+  obterPrecoCobrancaEmpresa,
   reservarCupomDesconto,
   cancelarReservaCupom,
 } from '@/lib/billing/cupomServer';
@@ -134,14 +134,14 @@ export async function POST(req: NextRequest) {
 
     let valorOriginal: number;
     if (planoSlugValido) {
-      const precoPlano = await obterPrecoPlano(admin, planoSlugValido);
-      if (precoPlano === null) {
+      const cobranca = await obterPrecoCobrancaEmpresa(admin, usuario.empresa_id, planoSlugValido);
+      if (!cobranca) {
         return NextResponse.json(
           { success: false, error: 'Preço do plano indisponível' },
           { status: 400 }
         );
       }
-      valorOriginal = precoPlano;
+      valorOriginal = cobranca.preco;
     } else {
       const numValor = Number(valor);
       if (!Number.isFinite(numValor) || numValor <= 0) {

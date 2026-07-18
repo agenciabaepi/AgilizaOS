@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logobranco.png';
-import { FiCheckCircle, FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
+import { FiCheckCircle, FiSmartphone, FiLock, FiArrowRight } from 'react-icons/fi';
 import { LANDING_TRIAL } from '@/config/landing';
 
 export default function CadastroSucessoPage() {
@@ -56,11 +56,11 @@ export default function CadastroSucessoPage() {
             <h2 className="text-lg font-medium text-white mb-4">Próximos passos</h2>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <FiMail className="w-5 h-5 text-[#D1FE6E] mt-1 flex-shrink-0" />
+                <FiSmartphone className="w-5 h-5 text-[#D1FE6E] mt-1 flex-shrink-0" />
                 <div>
-                  <h3 className="font-medium text-white">1. Verifique seu e-mail</h3>
+                  <h3 className="font-medium text-white">1. Confirme o SMS</h3>
                   <p className="text-sm text-white/70">
-                    Enviamos um e-mail de confirmação para você ativar sua conta.
+                    Enviamos um código por SMS para o WhatsApp cadastrado. Use-o no primeiro login.
                   </p>
                 </div>
               </div>
@@ -70,7 +70,7 @@ export default function CadastroSucessoPage() {
                 <div>
                   <h3 className="font-medium text-white">2. Faça login</h3>
                   <p className="text-sm text-white/70">
-                    Use o e-mail e senha que você cadastrou para acessar o sistema.
+                    Use o e-mail e senha que você cadastrou e informe o código do SMS.
                   </p>
                 </div>
               </div>

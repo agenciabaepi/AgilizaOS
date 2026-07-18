@@ -1,41 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { enviarEmailVerificacao } from '@/lib/email'
+import { isBrasilSmsConfigured, sendBrasilSms, buildVerificationSmsMessage } from '@/lib/brasilsms'
+import { isAdminAuthorized } from '@/lib/admin-auth'
 
+/** Teste de SMS — apenas admin SaaS. */
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
+    const ok = await isAdminAuthorized(request)
+    if (!ok) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
 
-    if (!email) {
+    if (!isBrasilSmsConfigured()) {
       return NextResponse.json(
-        { error: 'Email é obrigatório' },
-        { status: 400 }
+        { success: false, error: 'BRASILSMS_API_TOKEN não configurado' },
+        { status: 503 }
       )
     }
 
-           // Tentar enviar email de teste
-       const codigoTeste = '123456'
-       const emailEnviado = await enviarEmailVerificacao(email, codigoTeste, 'TESTE')
+    const body = await request.json().catch(() => ({}))
+    const telefone = typeof body.telefone === 'string' ? body.telefone : ''
 
-       if (!emailEnviado) {
-         return NextResponse.json({
-           success: false,
-           error: 'Falha ao enviar email',
-           details: 'O email não foi enviado'
-         }, { status: 500 })
-       }
+    if (!telefone.trim()) {
+      return NextResponse.json({ error: 'telefone é obrigatório' }, { status: 400 })
+    }
 
-       return NextResponse.json({
-      success: true,
-      message: 'Teste de email realizado com sucesso',
-      details: 'Email de teste enviado para ' + email
-    })
+    const sent = await sendBrasilSms(telefone, buildVerificationSmsMessage('000000'))
 
-  } catch (error) {
-    console.error('❌ Debug - Erro no teste de email:', error)
+    if (!sent.ok) {
+      return NextResponse.json(
+        { success: false, error: sent.error, details: sent.raw },
+        { status: sent.status || 500 }
+      )
+    }
+
     return NextResponse.json({
-      success: false,
-      error: 'Erro interno',
-      details: error instanceof Error ? error.message : 'Erro desconhecido'
-    }, { status: 500 })
+      success: true,
+      message: 'SMS de teste enviado',
+      smsId: sent.smsId,
+      cost: sent.cost,
+    })
+  } catch (error) {
+    console.error('Erro no teste de SMS:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+      },
+      { status: 500 }
+    )
   }
 }

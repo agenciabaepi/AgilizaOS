@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { PLANO_SLUGS } from '@/config/planModules';
-import { obterPrecoPlano, validarCupomDesconto } from '@/lib/billing/cupomServer';
+import { obterPrecoCobrancaEmpresa, validarCupomDesconto } from '@/lib/billing/cupomServer';
 import { normalizarCodigoCupom } from '@/lib/billing/cupomDesconto';
 
 export const runtime = 'nodejs';
@@ -63,12 +63,26 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = getSupabaseAdmin();
-    const valorOriginal = await obterPrecoPlano(admin, planoSlug);
-    if (valorOriginal === null) {
+    const { data: usuario } = await admin
+      .from('usuarios')
+      .select('empresa_id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (!usuario?.empresa_id) {
+      return NextResponse.json({ ok: false, error: 'Empresa não encontrada' }, { status: 403 });
+    }
+
+    const cobranca = await obterPrecoCobrancaEmpresa(admin, usuario.empresa_id, planoSlug);
+    if (!cobranca) {
       return NextResponse.json({ ok: false, error: 'Preço do plano indisponível' }, { status: 400 });
     }
 
-    const result = await validarCupomDesconto(admin, normalizarCodigoCupom(codigo), valorOriginal);
+    const result = await validarCupomDesconto(
+      admin,
+      normalizarCodigoCupom(codigo),
+      cobranca.preco
+    );
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }

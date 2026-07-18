@@ -172,10 +172,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Buscar dados do usuário (role e permissões para técnico - sistema existente)
+    // Buscar dados do usuário (role, permissões e confirmação SMS)
     const { data: usuarioData, error: usuarioError } = await supabase
       .from('usuarios')
-      .select('id, nivel, empresa_id, permissoes')
+      .select('id, nivel, empresa_id, permissoes, email, email_verificado, verificacao_liberada_admin')
       .eq('auth_user_id', session.user.id)
       .single();
 
@@ -185,6 +185,31 @@ export async function middleware(request: NextRequest) {
       }
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
+    }
+
+    // 🔒 Admin da empresa NÃO entra sem confirmar SMS (ou liberação no admin-saas)
+    const { SMS_VERIFICATION_ENABLED } = await import('@/config/sms-verification');
+    if (SMS_VERIFICATION_ENABLED) {
+      const nivelUser = (usuarioData.nivel || '').toLowerCase();
+      const verificadoPessoal =
+        usuarioData.email_verificado === true || usuarioData.verificacao_liberada_admin === true;
+
+      if (nivelUser === 'admin' && !verificadoPessoal) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Middleware: Admin sem confirmação SMS — ${pathname}`);
+        }
+        const loginUrl = new URL('/login', request.url);
+        const email = usuarioData.email || session.user.email || '';
+        if (email) loginUrl.searchParams.set('email', email);
+        loginUrl.searchParams.set('verificacao', 'pending');
+        const res = NextResponse.redirect(loginUrl);
+        for (const c of request.cookies.getAll()) {
+          if (c.name.includes('auth-token') || c.name.startsWith('sb-')) {
+            res.cookies.set(c.name, '', { path: '/', maxAge: 0 });
+          }
+        }
+        return res;
+      }
     }
 
     const nivel = usuarioData.nivel?.toLowerCase();

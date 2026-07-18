@@ -345,6 +345,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
+
+      const { SMS_VERIFICATION_ENABLED } = await import('@/config/sms-verification');
+      if (SMS_VERIFICATION_ENABLED) {
+        const gateRes = await fetch('/api/auth/verification-gate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const gate = await gateRes.json();
+        if (gate.ok && gate.pode_entrar === false) {
+          throw new Error(gate.motivo || 'Confirme sua conta com o código SMS antes de entrar.');
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -355,6 +369,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data.session) {
+        if (SMS_VERIFICATION_ENABLED) {
+          const gateRes = await fetch('/api/auth/verification-gate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auth_user_id: data.session.user.id }),
+          });
+          const gate = await gateRes.json();
+          if (!gate.pode_entrar) {
+            await supabase.auth.signOut({ scope: 'local' });
+            clearSession();
+            throw new Error(gate.motivo || 'Confirme sua conta com o código SMS antes de entrar.');
+          }
+        }
+
         setSession(data.session);
         setUser(data.session.user);
         setUserDataReady(false);
@@ -376,7 +404,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [fetchUserData]);
+  }, [fetchUserData, clearSession]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     try {
