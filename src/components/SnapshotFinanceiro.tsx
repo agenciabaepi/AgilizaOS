@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
 import { FiDollarSign, FiTrendingDown, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface SnapshotFinanceiroProps {
   dataInicio?: string;
@@ -15,6 +16,8 @@ interface SnapshotFinanceiroProps {
 export function SnapshotFinanceiro({ dataInicio, dataFim }: SnapshotFinanceiroProps) {
   const { snapshot, loading, error } = useSnapshotFinanceiro(dataInicio, dataFim);
   const router = useRouter();
+  const { temRecurso } = useSubscription();
+  const podeLucro = temRecurso('lucro_desempenho');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -28,8 +31,16 @@ export function SnapshotFinanceiro({ dataInicio, dataFim }: SnapshotFinanceiroPr
   };
 
   const handleVerDetalhes = () => {
+    if (!podeLucro) {
+      router.push('/assinatura#planos-assinatura');
+      return;
+    }
     router.push('/financeiro/lucro-desempenho');
   };
+
+  if (!podeLucro) {
+    return null;
+  }
 
   if (loading) {
     return (

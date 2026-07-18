@@ -311,6 +311,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   const { temRecurso } = useSubscription();
   const podeVerWhatsApp = podeVer('whatsapp') && temRecurso('whatsapp_crm');
   const podeVerModulo = podeVer;
+  const podeVerLucroDesempenho =
+    podeVerModulo('lucro-desempenho', 'financeiro') && temRecurso('lucro_desempenho');
   const dashboardPath = getDashboardPathForNivel(usuarioData?.nivel);
   const dashboardAtivo = isUserHomePath(pathname || '', usuarioData?.nivel);
 
@@ -453,7 +455,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               />
               {financeiroExpanded && (
                 <SidebarSubmenuPanel>
-                  {podeVerModulo('lucro-desempenho', 'financeiro') && (
+                  {podeVerLucroDesempenho && (
                     <SidebarButton
                       path="/financeiro/lucro-desempenho"
                       label="Lucro & Desempenho"
@@ -489,7 +491,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                       isSubmenu
                     />
                   )}
-                  {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
+                  {!isTecnico && podeVerLucroDesempenho && (
                     <SidebarButton
                       path="/financeiro/comissoes-tecnicos"
                       label="Comissões dos Técnicos"
@@ -670,7 +672,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   />
                   {financeiroExpanded && (
                     <SidebarSubmenuPanel>
-                      {podeVerModulo('lucro-desempenho', 'financeiro') && (
+                      {podeVerLucroDesempenho && (
                         <SidebarButton
                           path="/financeiro/lucro-desempenho"
                           label="Lucro & Desempenho"
@@ -706,7 +708,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                           isSubmenu
                         />
                       )}
-                      {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
+                      {!isTecnico && podeVerLucroDesempenho && (
                         <SidebarButton
                           path="/financeiro/comissoes-tecnicos"
                           label="Comissões dos Técnicos"

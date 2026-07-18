@@ -28,6 +28,7 @@ import DashboardCard from '@/components/ui/DashboardCard';
 import DashboardAppPromoBanner from '@/components/dashboard/DashboardAppPromoBanner';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { cn } from '@/lib/utils';
 
 const norm = (v: string | undefined) => (v || '').toLowerCase().trim();
@@ -86,6 +87,8 @@ function parseDayKey(createdAt: string) {
 
 export default function DashboardOverview() {
   const { empresaData } = useAuth();
+  const { temRecurso } = useSubscription();
+  const podeLucro = temRecurso('lucro_desempenho');
   const empresaId = empresaData?.id;
 
   const [loading, setLoading] = useState(true);
@@ -615,6 +618,7 @@ export default function DashboardOverview() {
           )}
         </section>
 
+        {podeLucro && (
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2 mb-4">
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
@@ -665,6 +669,7 @@ export default function DashboardOverview() {
             </ul>
           )}
         </section>
+        )}
       </div>
 
       <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-6 shadow-sm">

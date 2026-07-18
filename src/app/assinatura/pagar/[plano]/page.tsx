@@ -117,13 +117,21 @@ export default function AssinaturaPagarPlanoPage() {
                     </div>
                   </div>
                   <ul className="mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-2">
-                    <li>✓ Sistema completo de gestão</li>
                     {plano.premium ? (
-                      Object.values(PREMIUM_MODULES).map((m) => (
-                        <li key={m.label}>✓ {premiumModuleLabelWithStatus(m)}</li>
-                      ))
+                      <>
+                        <li>✓ Usuários e OS sem o teto do Básico</li>
+                        <li>✓ Lucro, desempenho e comissões agregadas</li>
+                        {Object.values(PREMIUM_MODULES).map((m) => (
+                          <li key={m.label}>✓ {premiumModuleLabelWithStatus(m)}</li>
+                        ))}
+                      </>
                     ) : (
-                      <li>✓ Sem módulos premium (upgrade disponível depois)</li>
+                      <>
+                        <li>✓ Até 3 usuários</li>
+                        <li>✓ Até 50 OS por mês</li>
+                        <li>✓ Até 50 produtos/serviços</li>
+                        <li>✓ Financeiro operacional (sem lucro e desempenho)</li>
+                      </>
                     )}
                     <li>✓ Ativação automática após confirmação do PIX</li>
                   </ul>

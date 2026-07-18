@@ -11,8 +11,7 @@ import FeaturesCarousel from '@/components/landing/FeaturesCarousel';
 import SystemShowcaseSlider from '@/components/landing/SystemShowcaseSlider';
 import PricingSection from '@/components/landing/PricingSection';
 import AppShowcase from '@/components/landing/AppShowcase';
-import { abrirWhatsApp } from '@/config/contato';
-import { LANDING_TRIAL, SYSTEM_FEATURES } from '@/config/landing';
+import { LANDING_TRIAL } from '@/config/landing';
 
 export default function Home() {
   const router = useRouter();
@@ -68,8 +67,8 @@ export default function Home() {
     }
   };
 
-  const handleContatoEquipe = () => {
-    abrirWhatsApp();
+  const handleComecarTrial = () => {
+    router.push('/cadastro');
   };
 
   useEffect(() => {
@@ -198,7 +197,7 @@ export default function Home() {
               Soluções
             </button>
             <button 
-              onClick={() => scrollToSection('precos')}
+              onClick={() => scrollToSection('planos')}
               className={`transition-all duration-300 font-light text-lg tracking-wide ${
                 isDarkMode 
                   ? 'text-white/80 hover:text-white' 
@@ -307,7 +306,7 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => router.push('/fale-conosco')}
+              onClick={handleComecarTrial}
               className="px-8 py-3 text-black bg-[#D1FE6E] rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
             >
               {LANDING_TRIAL.shortLabel}
@@ -358,7 +357,7 @@ export default function Home() {
                 Soluções
               </button>
               <button 
-                onClick={() => scrollToSection('precos')}
+                onClick={() => scrollToSection('planos')}
                 className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
                   isDarkMode 
                     ? 'text-white' 
@@ -420,7 +419,10 @@ export default function Home() {
               
               <div className="flex flex-col space-y-3 pt-4 border-t border-[#D1FE6E]/20">
                 <button 
-                  onClick={() => router.push('/fale-conosco')}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleComecarTrial();
+                  }}
                   className="px-6 py-3 text-gray-900 bg-[#D1FE6E] rounded-lg font-semibold hover:bg-[#B8E55A] transition-all duration-300"
                 >
                   {LANDING_TRIAL.shortLabel}
@@ -601,7 +603,7 @@ export default function Home() {
                 <div data-reveal="cta" className="flex flex-col items-center lg:items-start gap-3 pt-1">
                   <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                   <button 
-                    onClick={() => router.push('/fale-conosco')}
+                    onClick={handleComecarTrial}
                     className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
                       isDarkMode
                         ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
@@ -726,7 +728,7 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 pt-12 md:pt-16 pb-6 md:pb-8 lg:px-12">
+      <div id="planos" className="relative z-10 px-4 sm:px-6 md:px-8 pt-12 md:pt-16 pb-6 md:pb-8 lg:px-12 scroll-mt-20">
         <div 
           className="mx-auto max-w-7xl"
           ref={(el) => {
@@ -746,12 +748,12 @@ export default function Home() {
             <h2 className={`text-5xl sm:text-6xl md:text-7xl font-light mb-6 md:mb-8 leading-none tracking-tight ${
               isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
             }`}>
-              Nossos valores
+              Nossos planos
             </h2>
             <p className={`text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light ${
               isDarkMode ? 'text-white/60' : 'text-gray-600'
             }`}>
-              Comece com {LANDING_TRIAL.label.toLowerCase()} — plano completo com {SYSTEM_FEATURES.length}+ funcionalidades
+              Comece com {LANDING_TRIAL.label.toLowerCase()} — depois escolha o plano ideal para sua assistência
             </p>
           </div>
 
@@ -759,11 +761,7 @@ export default function Home() {
             data-reveal="pricing-basic"
             className={`card-reveal ${isAnimated('pricing-basic') ? 'revealed' : ''}`}
           >
-            <PricingSection
-              isDarkMode={isDarkMode}
-              features={SYSTEM_FEATURES}
-              onContact={handleContatoEquipe}
-            />
+            <PricingSection isDarkMode={isDarkMode} />
           </div>
 
           {/* Additional Info */}
@@ -806,7 +804,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button 
-                onClick={() => router.push('/fale-conosco')}
+                onClick={handleComecarTrial}
                 className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium text-base sm:text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
               >
                 {LANDING_TRIAL.shortLabel}

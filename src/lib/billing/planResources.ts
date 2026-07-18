@@ -57,6 +57,9 @@ export function temAcessoRecurso(modulo: string, opts: TemAcessoRecursoOpts): bo
   if (slug === 'basico') {
     return false;
   }
+  if (slug === 'completo' || slug === 'trial') {
+    return true;
+  }
 
   if (opts.sistemaLiberado) {
     return true;

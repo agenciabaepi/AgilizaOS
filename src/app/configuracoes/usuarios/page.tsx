@@ -353,6 +353,14 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (limites && !podeCriar('usuarios')) {
+      addToast(
+        'error',
+        `Limite de usuários do plano atingido (${limites.usuarios.atual}/${limites.usuarios.limite}).`
+      );
+      return;
+    }
     
     // Validações finais
     if (!validarEmail(email)) {
@@ -447,7 +455,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
 
   // Verificar se está no trial e não pode criar usuários
   const isTrial = assinatura?.status === 'trial' && !isTrialExpired();
-  const cannotCreateUsers = isTrial && limites && !podeCriar('usuarios');
+  const cannotCreateUsers = !!limites && !podeCriar('usuarios');
 
   const content = (
     <main className="p-8">
@@ -491,7 +499,9 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                   </span>
                 </div>
                 <p className="text-amber-700 text-sm mb-4">
-                  Para criar mais usuários, renove ou regularize sua assinatura.
+                  Seu plano permite no máximo {limites?.usuarios.limite ?? 3} usuários
+                  {limites ? ` (${limites.usuarios.atual}/${limites.usuarios.limite})` : ''}. Faça upgrade
+                  para o Plano Completo.
                 </p>
                 <button 
                   onClick={() => window.location.href = '/assinatura'}

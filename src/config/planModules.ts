@@ -11,8 +11,9 @@ export type PlanoSlug = (typeof PLANO_SLUGS)[keyof typeof PLANO_SLUGS];
 export const PLANOS_VENDA: PlanoSlug[] = [PLANO_SLUGS.BASICO, PLANO_SLUGS.COMPLETO];
 
 /**
- * Módulos premium — exclusivos do Plano Completo.
- * O restante do sistema (OS, financeiro, estoque, etc.) é core e sempre liberado.
+ * Módulos exclusivos do Plano Completo (e liberados no trial).
+ * Financeiro básico (vendas, caixa, contas) permanece no Básico;
+ * lucro/desempenho e comissões agregadas exigem Completo.
  */
 export const PREMIUM_MODULES = {
   nota_fiscal: {
@@ -29,6 +30,11 @@ export const PREMIUM_MODULES = {
     label: 'CRM WhatsApp',
     description: 'Inbox, automações e atendimento via WhatsApp — em desenvolvimento',
     status: 'development' as const,
+  },
+  lucro_desempenho: {
+    label: 'Lucro e desempenho',
+    description: 'Relatórios de lucratividade, desempenho e comissões dos técnicos',
+    status: 'active' as const,
   },
 } as const;
 
@@ -55,18 +61,21 @@ export function premiumModuleLabelWithStatus(mod: (typeof PREMIUM_MODULES)[Premi
 export const LEGACY_MODULE_ALIASES: Record<string, PremiumModule> = {
   chatgpt: 'ia',
   whatsapp: 'whatsapp_crm',
+  'lucro-desempenho': 'lucro_desempenho',
 };
 
 export const RECURSOS_BASICO: Record<PremiumModule, boolean> = {
   nota_fiscal: false,
   ia: false,
   whatsapp_crm: false,
+  lucro_desempenho: false,
 };
 
 export const RECURSOS_COMPLETO: Record<PremiumModule, boolean> = {
   nota_fiscal: true,
   ia: true,
   whatsapp_crm: true,
+  lucro_desempenho: true,
 };
 
 /** Trial exibe todos os módulos premium para conversão. */

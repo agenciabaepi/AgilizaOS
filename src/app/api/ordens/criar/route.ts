@@ -4,6 +4,7 @@ import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { dispatchAutomacaoOs } from '@/lib/whatsapp-crm/dispatch';
 import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
 import { calcularPrazoEntregaPadrao } from '@/utils/diasUteis';
+import { assertDentroDoLimitePlano } from '@/lib/billing/assertPlanLimits';
 
 function normalizeStatusText(value: unknown): string {
   return String(value || '')
@@ -34,6 +35,15 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+
+    const limiteOs = await assertDentroDoLimitePlano(supabase, body.empresa_id, 'ordens');
+    if (!limiteOs.ok) {
+      return NextResponse.json(
+        { error: limiteOs.error, code: 'plan_limit', atual: limiteOs.atual, limite: limiteOs.limite },
+        { status: 403 }
+      );
+    }
+
     const valorServico = parseMoneyLike(body.valor_servico);
     const valorPeca = parseMoneyLike(body.valor_peca);
     const valorFaturado = parseMoneyLike(body.valor_faturado);

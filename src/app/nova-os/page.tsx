@@ -37,6 +37,7 @@ import DynamicChecklist from '@/components/DynamicChecklist';
 import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os/NovaOSWizardLayout';
 import NovaOSSection from '@/components/nova-os/NovaOSSection';
 import NovaOSPendenciasFinalizar from '@/components/nova-os/NovaOSPendenciasFinalizar';
+import TrialLimitGuard from '@/components/TrialLimitGuard';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { AparelhoCatalogoCor, CorCatalogo } from '@/types/cores';
 import AparelhoCorPicker from '@/components/AparelhoCorPicker';
@@ -1430,6 +1431,7 @@ function NovaOS2Content() {
 
   return (
     <MenuLayout>
+      <TrialLimitGuard tipo="ordens">
       <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80 pb-6">
         {/* Barra fixa só com Voltar - no lugar do header */}
         <div className="sticky top-0 z-20 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 md:px-6 py-3">
@@ -3095,6 +3097,7 @@ function NovaOS2Content() {
           )}
         </div>
       </div>
+      </TrialLimitGuard>
     </MenuLayout>
   );
 }

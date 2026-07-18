@@ -38,13 +38,16 @@ export default function CadastroEmpresa() {
     cnpj: ''
   });
 
-  // Inicializa o plano da URL de forma segura
+  // Preferência de plano vinda da landing (?plano=basico|completo)
   useEffect(() => {
     try {
-      // Força modelo de preço único
-      setForm(prev => ({ ...prev, plano: 'unico' }));
-    } catch (error) {
+      const planoUrl = searchParams.get('plano');
+      if (planoUrl === 'basico' || planoUrl === 'completo') {
+        setForm((prev) => ({ ...prev, plano: planoUrl }));
       }
+    } catch {
+      // ignore
+    }
   }, [searchParams]);
 
   const [emailValido, setEmailValido] = useState(true);

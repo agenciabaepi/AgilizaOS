@@ -7,11 +7,20 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleStatusBadge } from '@/config/planModules';
 import type { PlanoPublico } from '@/hooks/usePlanosPublicos';
 
-const RECURSOS_CORE = [
+const RECURSOS_CORE_BASICO = [
+  'Até 3 usuários',
+  'Até 50 OS por mês',
+  'Até 50 produtos/serviços',
+  'Clientes, estoque e caixa',
+  'Financeiro operacional (vendas e contas)',
+];
+
+const RECURSOS_CORE_COMPLETO = [
+  'Usuários e OS sem o teto do Básico',
+  'Catálogo amplo de produtos/serviços',
+  'Financeiro completo com lucro e desempenho',
+  'Relatórios, comissões agregadas e app do técnico',
   'Ordens de serviço, laudos e fotos',
-  'Clientes, produtos e estoque',
-  'Financeiro completo',
-  'Relatórios, comissões e app do técnico',
 ];
 
 function PlanoCard({
@@ -29,6 +38,7 @@ function PlanoCard({
   const isAtual = planoAtualSlug === plano.slug;
   const isCompleto = plano.slug === PLANO_SLUGS.COMPLETO;
   const premiumList = Object.values(PREMIUM_MODULES);
+  const recursosCore = isCompleto ? RECURSOS_CORE_COMPLETO : RECURSOS_CORE_BASICO;
 
   // Plano atual ativo → só informa; plano atual vencido → renovar; outros → assinar/upgrade
   const podeAssinar = !isAtual || precisaRenovar;
@@ -86,7 +96,7 @@ function PlanoCard({
       </div>
 
       <ul className="space-y-2 mb-4 flex-grow">
-        {RECURSOS_CORE.map((item) => (
+        {recursosCore.map((item) => (
           <li key={item} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
             <FiCheck className="w-4 h-4 text-[#6B8F2E] shrink-0 mt-0.5" />
             <span>{item}</span>

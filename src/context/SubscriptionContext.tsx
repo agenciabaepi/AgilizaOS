@@ -18,6 +18,8 @@ import { computeAssinaturaVencidaPorBilling } from '@/lib/billing/empresaSaasBil
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { PLANO_SLUGS } from '@/config/planModules';
+import { getPlanLimits } from '@/config/planLimits';
+import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -63,11 +65,23 @@ interface Limites {
 }
 
 const LIMITES_PADRAO = {
-  limite_usuarios: 5,
+  limite_usuarios: 3,
   limite_produtos: 50,
-  limite_clientes: 100,
-  limite_fornecedores: 10,
+  limite_clientes: 500,
+  limite_fornecedores: 50,
 };
+
+function inicioMesBillingIso(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BILLING_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === 'year')?.value ?? '1970';
+  const m = parts.find((p) => p.type === 'month')?.value ?? '01';
+  return `${y}-${m}-01T00:00:00.000Z`;
+}
 
 /** Só refetch ao voltar à aba se ficou oculta por pelo menos este tempo (ms) */
 const VISIBILITY_REFETCH_MIN_HIDDEN_MS = 30_000;
@@ -77,18 +91,26 @@ function planoFromAssinaturaRow(row: Record<string, unknown>): Plano {
   const p = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | null | undefined;
   const id = (typeof row.plano_id === 'string' ? row.plano_id : p?.id) || '';
   const nome = (typeof p?.nome === 'string' ? p.nome : null) || (row.status === 'trial' ? 'Trial' : 'Plano');
+  const slug = typeof p?.slug === 'string' ? p.slug : row.status === 'trial' ? PLANO_SLUGS.TRIAL : null;
+  const planLimits = getPlanLimits(slug);
   return {
     id: typeof id === 'string' ? id : '',
     nome,
     descricao: typeof p?.descricao === 'string' ? p.descricao : '',
     preco: typeof p?.preco === 'number' ? p.preco : 0,
-    limite_usuarios: typeof p?.limite_usuarios === 'number' ? p.limite_usuarios : LIMITES_PADRAO.limite_usuarios,
-    limite_produtos: typeof p?.limite_produtos === 'number' ? p.limite_produtos : LIMITES_PADRAO.limite_produtos,
-    limite_clientes: typeof p?.limite_clientes === 'number' ? p.limite_clientes : LIMITES_PADRAO.limite_clientes,
-    limite_fornecedores: typeof p?.limite_fornecedores === 'number' ? p.limite_fornecedores : LIMITES_PADRAO.limite_fornecedores,
-    limite_ordens: 100,
+    limite_usuarios:
+      typeof p?.limite_usuarios === 'number' ? p.limite_usuarios : planLimits.limite_usuarios,
+    limite_produtos:
+      typeof p?.limite_produtos === 'number' ? p.limite_produtos : planLimits.limite_produtos,
+    limite_clientes:
+      typeof p?.limite_clientes === 'number' ? p.limite_clientes : planLimits.limite_clientes,
+    limite_fornecedores:
+      typeof p?.limite_fornecedores === 'number'
+        ? p.limite_fornecedores
+        : planLimits.limite_fornecedores,
+    limite_ordens: planLimits.limite_ordens_mes,
     recursos_disponiveis: (p?.recursos_disponiveis as Record<string, unknown>) || {},
-    slug: typeof p?.slug === 'string' ? p.slug : null,
+    slug,
   };
 }
 
@@ -207,30 +229,44 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const fetchLimitesForEmpresa = async (empresaId: string, planoLimite?: Plano) => {
     try {
-      const lim = planoLimite;
+      const slug = planoLimite?.slug ?? null;
+      const planLimits = getPlanLimits(slug);
+      const limiteUsuarios = planoLimite?.limite_usuarios ?? planLimits.limite_usuarios;
+      const limiteProdutos = planoLimite?.limite_produtos ?? planLimits.limite_produtos;
+      const limiteOrdens = planoLimite?.limite_ordens ?? planLimits.limite_ordens_mes;
+      const limiteClientes = planoLimite?.limite_clientes ?? planLimits.limite_clientes;
+      const limiteFornecedores =
+        planoLimite?.limite_fornecedores ?? planLimits.limite_fornecedores;
+      const inicioMes = inicioMesBillingIso();
+
       const [
         { count: usuariosCount },
-        { count: produtosCount },
-        { count: servicosCount },
+        { count: produtosCatalogoCount },
         { count: clientesCount },
-        { count: ordensCount },
+        { count: ordensMesCount },
         { count: fornecedoresCount },
       ] = await Promise.all([
         supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+        // Produtos + serviços na mesma tabela
         supabase.from('produtos').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
-        supabase.from('servicos').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
         supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
-        supabase.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+        supabase
+          .from('ordens_servico')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', empresaId)
+          .gte('created_at', inicioMes),
         supabase.from('fornecedores').select('*', { count: 'exact', head: true }).eq('empresa_id', empresaId),
       ]);
 
+      const catalogo = produtosCatalogoCount || 0;
+
       setLimites({
-        usuarios: { atual: usuariosCount || 0, limite: lim?.limite_usuarios || LIMITES_PADRAO.limite_usuarios },
-        produtos: { atual: produtosCount || 0, limite: lim?.limite_produtos || LIMITES_PADRAO.limite_produtos },
-        servicos: { atual: servicosCount || 0, limite: 50 },
-        clientes: { atual: clientesCount || 0, limite: lim?.limite_clientes || LIMITES_PADRAO.limite_clientes },
-        ordens: { atual: ordensCount || 0, limite: 100 },
-        fornecedores: { atual: fornecedoresCount || 0, limite: lim?.limite_fornecedores || LIMITES_PADRAO.limite_fornecedores },
+        usuarios: { atual: usuariosCount || 0, limite: limiteUsuarios },
+        produtos: { atual: catalogo, limite: limiteProdutos },
+        servicos: { atual: catalogo, limite: limiteProdutos },
+        clientes: { atual: clientesCount || 0, limite: limiteClientes },
+        ordens: { atual: ordensMesCount || 0, limite: limiteOrdens },
+        fornecedores: { atual: fornecedoresCount || 0, limite: limiteFornecedores },
       });
     } catch (error) {
       console.error('Erro ao buscar limites:', error);

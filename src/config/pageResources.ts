@@ -1,10 +1,12 @@
 /**
- * Rotas que exigem módulo premium do plano.
- * Módulos core (financeiro, OS, estoque, etc.) não são listados aqui.
+ * Rotas que exigem módulo do plano (Completo / trial).
+ * Financeiro operacional (vendas, caixa, contas) permanece liberado no Básico.
  */
 export const PAGE_RESOURCES = {
   '/whatsapp': 'whatsapp_crm',
   '/configuracoes/whatsapp': 'whatsapp_crm',
+  '/financeiro/lucro-desempenho': 'lucro_desempenho',
+  '/financeiro/comissoes-tecnicos': 'lucro_desempenho',
   // Futuro: '/nota-fiscal': 'nota_fiscal',
 } as const;
 
@@ -18,6 +20,11 @@ export function getRequiredResource(pathname: string): string | null {
 
   if (PAGE_RESOURCES[cleanPath as keyof typeof PAGE_RESOURCES]) {
     return PAGE_RESOURCES[cleanPath as keyof typeof PAGE_RESOURCES];
+  }
+
+  // Prefixo: /financeiro/comissoes-tecnicos/[id]
+  if (cleanPath.startsWith('/financeiro/comissoes-tecnicos')) {
+    return 'lucro_desempenho';
   }
 
   for (const [route, resource] of Object.entries(PAGE_RESOURCES)) {

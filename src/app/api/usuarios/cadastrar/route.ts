@@ -2,6 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { assertDentroDoLimitePlano } from '@/lib/billing/assertPlanLimits';
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,19 @@ export async function POST(request: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+
+    const limiteUsers = await assertDentroDoLimitePlano(supabaseAdmin, empresa_id, 'usuarios');
+    if (!limiteUsers.ok) {
+      return NextResponse.json(
+        {
+          error: limiteUsers.error,
+          code: 'plan_limit',
+          atual: limiteUsers.atual,
+          limite: limiteUsers.limite,
+        },
+        { status: 403 }
+      );
+    }
     
     // Normalizar dados
     const emailNormalizado = email.trim().toLowerCase();
