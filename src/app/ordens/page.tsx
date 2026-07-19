@@ -195,6 +195,7 @@ import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 const getInitials = (nome: string) => {
   if (!nome) return 'US';
@@ -919,7 +920,7 @@ export default function ListaOrdensPage() {
           .from('usuarios')
           .select('nome')
           .eq('empresa_id', empresaId)
-          .eq('nivel', 'tecnico')
+          .or(TECNICOS_OR_FILTER)
           .order('nome'),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Técnicos timeout')), 30000) // 30 segundos - mais tolerante

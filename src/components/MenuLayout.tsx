@@ -307,6 +307,10 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   // Sidebar sempre expandida
 
   const isTecnico = usuarioData?.nivel === 'tecnico';
+  const atuaComoTecnico =
+    isTecnico ||
+    (!!usuarioData?.tambem_tecnico &&
+      (usuarioData?.nivel === 'admin' || usuarioData?.nivel === 'usuarioteste'));
   const { podeVer } = usePermissions();
   const { temRecurso } = useSubscription();
   const podeVerWhatsApp = podeVer('whatsapp') && temRecurso('whatsapp_crm');
@@ -507,7 +511,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {podeVer('bancada') && matchesSearch('Bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={22} strokeWidth={1.75} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
           )}
-          {isTecnico && podeVer('comissoes') && matchesSearch('Comissões') && (
+          {atuaComoTecnico && podeVer('comissoes') && matchesSearch('Comissões') && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
           {podeVer('suporte') && matchesSearch('Suporte') && (
@@ -724,7 +728,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={22} strokeWidth={1.75} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
               )}
-              {isTecnico && podeVer('comissoes') && (
+              {atuaComoTecnico && podeVer('comissoes') && (
                 <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
               )}
               {podeVer('suporte') && (

@@ -34,7 +34,7 @@ export async function GET(
 
     const { data: usuario, error } = await supabase
       .from('usuarios')
-      .select('id, nome, email, usuario, cpf, whatsapp, nivel, empresa_id, permissoes, auth_user_id')
+      .select('id, nome, email, usuario, cpf, whatsapp, nivel, tambem_tecnico, empresa_id, permissoes, auth_user_id')
       .eq('id', id)
       .eq('empresa_id', meuUsuario.empresa_id)
       .single();
@@ -92,6 +92,25 @@ export async function PATCH(
 
     const body = await request.json().catch(() => ({}));
     const { permissoes } = body;
+
+    const { data: alvo } = await supabase
+      .from('usuarios')
+      .select('id, empresa_id, nivel')
+      .eq('id', id)
+      .eq('empresa_id', meuUsuario.empresa_id)
+      .single();
+
+    if (!alvo) {
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    }
+
+    const nivelAlvo = (alvo.nivel || '').toLowerCase();
+    if (nivelAlvo === 'admin' || nivelAlvo === 'usuarioteste') {
+      return NextResponse.json(
+        { error: 'Não é permitido limitar as permissões do administrador principal.' },
+        { status: 400 }
+      );
+    }
 
     const update: Record<string, unknown> = {};
     if (Array.isArray(permissoes)) {

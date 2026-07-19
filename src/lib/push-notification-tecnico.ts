@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -78,13 +79,12 @@ export async function sendPushToTecnico(
 
   const { data: usuario, error: userError } = await supabase
     .from('usuarios')
-    .select('id, nome, auth_user_id')
+    .select('id, nome, auth_user_id, nivel, tambem_tecnico')
     .or(`id.eq.${tecnicoId},auth_user_id.eq.${tecnicoId}`)
-    .eq('nivel', 'tecnico')
     .limit(1)
     .maybeSingle();
 
-  if (userError || !usuario) {
+  if (userError || !usuario || !isUsuarioTecnico(usuario)) {
     return { sent: 0, error: 'Técnico não encontrado' };
   }
 

@@ -29,6 +29,7 @@ import {
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock } from 'react-icons/fi';
 import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 interface Item {
   id?: string;
@@ -519,8 +520,8 @@ export default function EditarOSSimples() {
       const fetchPromise = supabase
         .from('usuarios')
         .select('id, nome, tecnico_id, auth_user_id')
-        .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData.empresa_id) // Filtrar por empresa do usuário logado
+        .or(TECNICOS_OR_FILTER)
         .order('nome');
       
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;

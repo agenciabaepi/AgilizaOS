@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { cn } from '@/lib/utils';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 interface Tecnico {
   id: string;
@@ -138,7 +139,7 @@ export default function ComissoesPage() {
         .from('usuarios')
         .select('id, nome, email, comissao_percentual, comissao_ativa, comissao_observacoes, tipo_comissao, comissao_fixa')
         .eq('empresa_id', usuarioData.empresa_id)
-        .eq('nivel', 'tecnico')
+        .or(TECNICOS_OR_FILTER)
         .order('nome');
 
       if (tecnicosError) {

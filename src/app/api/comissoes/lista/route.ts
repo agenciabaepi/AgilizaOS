@@ -7,6 +7,7 @@ import {
   fetchOrdensPrevistasRows,
   osRowFromComissao,
 } from '@/lib/comissoesQueryCompat';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 /**
  * GET /api/comissoes/lista
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
       .from('usuarios')
       .select('id, nome, auth_user_id, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa')
       .eq('empresa_id', empresaId)
-      .eq('nivel', 'tecnico');
+      .or(TECNICOS_OR_FILTER);
     const tecnicosMap = new Map<string, { id: string; nome: string; tipo_comissao: string; comissao_fixa: number; comissao_percentual: number; comissao_ativa: boolean }>();
     (tecnicosData || []).forEach((t: any) => {
       const rec = { id: t.id, nome: t.nome || 'Técnico', tipo_comissao: t.tipo_comissao || 'porcentagem', comissao_fixa: t.comissao_fixa ?? 0, comissao_percentual: t.comissao_percentual ?? 10, comissao_ativa: t.comissao_ativa !== false };

@@ -24,6 +24,11 @@ import { User, Eye, EyeOff } from 'lucide-react';
 import PermissionsEditor from '@/components/permissions/PermissionsEditor';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 
+function isAdminProtegido(nivel: string | null | undefined): boolean {
+  const n = (nivel || '').toLowerCase();
+  return n === 'admin' || n === 'usuarioteste';
+}
+
 function EditarUsuarioPageInner() {
   const router = useRouter();
   const params = useParams();
@@ -44,6 +49,7 @@ function EditarUsuarioPageInner() {
     cpf: '',
     whatsapp: '',
     nivel: '',
+    tambem_tecnico: false,
     permissoes: [] as string[],
     auth_user_id: '',
   });
@@ -55,6 +61,9 @@ function EditarUsuarioPageInner() {
   
   // Estado para armazenar dados originais do usuário
   const [usuarioOriginal, setUsuarioOriginal] = useState<any>(null);
+
+  // Admin/usuarioteste: não permite mudar nível nem limitar permissões (evita lockout)
+  const adminProtegido = isAdminProtegido(usuarioOriginal?.nivel);
 
   // Função para validar CPF
   const validarCPF = (cpf: string) => {
@@ -214,6 +223,7 @@ function EditarUsuarioPageInner() {
           cpf: usuarioData.cpf || '',
           whatsapp: usuarioData.whatsapp || '',
           nivel: usuarioData.nivel || '',
+          tambem_tecnico: !!usuarioData.tambem_tecnico,
           permissoes: Array.isArray(usuarioData.permissoes) ? [...usuarioData.permissoes] : [],
           auth_user_id: usuarioData.auth_user_id || '',
         });
@@ -240,10 +250,14 @@ function EditarUsuarioPageInner() {
     }
     setForm((prev) => ({ ...prev, [name]: value }));
     
-    // Preencher permissões padrão ao trocar nível
-    if (name === 'nivel') {
+    // Preencher permissões padrão ao trocar nível (não se aplica a admin protegido)
+    if (name === 'nivel' && !isAdminProtegido(usuarioOriginal?.nivel)) {
       const permissoesPadrao = getDefaultPermissionsForRole(value);
-      setForm((prev) => ({ ...prev, permissoes: permissoesPadrao }));
+      setForm((prev) => ({
+        ...prev,
+        permissoes: permissoesPadrao,
+        tambem_tecnico: value === 'admin' || value === 'usuarioteste' ? prev.tambem_tecnico : false,
+      }));
     }
   };
 
@@ -305,10 +319,19 @@ function EditarUsuarioPageInner() {
       usuario: form.usuario.trim().toLowerCase(),
         cpf: form.cpf?.trim() || null, // ⭐ Envia null se CPF estiver vazio
       whatsapp: form.whatsapp,
-      nivel: form.nivel,
-      permissoes: form.permissoes,
       auth_user_id: form.auth_user_id,
     };
+
+    if (adminProtegido) {
+      // Nível e permissões travados no admin — só permite demais campos + tambem_tecnico
+      updateData.nivel = usuarioOriginal.nivel;
+      updateData.tambem_tecnico = form.tambem_tecnico;
+    } else {
+      updateData.nivel = form.nivel;
+      updateData.tambem_tecnico =
+        form.nivel === 'admin' || form.nivel === 'usuarioteste' ? form.tambem_tecnico : false;
+      updateData.permissoes = form.permissoes;
+    }
       
     if (form.senha) {
       updateData.senha = form.senha;
@@ -581,7 +604,12 @@ function EditarUsuarioPageInner() {
                 name="nivel"
                 value={form.nivel}
                 onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                disabled={adminProtegido}
+                      className={`w-full px-4 py-3 border rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        adminProtegido
+                          ? 'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-600'
+                          : 'bg-white border-gray-300 focus:ring-gray-900'
+                      }`}
                 required
               >
                       <option value="">Selecione o nível...</option>
@@ -589,20 +617,62 @@ function EditarUsuarioPageInner() {
                 <option value="tecnico">Técnico</option>
                 <option value="atendente">Atendente</option>
                 <option value="financeiro">Financeiro</option>
+                {form.nivel === 'usuarioteste' && (
+                  <option value="usuarioteste">Usuário teste</option>
+                )}
               </select>
+              {adminProtegido && (
+                <p className="text-xs text-gray-500">
+                  O nível do administrador principal não pode ser alterado, para evitar perda acidental de acesso.
+                </p>
+              )}
             </div>
+
+                  {(form.nivel === 'admin' || form.nivel === 'usuarioteste') && (
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={form.tambem_tecnico}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, tambem_tecnico: e.target.checked }))
+                          }
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-gray-900">
+                            Também atua como técnico
+                          </span>
+                          <span className="block text-xs text-gray-500 mt-0.5">
+                            Usa o mesmo login de admin para receber OS, aparecer na bancada e nas comissões — sem precisar de um segundo usuário.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Permissões de Acesso */}
               <div className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
-                <PermissionsEditor
-                  permissoes={form.permissoes}
-                  onChange={(permissoes) => setForm((prev) => ({ ...prev, permissoes }))}
-                  onDashboardLocked={() =>
-                    addToast('warning', 'Dashboard é uma permissão obrigatória e não pode ser removida')
-                  }
-                />
+                {adminProtegido ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4">
+                    <p className="text-sm font-medium text-amber-900">
+                      Acesso completo do administrador
+                    </p>
+                    <p className="text-xs text-amber-800 mt-1">
+                      O administrador principal sempre tem acesso a todos os módulos. As permissões não podem ser limitadas para evitar bloqueio acidental da conta.
+                    </p>
+                  </div>
+                ) : (
+                  <PermissionsEditor
+                    permissoes={form.permissoes}
+                    onChange={(permissoes) => setForm((prev) => ({ ...prev, permissoes }))}
+                    onDashboardLocked={() =>
+                      addToast('warning', 'Dashboard é uma permissão obrigatória e não pode ser removida')
+                    }
+                  />
+                )}
               </div>
 
               {/* Botões de Ação */}

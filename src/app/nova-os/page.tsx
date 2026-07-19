@@ -62,6 +62,7 @@ import {
 } from '@/lib/termoGarantiaPadrao';
 import { formatDraftUpdatedAt, type NovaOSDraftData } from '@/lib/novaOsDraft';
 import { useNovaOSDraft } from '@/hooks/useNovaOSDraft';
+import { filterUsuariosTecnicos, isUsuarioTecnico, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
@@ -118,6 +119,7 @@ interface Usuario {
   nome: string;
   email: string;
   nivel: string;
+  tambem_tecnico?: boolean;
   auth_user_id: string;
   tecnico_id?: string;
 }
@@ -439,8 +441,8 @@ function NovaOS2Content() {
         const { data: tecnicos } = await supabase
           .from('usuarios')
           .select('id')
-          .eq('nivel', 'tecnico')
-          .eq('empresa_id', empresaData.id);
+          .eq('empresa_id', empresaData.id)
+          .or(TECNICOS_OR_FILTER);
         
         setHasTecnicos(!!(tecnicos && tecnicos.length > 0));
       } catch (error) {
@@ -729,18 +731,18 @@ function NovaOS2Content() {
       setLoadingUsuarios(true);
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, nivel, auth_user_id, tecnico_id')
+        .select('id, nome, email, nivel, tambem_tecnico, auth_user_id, tecnico_id')
         .eq('empresa_id', empresaData.id)
         .order('nome', { ascending: true });
       
       if (!error && data) {
         setUsuarios(data);
-        setTecnicos(data.filter((u: any) => u.nivel === 'tecnico'));
+        setTecnicos(filterUsuariosTecnicos(data));
         
         // Auto-atribuir baseado no usuário logado (não sobrescrever rascunho)
         if (usuarioData && !draftRestoredRef.current) {
           const usuarioLogado = data.find((u: Usuario) => u.auth_user_id === usuarioData.auth_user_id);
-          if (usuarioLogado && usuarioLogado.nivel === 'tecnico') {
+          if (usuarioLogado && isUsuarioTecnico(usuarioLogado)) {
             setTecnicoResponsavel(usuarioLogado.tecnico_id || usuarioLogado.auth_user_id);
           }
         }

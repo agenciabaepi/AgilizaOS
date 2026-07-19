@@ -27,7 +27,7 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
     // porque o campo whatsapp pode estar formatado no banco
     const { data: usuarios, error } = await supabase
       .from('usuarios')
-      .select('id, nome, nivel, whatsapp, auth_user_id, empresa_id');
+      .select('id, nome, nivel, tambem_tecnico, whatsapp, auth_user_id, empresa_id');
     
     if (error) {
       console.error('❌ Erro ao buscar usuários:', error);

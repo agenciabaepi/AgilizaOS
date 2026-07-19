@@ -3,11 +3,12 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { assertDentroDoLimitePlano } from '@/lib/billing/assertPlanLimits';
+import { deveTerTecnicoId } from '@/lib/tecnicos';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nome, email, senha, cpf, nivel, empresa_id, whatsapp, usuario } = body;
+    const { nome, email, senha, cpf, nivel, empresa_id, whatsapp, usuario, tambem_tecnico } = body;
     if (!empresa_id) {
 
       return NextResponse.json({ error: 'Empresa não identificada' }, { status: 400 });
@@ -130,6 +131,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falha ao obter ID do usuário' }, { status: 400 });
     }
 
+    const nivelLower = (nivel || '').toLowerCase();
+    const tambemTecnico =
+      (nivelLower === 'admin' || nivelLower === 'usuarioteste') && !!tambem_tecnico;
+
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert([
       {
         nome,
@@ -140,8 +145,9 @@ export async function POST(request: Request) {
         nivel,
         empresa_id,
         whatsapp,
-        // Adicionar tecnico_id igual ao auth_user_id para técnicos
-        tecnico_id: nivel === 'tecnico' ? authUser.user?.id : null,
+        tambem_tecnico: tambemTecnico,
+        // tecnico_id = auth UID para técnicos e admin que também atua como técnico
+        tecnico_id: deveTerTecnicoId(nivel, tambemTecnico) ? authUser.user?.id : null,
       },
     ]);
 

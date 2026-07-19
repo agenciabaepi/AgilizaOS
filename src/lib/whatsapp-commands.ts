@@ -1,4 +1,5 @@
 import { createAdminClient } from './supabaseClient';
+import { filterUsuariosTecnicos, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 interface ComissaoResumo {
   id: string;
@@ -22,8 +23,8 @@ export async function getTecnicoByWhatsApp(whatsappNumber: string): Promise<{ id
     // Buscar todos os técnicos e filtrar localmente (mais flexível)
     const { data: tecnicos, error } = await supabase
       .from('usuarios')
-      .select('id, nome, whatsapp')
-      .eq('nivel', 'tecnico');
+      .select('id, nome, whatsapp, nivel, tambem_tecnico')
+      .or(TECNICOS_OR_FILTER);
 
     if (error) {
       console.error('❌ Erro ao buscar técnicos:', error);
@@ -34,8 +35,10 @@ export async function getTecnicoByWhatsApp(whatsappNumber: string): Promise<{ id
       return null;
     }
 
+    const tecnicosValidos = filterUsuariosTecnicos(tecnicos);
+
     // Buscar técnico cujo WhatsApp corresponde (com diferentes formatos)
-    const tecnico = tecnicos.find(t => {
+    const tecnico = tecnicosValidos.find(t => {
       if (!t.whatsapp) return false;
       
       const techWhatsapp = t.whatsapp.replace(/\D/g, '');

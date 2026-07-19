@@ -10,6 +10,7 @@ export interface Usuario {
   id: string;
   nome: string;
   nivel: NivelUsuario;
+  tambem_tecnico?: boolean;
   whatsapp?: string;
   auth_user_id?: string;
   empresa_id?: string;

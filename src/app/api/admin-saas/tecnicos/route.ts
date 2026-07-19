@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 /**
  * GET /api/admin-saas/tecnicos
- * Lista todos os técnicos (usuarios com nivel = tecnico) para envio de notificação push.
+ * Lista técnicos (nivel=tecnico ou admin com tambem_tecnico) para envio de notificação push.
  * Retorna id, nome, email, empresa_id, auth_user_id e nome da empresa.
  */
 export async function GET(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
         auth_user_id,
         empresas ( nome )
       `)
-      .eq('nivel', 'tecnico')
+      .or(TECNICOS_OR_FILTER)
       .order('nome', { ascending: true });
 
     if (error) {

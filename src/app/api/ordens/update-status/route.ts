@@ -13,6 +13,7 @@ import {
   ensureTermoGarantiaPadraoNoBanco,
   isTermoGarantiaPadraoId,
 } from '@/lib/termoGarantiaPadrao';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -489,7 +490,7 @@ export async function POST(request: NextRequest) {
           // Primeiro tentar buscar pelo id (caso seja o id real)
           let { data: tecnicoData, error: tecnicoError } = await supabase
             .from('usuarios')
-            .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, nome, auth_user_id, comissao_ativa')
+            .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, tambem_tecnico, nome, auth_user_id, comissao_ativa')
             .eq('id', tecnicoIdParaBuscar)
             .maybeSingle();
           
@@ -498,7 +499,7 @@ export async function POST(request: NextRequest) {
             console.log('⚠️ Não encontrado pelo id, tentando buscar pelo auth_user_id...');
             const { data: tecnicoPorAuth, error: erroAuth } = await supabase
               .from('usuarios')
-              .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, nome, auth_user_id, comissao_ativa')
+              .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, tambem_tecnico, nome, auth_user_id, comissao_ativa')
               .eq('auth_user_id', tecnicoIdParaBuscar)
               .maybeSingle();
             
@@ -540,11 +541,12 @@ export async function POST(request: NextRequest) {
               tecnicoData = null; // Marcar como null para não processar
             }
             
-            // Verificar se é técnico
-            if (tecnicoData && tecnicoData.nivel !== 'tecnico') {
+            // Verificar se atua como técnico (nível tecnico OU admin com tambem_tecnico)
+            if (tecnicoData && !isUsuarioTecnico(tecnicoData)) {
               console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA: Usuário não é técnico', {
                 nome: tecnicoData.nome,
-                nivel: tecnicoData.nivel
+                nivel: tecnicoData.nivel,
+                tambem_tecnico: tecnicoData.tambem_tecnico
               });
               tecnicoData = null;
             }

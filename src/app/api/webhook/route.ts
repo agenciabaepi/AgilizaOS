@@ -5,6 +5,7 @@ import { getUsuarioByWhatsApp, getUserDataByLevel } from '@/lib/user-data';
 import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { processWhatsAppCrmWebhook } from '@/lib/whatsapp-crm/webhook-handler';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,7 +90,7 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
     if (trimmedMessage.toLowerCase() === '/comissoes' || trimmedMessage.toLowerCase().startsWith('/comissoes')) {
       console.log('💰 Comando /comissoes detectado');
 
-      if (usuario.nivel !== 'tecnico') {
+      if (!isUsuarioTecnico(usuario)) {
         return {
           message: '❌ Este comando é exclusivo para técnicos.\n\nVocê pode fazer perguntas gerais para o assistente virtual!'
         };
@@ -119,7 +120,7 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
     
     if (mencionaSenha && mencionaOS) {
       // 🔒 SEGURANÇA CRÍTICA: Apenas técnicos podem buscar senhas de OS
-      if (usuario.nivel !== 'tecnico') {
+      if (!isUsuarioTecnico(usuario)) {
         console.log('🚫 Acesso negado - não é técnico:', {
           usuario: usuario.nome,
           nivel: usuario.nivel,
@@ -185,7 +186,7 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
 
     // Verificar se técnico está perguntando sobre uma OS (sem mencionar senha)
     // Exemplo: "qual a os 1196", "os 1196", "me passa dados da os 1196"
-    if (usuario.nivel === 'tecnico' && mencionaOS && !mencionaSenha) {
+    if (isUsuarioTecnico(usuario) && mencionaOS && !mencionaSenha) {
       const numeros = trimmedMessage.match(/\d+/g);
       let numeroOS: string | null = null;
       
@@ -276,13 +277,13 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
     }
 
     // Fallback: Comando não reconhecido e ChatGPT não disponível
-    const comandosDisponiveis = usuario.nivel === 'tecnico' 
+    const comandosDisponiveis = isUsuarioTecnico(usuario)
       ? '\n• /comissoes - Ver suas comissões'
       : '';
     
     return {
       message: `❓ Comando não reconhecido.\n\nComandos disponíveis:${comandosDisponiveis}\n\n💡 Dica: Você pode fazer perguntas sobre ${
-        usuario.nivel === 'tecnico' ? 'suas OS e comissões' :
+        isUsuarioTecnico(usuario) ? 'suas OS e comissões' :
         usuario.nivel === 'financeiro' ? 'contas a pagar e despesas' :
         usuario.nivel === 'atendente' ? 'OS abertas e clientes' :
         usuario.nivel === 'admin' ? 'dados gerais e performance' :

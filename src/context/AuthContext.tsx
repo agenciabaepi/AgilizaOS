@@ -12,6 +12,8 @@ interface UsuarioData {
   nome: string;
   email: string;
   nivel: string;
+  /** Admin que também atua como técnico (mesmo login). */
+  tambem_tecnico?: boolean;
   permissoes?: string[];
   foto_url?: string;
   auth_user_id?: string;

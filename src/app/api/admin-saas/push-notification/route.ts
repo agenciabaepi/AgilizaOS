@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -33,13 +34,12 @@ export async function POST(req: NextRequest) {
     // Resolver auth_user_id: tecnico_id pode ser usuarios.id ou auth_user_id
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
-      .select('id, nome, auth_user_id')
+      .select('id, nome, auth_user_id, nivel, tambem_tecnico')
       .or(`id.eq.${tecnico_id},auth_user_id.eq.${tecnico_id}`)
-      .eq('nivel', 'tecnico')
       .limit(1)
       .maybeSingle();
 
-    if (userError || !usuario) {
+    if (userError || !usuario || !isUsuarioTecnico(usuario)) {
       return NextResponse.json(
         { error: 'Técnico não encontrado ou não é técnico' },
         { status: 404 }

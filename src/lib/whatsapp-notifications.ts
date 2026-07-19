@@ -1,5 +1,6 @@
 import { createAdminClient } from './supabaseClient';
 import { WHATSAPP_NOTIFICATIONS_ENABLED } from '@/config/whatsapp-config';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 interface TecnicoData {
   id: string;
@@ -213,13 +214,16 @@ export async function getTecnicoData(tecnicoId: string): Promise<TecnicoData | n
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, auth_user_id, nome, whatsapp, email')
-      .eq('auth_user_id', tecnicoId)  // ✅ Corrigido: usar auth_user_id
-      .eq('nivel', 'tecnico')
-      .single();
+      .select('id, auth_user_id, nome, whatsapp, email, nivel, tambem_tecnico')
+      .eq('auth_user_id', tecnicoId)
+      .maybeSingle();
 
     if (error) {
       console.error('❌ Erro ao buscar dados do técnico:', error);
+      return null;
+    }
+
+    if (!data || !isUsuarioTecnico(data)) {
       return null;
     }
 

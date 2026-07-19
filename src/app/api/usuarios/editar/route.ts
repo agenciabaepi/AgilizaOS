@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { deveTerTecnicoId } from '@/lib/tecnicos';
 
 /**
  * POST /api/usuarios/editar - Atualizar usuário (admin/usuarioteste, mesma empresa).
- * Body: { id, nome?, email?, usuario?, cpf?, whatsapp?, nivel?, permissoes?, senha?, auth_user_id? }
+ * Body: { id, nome?, email?, usuario?, cpf?, whatsapp?, nivel?, tambem_tecnico?, permissoes?, senha?, auth_user_id? }
  */
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { id, nome, email, usuario, cpf, whatsapp, nivel, permissoes, senha, auth_user_id } = body;
+    const { id, nome, email, usuario, cpf, whatsapp, nivel, tambem_tecnico, permissoes, senha, auth_user_id } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID do usuário não informado' }, { status: 400 });
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
 
     const { data: alvo } = await supabaseAdmin
       .from('usuarios')
-      .select('id, empresa_id')
+      .select('id, empresa_id, nivel, tambem_tecnico, auth_user_id')
       .eq('id', id)
       .single();
 
@@ -81,15 +82,50 @@ export async function POST(request: Request) {
     if (usuario !== undefined) updatePayload.usuario = usuario;
     if (cpf !== undefined) updatePayload.cpf = cpf;
     if (whatsapp !== undefined) updatePayload.whatsapp = whatsapp;
-    if (nivel !== undefined) updatePayload.nivel = nivel;
-    if (permissoes !== undefined && Array.isArray(permissoes)) {
-      updatePayload.permissoes = permissoes.filter((p): p is string => typeof p === 'string');
+
+    const alvoNivel = (alvo.nivel || '').toLowerCase();
+    const adminProtegido = alvoNivel === 'admin' || alvoNivel === 'usuarioteste';
+
+    // Admin protegido: não permite mudar nível nem limitar permissões
+    if (adminProtegido) {
+      if (nivel !== undefined && typeof nivel === 'string' && nivel.toLowerCase() !== alvoNivel) {
+        return NextResponse.json(
+          { error: 'Não é permitido alterar o nível do administrador principal.' },
+          { status: 400 }
+        );
+      }
+      // Mantém nível original; ignora payload de permissões
+    } else {
+      if (nivel !== undefined) updatePayload.nivel = nivel;
+      if (permissoes !== undefined && Array.isArray(permissoes)) {
+        updatePayload.permissoes = permissoes.filter((p): p is string => typeof p === 'string');
+      }
     }
-    if (auth_user_id !== undefined && nivel === 'tecnico') {
-      (updatePayload as Record<string, unknown>).tecnico_id = auth_user_id;
+
+    const nivelFinal = adminProtegido
+      ? alvo.nivel
+      : typeof nivel === 'string'
+        ? nivel
+        : alvo.nivel;
+    const nivelLower = (nivelFinal || '').toLowerCase();
+    const podeSerTambemTecnico = nivelLower === 'admin' || nivelLower === 'usuarioteste';
+    let tambemTecnicoFinal =
+      typeof tambem_tecnico === 'boolean' ? tambem_tecnico : !!alvo.tambem_tecnico;
+
+    if (!podeSerTambemTecnico) {
+      tambemTecnicoFinal = false;
     }
-    if (nivel !== undefined && nivel !== 'tecnico') {
-      (updatePayload as Record<string, unknown>).tecnico_id = null;
+    if (tambem_tecnico !== undefined || (!adminProtegido && nivel !== undefined)) {
+      updatePayload.tambem_tecnico = tambemTecnicoFinal;
+    }
+
+    const authIdParaTecnico =
+      (typeof auth_user_id === 'string' && auth_user_id) || alvo.auth_user_id || null;
+
+    if (deveTerTecnicoId(nivelFinal, tambemTecnicoFinal) && authIdParaTecnico) {
+      updatePayload.tecnico_id = authIdParaTecnico;
+    } else if ((!adminProtegido && nivel !== undefined) || tambem_tecnico !== undefined) {
+      updatePayload.tecnico_id = null;
     }
 
     if (Object.keys(updatePayload).length > 0) {

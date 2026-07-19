@@ -7,6 +7,7 @@ import {
   fetchOrdensPrevistasRows,
   osRowFromComissao,
 } from '@/lib/comissoesQueryCompat';
+import { isUsuarioTecnico, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 /**
  * GET /api/comissoes/minhas
@@ -23,15 +24,15 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
 
-    // Resolver APENAS o perfil de TÉCNICO por auth_user_id (evita carregar comissões de outro perfil)
+    // Resolver perfil que atua como técnico (nivel tecnico OU admin com tambem_tecnico)
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
-      .select('id, nome, empresa_id, nivel, tipo_comissao, comissao_fixa, comissao_percentual')
+      .select('id, nome, empresa_id, nivel, tambem_tecnico, tipo_comissao, comissao_fixa, comissao_percentual')
       .eq('auth_user_id', authUserId)
-      .eq('nivel', 'tecnico')
+      .or(TECNICOS_OR_FILTER)
       .maybeSingle();
 
-    if (userError || !usuario) {
+    if (userError || !usuario || !isUsuarioTecnico(usuario)) {
       return NextResponse.json({ error: 'Usuário não encontrado ou não é técnico' }, { status: 404 });
     }
 

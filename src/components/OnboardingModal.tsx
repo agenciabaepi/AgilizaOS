@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
 import { useRouter } from 'next/navigation';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 import {
   FiCheckCircle,
   FiCircle,
@@ -91,8 +92,8 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           supabase
             .from('usuarios')
             .select('id')
-            .eq('nivel', 'tecnico')
-            .eq('empresa_id', usuarioData?.empresa_id),
+            .eq('empresa_id', usuarioData?.empresa_id)
+            .or(TECNICOS_OR_FILTER),
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Timeout')), 5000)
           )

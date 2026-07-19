@@ -3,6 +3,7 @@
  */
 import { createAdminClient } from '../supabaseClient';
 import { DadosAdmin } from './types';
+import { TECNICOS_OR_FILTER } from '../tecnicos';
 
 export async function getAdminData(empresaId: string): Promise<DadosAdmin | null> {
   try {
@@ -22,12 +23,12 @@ export async function getAdminData(empresaId: string): Promise<DadosAdmin | null
       os => ['ENTREGUE', 'CANCELADA'].includes(os.status)
     ).length || 0;
     
-    // Total de técnicos
+    // Total de técnicos (incluindo admin que também atua como técnico)
     const { data: tecnicos } = await supabase
       .from('usuarios')
       .select('id')
       .eq('empresa_id', empresaId)
-      .eq('nivel', 'tecnico');
+      .or(TECNICOS_OR_FILTER);
     
     const totalTecnicos = tecnicos?.length || 0;
     

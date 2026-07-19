@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { sendPushToTecnico } from '@/lib/push-notification-tecnico';
 import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
 import { fetchOrdensFinalizadasRows } from '@/lib/comissoesQueryCompat';
+import { isUsuarioTecnico } from '@/lib/tecnicos';
 
 function normalizeStatus(s: string | null | undefined): string {
   if (!s) return '';
@@ -98,20 +99,20 @@ export async function POST(request: NextRequest) {
       // Resolver técnico: id da tabela usuarios (pode vir como id ou auth_user_id na OS)
       let { data: tecnicoData } = await supabase
         .from('usuarios')
-        .select('id, nome, nivel, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
+        .select('id, nome, nivel, tambem_tecnico, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
         .eq('id', tecnicoIdOs)
         .maybeSingle();
 
       if (!tecnicoData) {
         const { data: porAuth } = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
+          .select('id, nome, nivel, tambem_tecnico, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
           .eq('auth_user_id', tecnicoIdOs)
           .maybeSingle();
         tecnicoData = porAuth || null;
       }
 
-      if (!tecnicoData || tecnicoData.nivel !== 'tecnico' || tecnicoData.comissao_ativa === false) {
+      if (!tecnicoData || !isUsuarioTecnico(tecnicoData) || tecnicoData.comissao_ativa === false) {
         erros.push(`OS #${os.numero_os}: técnico não encontrado ou sem comissão ativa`);
         continue;
       }

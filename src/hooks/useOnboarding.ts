@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 interface OnboardingStatus {
   empresa: boolean;
@@ -186,8 +187,8 @@ export const useOnboarding = () => {
       const { data: tecnicos } = await supabase
         .from('usuarios')
         .select('id')
-        .eq('nivel', 'tecnico')
-        .eq('empresa_id', usuarioData.empresa_id);
+        .eq('empresa_id', usuarioData.empresa_id)
+        .or(TECNICOS_OR_FILTER);
 
       console.log('DEBUG TÉCNICOS:', {
         empresa: {

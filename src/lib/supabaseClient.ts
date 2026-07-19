@@ -220,7 +220,8 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         empresa_id, 
         nome, 
         email, 
-        nivel, 
+        nivel,
+        tambem_tecnico,
         permissoes, 
         foto_url
       `)
@@ -246,7 +247,8 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           empresa_id, 
           nome, 
           email, 
-          nivel, 
+          nivel,
+          tambem_tecnico,
           permissoes, 
           foto_url
         `)
@@ -281,6 +283,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           nome: data.nome,
           email: data.email,
           nivel: data.nivel,
+          tambem_tecnico: !!data.tambem_tecnico,
           permissoes: data.permissoes,
           foto_url: data.foto_url
         },
@@ -320,6 +323,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           nome: data.nome,
           email: data.email,
           nivel: data.nivel,
+          tambem_tecnico: !!data.tambem_tecnico,
           permissoes: data.permissoes,
           foto_url: data.foto_url
         },
@@ -365,6 +369,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         nome: data.nome,
         email: data.email,
         nivel: data.nivel,
+        tambem_tecnico: !!data.tambem_tecnico,
         permissoes: data.permissoes,
         foto_url: data.foto_url
       },

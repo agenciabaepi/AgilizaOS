@@ -41,6 +41,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   const [cpf, setCpf] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [nivel, setNivel] = useState('tecnico')
+  const [tambemTecnico, setTambemTecnico] = useState(false)
   const [usuario, setUsuario] = useState('')
   const [empresaId, setEmpresaId] = useState('')
   
@@ -60,6 +61,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
     cpf: string
     whatsapp: string
     nivel: string
+    tambem_tecnico?: boolean
     auth_user_id: string
   }>>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
@@ -251,13 +253,13 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
 
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, cpf, whatsapp, nivel, auth_user_id')
+        .select('id, nome, email, cpf, whatsapp, nivel, tambem_tecnico, auth_user_id')
         .eq('empresa_id', meuUsuario?.empresa_id)
+        .order('nome', { ascending: true })
 
       if (error) throw error
 
-      const usuariosFiltrados = data.filter((u: { auth_user_id: string }) => u.auth_user_id !== session?.user?.id)
-      setUsuarios(usuariosFiltrados)
+      setUsuarios(data || [])
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)
       addToast('error', 'Erro ao carregar lista de usuários');
@@ -402,6 +404,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
         cpf: cpf.trim() || null,
         whatsapp,
         nivel,
+        tambem_tecnico: nivel === 'admin' || nivel === 'usuarioteste' ? tambemTecnico : false,
         empresa_id: empresaId,
         usuario: usuarioPadronizado,
       };
@@ -440,6 +443,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
       setCpf('')
       setWhatsapp('')
       setNivel('tecnico')
+      setTambemTecnico(false)
       setUsuario('')
       setMostrarFormulario(false)
 
@@ -703,7 +707,13 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                       </label>
                     <select
                       value={nivel}
-                      onChange={(e) => setNivel(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setNivel(value)
+                        if (value !== 'admin' && value !== 'usuarioteste') {
+                          setTambemTecnico(false)
+                        }
+                      }}
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                       required
                     >
@@ -713,6 +723,27 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                       <option value="admin">Administrador</option>
                     </select>
                   </div>
+
+                    {(nivel === 'admin' || nivel === 'usuarioteste') && (
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={tambemTecnico}
+                            onChange={(e) => setTambemTecnico(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                          />
+                          <span>
+                            <span className="block text-sm font-medium text-gray-900">
+                              Também atua como técnico
+                            </span>
+                            <span className="block text-xs text-gray-500 mt-0.5">
+                              Usa o mesmo login de admin para receber OS e comissões, sem criar um segundo usuário.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    )}
                 </div>
                   
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -752,14 +783,21 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                   Usuários Cadastrados ({usuarios.length})
                 </h3>
                 
-                {usuarios.map((usuario) => (
+                {usuarios.map((usuario) => {
+                  const isEu = usuario.auth_user_id === session?.user?.id
+                  return (
                   <div key={usuario.id} className="flex items-center justify-between p-6 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-full font-semibold text-lg shadow-md">
                         {usuario.nome.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-base font-semibold text-gray-900">{usuario.nome}</p>
+                        <p className="text-base font-semibold text-gray-900">
+                          {usuario.nome}
+                          {isEu && (
+                            <span className="ml-2 text-xs font-medium text-gray-500">(você)</span>
+                          )}
+                        </p>
                         <p className="text-sm text-gray-600">{usuario.email}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -770,6 +808,11 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                           }`}>
                             {usuario.nivel.charAt(0).toUpperCase() + usuario.nivel.slice(1)}
                           </span>
+                          {usuario.tambem_tecnico && (usuario.nivel === 'admin' || usuario.nivel === 'usuarioteste') && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              Também técnico
+                            </span>
+                          )}
                           {usuario.whatsapp && (
                             <span className="text-xs text-gray-500">
                               📱 {usuario.whatsapp}
@@ -782,40 +825,32 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                     <div className="flex gap-2">
                       <button
                         title="Editar"
-                        className={`p-2 rounded-lg transition-all duration-200 ${
-                          usuario.auth_user_id === session?.user?.id 
-                            ? 'opacity-40 cursor-not-allowed bg-gray-100' 
-                            : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
-                        }`}
-                        onClick={() => {
-                          if (usuario.auth_user_id !== session?.user?.id) {
-                            router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
-                          }
-                        }}
-                        disabled={usuario.auth_user_id === session?.user?.id}
+                        className="p-2 rounded-lg transition-all duration-200 text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => router.push(`/configuracoes/usuarios/${usuario.id}/editar`)}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       
                       <button
-                        title="Excluir"
+                        title={isEu ? 'Você não pode excluir seu próprio usuário' : 'Excluir'}
                         className={`p-2 rounded-lg transition-all duration-200 ${
-                          usuario.auth_user_id === session?.user?.id 
+                          isEu
                             ? 'opacity-40 cursor-not-allowed bg-gray-100' 
                             : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                         }`}
                         onClick={() => {
-                          if (usuario.auth_user_id !== session?.user?.id) {
+                          if (!isEu) {
                             handleDeleteUsuario(usuario.id, usuario.auth_user_id)
                           }
                         }}
-                        disabled={usuario.auth_user_id === session?.user?.id}
+                        disabled={isEu}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
                 
                 {usuarios.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
