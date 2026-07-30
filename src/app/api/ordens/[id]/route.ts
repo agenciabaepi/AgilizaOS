@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { sendOSApprovedNotification } from '@/lib/whatsapp-notifications';
 import { carregarTermoPadraoEmpresa, isTermoGarantiaPadraoId } from '@/lib/termoGarantiaPadrao';
+import { calcularVencimentoGarantia, osElegivelParaGarantia, toDateOnlyLocal } from '@/lib/garantiaOs';
 
 export async function GET(
   request: NextRequest,
@@ -183,15 +184,21 @@ export async function PUT(
         dataToUpdate.status_tecnico = 'APROVADO';
       } else if (st === 'ENTREGUE') {
         dataToUpdate.status_tecnico = 'FINALIZADA';
-        // Se não veio data_entrega explícita, registrar agora e calcular garantia
         if (!updateData.data_entrega) {
-          const hoje = new Date();
-          const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
-          const garantia = new Date(hoje);
-          garantia.setDate(garantia.getDate() + 90);
-          const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
-          dataToUpdate.data_entrega = dataStr; // colunas tipo date
-          dataToUpdate.vencimento_garantia = garantiaStr;
+          const dataStr = toDateOnlyLocal();
+          dataToUpdate.data_entrega = dataStr;
+          if (
+            osElegivelParaGarantia({
+              cliente_recusou: updateData.cliente_recusou,
+              aparelho_sem_conserto: updateData.aparelho_sem_conserto,
+              status: updateData.status,
+              status_tecnico: updateData.status_tecnico ?? dataToUpdate.status_tecnico,
+            })
+          ) {
+            dataToUpdate.vencimento_garantia = calcularVencimentoGarantia(dataStr);
+          } else {
+            dataToUpdate.vencimento_garantia = null;
+          }
         }
       } else if (st === 'AGUARDANDO APROVACAO') {
         dataToUpdate.status_tecnico = 'AGUARDANDO APROVAÇÃO';

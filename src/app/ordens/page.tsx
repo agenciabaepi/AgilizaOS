@@ -196,6 +196,12 @@ import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import {
+  estimarDataEntregaDeGarantia,
+  isGarantiaVencidaOs,
+  osElegivelParaGarantia,
+  resolverVencimentoGarantiaOs,
+} from '@/lib/garantiaOs';
 
 const getInitials = (nome: string) => {
   if (!nome) return 'US';
@@ -272,23 +278,6 @@ export default function ListaOrdensPage() {
     }
     return new Date(date).toLocaleDateString('pt-BR');
   }
-
-  const toDateOnlyString = (d: Date): string => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const addDaysDateOnly = (dateOnly: string, days: number): string => {
-    const m = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return dateOnly;
-    const y = Number(m[1]);
-    const mm = Number(m[2]);
-    const dd = Number(m[3]);
-    const d = new Date(y, mm - 1, dd + days);
-    return toDateOnlyString(d);
-  };
 
   function formatPhoneNumber(phone: string) {
     const cleaned = ('' + phone).replace(/\D/g, '');
@@ -477,26 +466,36 @@ export default function ListaOrdensPage() {
         aparelho_imagem_url
       `;
       const selectComAparelhoSemConserto = `${baseSelect}, aparelho_sem_conserto`;
-      const buildQuery = (selectFields: string) =>
-        supabase
-          .from('ordens_servico')
-          .select(selectFields)
-          .eq("empresa_id", empresaId)
-          .order('created_at', { ascending: false })
-          .limit(500); // ✅ Reduzido de 1000 para 500
-      
-      // Executar query e tratar erros
+      const ORDENS_PAGE_SIZE = 1000;
+      const fetchAllOrdens = async (selectFields: string) => {
+        const rows: any[] = [];
+        let from = 0;
+        while (true) {
+          const { data: page, error } = await supabase
+            .from('ordens_servico')
+            .select(selectFields)
+            .eq('empresa_id', empresaId)
+            .order('created_at', { ascending: false })
+            .range(from, from + ORDENS_PAGE_SIZE - 1);
+          if (error) return { data: rows.length > 0 ? rows : null, error };
+          const items = page || [];
+          rows.push(...items);
+          if (items.length < ORDENS_PAGE_SIZE) break;
+          from += ORDENS_PAGE_SIZE;
+        }
+        return { data: rows, error: null };
+      };
+
+      // Executar query paginada e tratar erros
       let queryResult: any;
       try {
-        // ✅ OTIMIZADO: Timeout reduzido para 15 segundos (mais responsivo)
         queryResult = await Promise.race([
-          buildQuery(selectComAparelhoSemConserto),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 15000)
+          fetchAllOrdens(selectComAparelhoSemConserto),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 60000)
           )
         ]);
       } catch (timeoutError) {
-        // Timeout - tratar como erro real
         throw timeoutError;
       }
       
@@ -506,9 +505,9 @@ export default function ListaOrdensPage() {
       if (columnMissingAparelhoSemConserto) {
         console.warn('⚠️ Coluna aparelho_sem_conserto ausente neste banco; executando fallback de compatibilidade.');
         const fallbackResult = await Promise.race([
-          buildQuery(baseSelect),
+          fetchAllOrdens(baseSelect),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Query timeout - fallback sem aparelho_sem_conserto')), 15000)
+            setTimeout(() => reject(new Error('Query timeout - fallback sem aparelho_sem_conserto')), 60000)
           )
         ]);
         data = (fallbackResult as any)?.data ?? [];
@@ -698,20 +697,19 @@ export default function ListaOrdensPage() {
         }
 
         const mapped = data.map((item: any) => {
+          const valorFaturado = parseValorMonetarioBR(item.valor_faturado);
+          const vendaOS = vendasDict[item.id];
+          const aparelhoSemConserto = inferirAparelhoSemConsertoOs(item, !!vendaOS);
+
           // manter datas como YYYY-MM-DD para evitar timezone
           const entregaCalc = item.data_entrega
             ? item.data_entrega
-            : (item.vencimento_garantia
-              ? addDaysDateOnly(item.vencimento_garantia, -90)
-              : '');
-          const garantiaCalc = item.vencimento_garantia
-            ? item.vencimento_garantia
-            : (item.data_entrega
-              ? addDaysDateOnly(item.data_entrega, 90)
-              : '');
+            : estimarDataEntregaDeGarantia(item.vencimento_garantia);
+          const garantiaCalc = resolverVencimentoGarantiaOs({
+            ...item,
+            aparelho_sem_conserto: aparelhoSemConserto,
+          });
           
-          const valorFaturado = parseValorMonetarioBR(item.valor_faturado);
-          const vendaOS = vendasDict[item.id];
           // Buscar atendente_id separadamente se necessário
           const atendenteId = item.atendente_id || null;
           const responsavelInfo = atendenteId ? responsaveisDict[atendenteId] : null;
@@ -727,7 +725,6 @@ export default function ListaOrdensPage() {
 
           const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
           
-          // ✅ OTIMIZADO: Buscar nome do técnico do dict (mais rápido que relacionamento)
           let tecnicoNome = 'Sem técnico';
           if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
             tecnicoNome = tecnicosDict[item.tecnico_id];
@@ -735,7 +732,6 @@ export default function ListaOrdensPage() {
             tecnicoNome = 'Técnico não encontrado';
           }
 
-          const aparelhoSemConserto = inferirAparelhoSemConsertoOs(item, !!vendaOS);
           const statusTecnicoDb = normStatusVal(item.status_tecnico) || '';
           const statusTecnico = aparelhoSemConserto ? 'SEM REPARO' : statusTecnicoDb;
 
@@ -1041,6 +1037,8 @@ export default function ListaOrdensPage() {
         const stTec = (os.statusTecnico || '').toUpperCase();
         matchesTab = stTec === 'ORÇAMENTO CONCLUÍDO' || stTec === 'ORCAMENTO CONCLUIDO' || 
                      stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
+      } else if (activeTab === 'garantia_vencida') {
+        matchesTab = isGarantiaVencidaOs(os);
       }
       // activeTab === 'todas' não filtra nada - mostra todas as OSs
 
@@ -1112,8 +1110,9 @@ export default function ListaOrdensPage() {
       return stTec === 'ORÇAMENTO CONCLUÍDO' || stTec === 'ORCAMENTO CONCLUIDO' ||
              stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
     }).length;
+    const garantiaVencida = ordens.filter((os) => isGarantiaVencidaOs(os)).length;
     
-    return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, todas: ordens.length };
+    return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, garantiaVencida, todas: ordens.length };
   }, [ordens]);
 
   // ✅ OTIMIZADO: Loading states mais inteligentes
@@ -1429,6 +1428,21 @@ export default function ListaOrdensPage() {
                   {contadores.concluidas}
                 </span>
               </button>
+              <button
+                onClick={() => handleTabChange('garantia_vencida')}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'garantia_vencida'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
+                }`}
+              >
+                Garantia Vencida
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'garantia_vencida' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
+                }`}>
+                  {contadores.garantiaVencida}
+                </span>
+              </button>
               </div>
             </div>
           </div>
@@ -1678,12 +1692,16 @@ export default function ListaOrdensPage() {
                     </td>
                     <td className="px-1 py-2">
                       <div className={`text-xs font-medium min-w-0 ${
-                        os.garantia && new Date(os.garantia) < new Date()
+                        os.garantia && osElegivelParaGarantia(os) && isGarantiaVencidaOs(os)
                           ? 'text-red-600'
-                          : 'text-green-600'
+                          : os.garantia && osElegivelParaGarantia(os)
+                          ? 'text-green-600'
+                          : 'text-gray-500 dark:text-zinc-400'
                       }`}>
-                        <div className="whitespace-nowrap">{formatDate(os.garantia) || 'Aguardando'}</div>
-                        {os.garantia && (
+                        <div className="whitespace-nowrap">
+                          {os.garantia && osElegivelParaGarantia(os) ? formatDate(os.garantia) : '—'}
+                        </div>
+                        {os.garantia && osElegivelParaGarantia(os) && (
                           <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
                             {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                               ? 'Expirada'

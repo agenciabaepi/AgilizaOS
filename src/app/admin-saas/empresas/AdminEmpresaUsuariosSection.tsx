@@ -125,9 +125,13 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
           body: JSON.stringify({ liberar: true }),
         }
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao liberar verificação');
+        throw new Error(
+          json.message ||
+            json.reason ||
+            `Falha ao liberar verificação (HTTP ${res.status})`
+        );
       }
       await carregar();
     } catch (e) {

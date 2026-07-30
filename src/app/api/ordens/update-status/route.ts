@@ -14,6 +14,11 @@ import {
   isTermoGarantiaPadraoId,
 } from '@/lib/termoGarantiaPadrao';
 import { isUsuarioTecnico } from '@/lib/tecnicos';
+import {
+  calcularVencimentoGarantia,
+  osElegivelParaGarantia,
+  toDateOnlyLocal,
+} from '@/lib/garantiaOs';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -221,10 +226,32 @@ export async function POST(request: NextRequest) {
 
     // Definir data_entrega automaticamente se a OS está sendo finalizada
     if (seraFinalizada && !updateData.data_entrega) {
-      const hoje = new Date();
-      const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0, 10);
+      const dataStr = toDateOnlyLocal();
       dadosAtualizacao.data_entrega = dataStr;
       console.log('📅 Data de entrega definida automaticamente:', dataStr);
+    }
+
+    // Garantia legal: 90 dias a partir da entrega — somente reparo com conserto
+    if (seraFinalizada) {
+      const elegivelGarantia = osElegivelParaGarantia({
+        cliente_recusou: cliente_recusou ?? dadosAtualizacao.cliente_recusou,
+        aparelho_sem_conserto: aparelho_sem_conserto ?? dadosAtualizacao.aparelho_sem_conserto,
+        status: dadosAtualizacao.status ?? newStatus ?? (osAnterior as any).status,
+        status_tecnico:
+          dadosAtualizacao.status_tecnico ??
+          newStatusTecnico ??
+          (osAnterior as any).status_tecnico,
+      });
+
+      if (!elegivelGarantia) {
+        dadosAtualizacao.vencimento_garantia = null;
+      } else if (!dadosAtualizacao.vencimento_garantia) {
+        const dataEntrega = dadosAtualizacao.data_entrega ?? updateData.data_entrega;
+        const vencimento = calcularVencimentoGarantia(dataEntrega);
+        if (vencimento) {
+          dadosAtualizacao.vencimento_garantia = vencimento;
+        }
+      }
     }
 
     // ========== ESPELHAMENTO BIDIRECIONAL ==========

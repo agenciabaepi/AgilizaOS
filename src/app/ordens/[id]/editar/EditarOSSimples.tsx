@@ -28,6 +28,7 @@ import {
 } from '@/lib/osEditDraft';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock } from 'react-icons/fi';
 import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
+import { calcularVencimentoGarantia, osElegivelParaGarantia, toDateOnlyLocal } from '@/lib/garantiaOs';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
@@ -726,15 +727,21 @@ export default function EditarOSSimples() {
       // Persistência do checklist de entrada como JSON (string) - SEMPRE incluir
       updateData.checklist_entrada = JSON.stringify(checklistEntrada || {});
 
-      // Se ENTREGUE, adiciona datas (tipo date)
+      // Se ENTREGUE, adiciona data de entrega; garantia só para reparo concluído
       if (sel === 'ENTREGUE') {
-        const hoje = new Date();
-        const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
-        const garantia = new Date(hoje);
-        garantia.setDate(garantia.getDate() + 90);
-        const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
+        const dataStr = toDateOnlyLocal();
         updateData.data_entrega = dataStr;
-        updateData.vencimento_garantia = garantiaStr;
+        if (
+          osElegivelParaGarantia({
+            status: novoStatus,
+            status_tecnico: novoStatusTecnico,
+            cliente_recusou: statusRecusado,
+          })
+        ) {
+          updateData.vencimento_garantia = calcularVencimentoGarantia(dataStr);
+        } else {
+          updateData.vencimento_garantia = null;
+        }
       }
 
       // Verificar se temos numero_os ou id

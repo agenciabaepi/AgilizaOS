@@ -27,6 +27,12 @@ import {
 } from '@/lib/termoGarantiaPadrao';
 import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
+import {
+  calcularVencimentoGarantia,
+  osElegivelParaGarantia,
+  resolverVencimentoGarantiaOs,
+  toDateOnlyLocal,
+} from '@/lib/garantiaOs';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -474,20 +480,22 @@ const VisualizarOrdemServicoPage = () => {
         await ensureTermoGarantiaPadraoNoBanco(supabase, empresaData.id);
       }
 
+      const dataEntrega = toDateOnlyLocal(new Date());
       const payloadEntrega: Record<string, unknown> = {
         osId: id,
         newStatus: 'ENTREGUE',
         newStatusTecnico: aparelhoSemConserto ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
-        data_entrega: new Date().toISOString().split('T')[0],
+        data_entrega: dataEntrega,
         cliente_recusou: clienteRecusou,
         aparelho_sem_conserto: aparelhoSemConserto,
       };
 
       if (exigeTermoGarantia && termoGarantiaSelecionado?.id) {
         payloadEntrega.termo_garantia_id = termoGarantiaSelecionado.id;
-        payloadEntrega.vencimento_garantia = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split('T')[0];
+        payloadEntrega.vencimento_garantia = calcularVencimentoGarantia(dataEntrega);
+      } else {
+        payloadEntrega.vencimento_garantia = null;
+        payloadEntrega.termo_garantia_id = null;
       }
 
       const response = await fetch('/api/ordens/update-status', {
@@ -755,6 +763,23 @@ const VisualizarOrdemServicoPage = () => {
       </MenuLayout>
     );
   }
+
+  const elegivelGarantia = osElegivelParaGarantia({
+    cliente_recusou: ordem.cliente_recusou,
+    aparelho_sem_conserto: ordem.aparelho_sem_conserto,
+    status: ordem.status,
+    status_tecnico: ordem.status_tecnico,
+  });
+  const vencimentoGarantiaExibicao = elegivelGarantia
+    ? resolverVencimentoGarantiaOs({
+        vencimento_garantia: ordem.vencimento_garantia,
+        data_entrega: ordem.data_entrega,
+        cliente_recusou: ordem.cliente_recusou,
+        aparelho_sem_conserto: ordem.aparelho_sem_conserto,
+        status: ordem.status,
+        status_tecnico: ordem.status_tecnico,
+      })
+    : '';
 
   return (
     
@@ -1279,11 +1304,15 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-zinc-400">Garantia:</span>
-                    <span className="font-medium text-gray-900 dark:text-zinc-100">{ordem.termo_garantia?.nome || '---'}</span>
+                    <span className="font-medium text-gray-900 dark:text-zinc-100">
+                      {elegivelGarantia ? (ordem.termo_garantia?.nome || '---') : 'Não aplicável'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-zinc-400">Venc. Garantia:</span>
-                    <span className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</span>
+                    <span className="font-medium text-gray-900">
+                      {elegivelGarantia ? formatDate(vencimentoGarantiaExibicao) : '—'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1456,21 +1485,29 @@ const VisualizarOrdemServicoPage = () => {
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Garantia</h2>
                 </div>
                 <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600 dark:text-zinc-400">Termo:</span>
-                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.termo_garantia?.nome || 'Nenhum termo selecionado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-zinc-400">Vencimento:</span>
-                    <p className="font-medium text-gray-900 dark:text-zinc-100">{formatDate(ordem.vencimento_garantia)}</p>
-                  </div>
-                  {ordem.vencimento_garantia && (
-                    <div className="flex items-center gap-2">
-                      <FiClock className="w-4 h-4 text-gray-500 dark:text-zinc-400" />
-                      <span className="text-xs text-gray-500 dark:text-zinc-400">
-                        {new Date(ordem.vencimento_garantia) > new Date() ? 'Garantia válida' : 'Garantia expirada'}
-                      </span>
-                    </div>
+                  {elegivelGarantia ? (
+                    <>
+                      <div>
+                        <span className="text-gray-600 dark:text-zinc-400">Termo:</span>
+                        <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.termo_garantia?.nome || 'Nenhum termo selecionado'}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-zinc-400">Vencimento:</span>
+                        <p className="font-medium text-gray-900 dark:text-zinc-100">{formatDate(vencimentoGarantiaExibicao)}</p>
+                      </div>
+                      {vencimentoGarantiaExibicao && (
+                        <div className="flex items-center gap-2">
+                          <FiClock className="w-4 h-4 text-gray-500 dark:text-zinc-400" />
+                          <span className="text-xs text-gray-500 dark:text-zinc-400">
+                            {new Date(vencimentoGarantiaExibicao) > new Date() ? 'Garantia válida' : 'Garantia expirada'}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-600 dark:text-zinc-400">
+                      Sem garantia — aparelho sem conserto, orçamento recusado ou sem reparo.
+                    </p>
                   )}
                 </div>
               </div>
