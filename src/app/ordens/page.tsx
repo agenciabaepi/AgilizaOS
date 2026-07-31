@@ -96,6 +96,16 @@ function labelStatusTecnicoOrdem(os: {
   );
 }
 
+const SUPABASE_IN_CHUNK_SIZE = 150;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 /** Mesma ideia do dados-impressao: observações da venda ou total + cliente. */
 function observacoesReferenciamOS(observacoes: unknown, numeroOs: unknown): boolean {
   const n = String(numeroOs ?? '').trim();
@@ -574,39 +584,64 @@ export default function ListaOrdensPage() {
           .filter((item: any) => item.atendente_id && item.atendente_id !== null && item.atendente_id !== undefined)
           .map((item: any) => item.atendente_id))];
 
-        // ✅ Executar todas as queries de relacionamento em paralelo
-        // técnicos: ordens_servico.tecnico_id pode ser usuarios.id OU auth_user_id — buscar pelos dois
-        const tecnicosPromise = tecnicoIds.length > 0
-          ? Promise.all([
-              supabase.from('usuarios').select('id, nome, auth_user_id').in('id', tecnicoIds),
-              supabase.from('usuarios').select('id, nome, auth_user_id').in('auth_user_id', tecnicoIds)
-            ]).then(([byId, byAuth]) => {
-              const byIdData = (byId.data || []) as any[];
-              const byAuthData = (byAuth.data || []).filter((u: any) => !byIdData.some((x: any) => x.id === u.id)) as any[];
-              return { data: [...byIdData, ...byAuthData], error: byId.error || byAuth.error };
-            })
-          : Promise.resolve({ data: [], error: null });
+        // ✅ Executar todas as queries de relacionamento em paralelo (em lotes — evita falha do .in() com muitos IDs)
+        const fetchClientesBatched = async (ids: string[]) => {
+          if (ids.length === 0) return [] as any[];
+          const rows: any[] = [];
+          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
+            const { data, error } = await supabase
+              .from('clientes')
+              .select('id, nome, telefone, email')
+              .in('id', chunk);
+            if (error) throw error;
+            if (data) rows.push(...data);
+          }
+          return rows;
+        };
+
+        const fetchUsuariosBatched = async (ids: string[], fields: string) => {
+          if (ids.length === 0) return [] as any[];
+          const rows: any[] = [];
+          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
+            const { data, error } = await supabase.from('usuarios').select(fields).in('id', chunk);
+            if (error) throw error;
+            if (data) rows.push(...data);
+          }
+          return rows;
+        };
+
+        const fetchTecnicosBatched = async (ids: string[]) => {
+          if (ids.length === 0) return [] as any[];
+          const byId: any[] = [];
+          const byAuth: any[] = [];
+          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
+            const [idRes, authRes] = await Promise.all([
+              supabase.from('usuarios').select('id, nome, auth_user_id').in('id', chunk),
+              supabase.from('usuarios').select('id, nome, auth_user_id').in('auth_user_id', chunk),
+            ]);
+            if (idRes.error) throw idRes.error;
+            if (authRes.error) throw authRes.error;
+            if (idRes.data) byId.push(...idRes.data);
+            if (authRes.data) byAuth.push(...authRes.data);
+          }
+          const seen = new Set(byId.map((u: any) => u.id));
+          return [...byId, ...byAuth.filter((u: any) => !seen.has(u.id))];
+        };
+
+        const tecnicosPromise = tecnicoIds.length > 0 ? fetchTecnicosBatched(tecnicoIds) : Promise.resolve([]);
 
         const [clientesResult, tecnicosResult, responsaveisResult] = await Promise.allSettled([
-          clienteIds.length > 0 
-            ? supabase
-                .from('clientes')
-                .select('id, nome, telefone, email')
-                .in('id', clienteIds)
-            : Promise.resolve({ data: [], error: null }),
+          clienteIds.length > 0 ? fetchClientesBatched(clienteIds as string[]) : Promise.resolve([]),
           tecnicosPromise,
           responsavelIds.length > 0
-            ? supabase
-                .from('usuarios')
-                .select('id, nome, foto_url')
-                .in('id', responsavelIds)
-            : Promise.resolve({ data: [], error: null })
+            ? fetchUsuariosBatched(responsavelIds as string[], 'id, nome, foto_url')
+            : Promise.resolve([]),
         ]);
 
         // Processar resultados
         let clientesDict: Record<string, { nome: string; telefone: string; email: string }> = {};
-        if (clientesResult.status === 'fulfilled' && clientesResult.value.data) {
-          const clientesData = clientesResult.value.data as any[];
+        if (clientesResult.status === 'fulfilled') {
+          const clientesData = clientesResult.value as any[];
           clientesDict = clientesData.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
             acc[cliente.id] = { 
               nome: cliente.nome || '', 
@@ -615,11 +650,13 @@ export default function ListaOrdensPage() {
             };
             return acc;
           }, {} as Record<string, { nome: string; telefone: string; email: string }>);
+        } else {
+          console.error('❌ Erro ao buscar clientes das ordens:', clientesResult.reason);
         }
 
         let tecnicosDict: Record<string, string> = {};
-        if (tecnicosResult.status === 'fulfilled' && tecnicosResult.value.data) {
-          const tecnicosData = tecnicosResult.value.data as any[];
+        if (tecnicosResult.status === 'fulfilled') {
+          const tecnicosData = tecnicosResult.value as any[];
           const nomeTecnico = (t: any) => t.nome || 'Sem nome';
           tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
             acc[tecnico.id] = nomeTecnico(tecnico);
@@ -629,8 +666,8 @@ export default function ListaOrdensPage() {
         }
 
         let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
-        if (responsaveisResult.status === 'fulfilled' && responsaveisResult.value.data) {
-          const responsaveisData = responsaveisResult.value.data as any[];
+        if (responsaveisResult.status === 'fulfilled') {
+          const responsaveisData = responsaveisResult.value as any[];
           responsaveisDict = responsaveisData.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
             acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
             return acc;
@@ -650,6 +687,20 @@ export default function ListaOrdensPage() {
 
         if (precisaBuscarVendas) {
           try {
+            const fetchContasPagarBatched = async (ids: string[]) => {
+              const rows: any[] = [];
+              for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
+                const { data, error } = await supabase
+                  .from('contas_pagar')
+                  .select('id, os_id, valor, status, tipo')
+                  .eq('empresa_id', empresaId)
+                  .in('os_id', chunk);
+                if (error) throw error;
+                if (data) rows.push(...data);
+              }
+              return rows;
+            };
+
             // Buscar vendas e contas em paralelo
             const [vendasResult, contasResult] = await Promise.allSettled([
               supabase
@@ -658,11 +709,7 @@ export default function ListaOrdensPage() {
                 .eq('empresa_id', empresaId)
                 .order('data_venda', { ascending: false })
                 .limit(5000),
-              supabase
-                .from('contas_pagar')
-                .select('id, os_id, valor, status, tipo')
-                .eq('empresa_id', empresaId)
-                .in('os_id', osIds)
+              fetchContasPagarBatched(osIds),
             ]);
 
             // Processar vendas — vincular por nº da OS nas observações (prioridade) para todas as linhas
@@ -683,8 +730,8 @@ export default function ListaOrdensPage() {
             }
 
             // Processar contas_pagar
-            if (contasResult.status === 'fulfilled' && contasResult.value.data) {
-              (contasResult.value.data || []).forEach((c: any) => {
+            if (contasResult.status === 'fulfilled') {
+              (contasResult.value || []).forEach((c: any) => {
                 const valor = Number(c.valor || 0);
                 if (!custosPorOS[c.os_id]) custosPorOS[c.os_id] = 0;
                 custosPorOS[c.os_id] += valor;
