@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
-import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import DashboardAtendenteOverview from '@/components/dashboard/DashboardAtendenteOverview';
 import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
 
@@ -38,7 +37,6 @@ export default function DashboardAtendentePage() {
   return (
     <MenuLayout>
       <div className="space-y-4 md:space-y-6 px-2 md:px-0 pb-8">
-        <LaudoProntoAlert />
         <DashboardAtendenteOverview />
       </div>
     </MenuLayout>

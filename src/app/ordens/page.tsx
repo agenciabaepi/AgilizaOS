@@ -106,6 +106,21 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+/** Números de página visíveis com janela deslizante (ex.: 3 4 [5] 6 7). */
+function getVisiblePageNumbers(current: number, total: number, maxVisible = 7): number[] {
+  if (total <= 0) return [];
+  if (total <= maxVisible) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const half = Math.floor(maxVisible / 2);
+  let start = Math.max(1, current - half);
+  let end = Math.min(total, start + maxVisible - 1);
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
+
 /** Mesma ideia do dados-impressao: observações da venda ou total + cliente. */
 function observacoesReferenciamOS(observacoes: unknown, numeroOs: unknown): boolean {
   const n = String(numeroOs ?? '').trim();
@@ -202,7 +217,6 @@ import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
-import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
@@ -219,6 +233,47 @@ const getInitials = (nome: string) => {
   const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
   return initials || 'US';
 };
+
+/** Mesma normalização usada ao salvar `atendente` na criação da OS (nome em maiúsculas). */
+function normalizeAtendenteKey(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+type ResponsavelInfo = { nome: string; foto_url: string | null };
+
+function buildResponsaveisLookup(usuarios: any[]) {
+  const byId: Record<string, ResponsavelInfo> = {};
+  const byAuth: Record<string, ResponsavelInfo> = {};
+  const byNome: Record<string, ResponsavelInfo> = {};
+  for (const usuario of usuarios) {
+    const info: ResponsavelInfo = {
+      nome: usuario.nome || '',
+      foto_url: usuario.foto_url || null,
+    };
+    byId[usuario.id] = info;
+    if (usuario.auth_user_id) byAuth[usuario.auth_user_id] = info;
+    const nomeKey = normalizeAtendenteKey(usuario.nome);
+    if (nomeKey && !byNome[nomeKey]) byNome[nomeKey] = info;
+  }
+  return { byId, byAuth, byNome };
+}
+
+function resolveResponsavel(
+  lookup: ReturnType<typeof buildResponsaveisLookup>,
+  atendenteId: string | null,
+  atendenteNome: unknown
+): ResponsavelInfo | null {
+  if (atendenteId) {
+    const byId = lookup.byId[atendenteId] || lookup.byAuth[atendenteId];
+    if (byId) return byId;
+  }
+  const nomeKey = normalizeAtendenteKey(atendenteNome);
+  return nomeKey ? lookup.byNome[nomeKey] || null : null;
+}
 
 const renderUserAvatar = (nome: string, fotoUrl?: string | null, size = 40) => {
   const initials = getInitials(nome);
@@ -580,10 +635,8 @@ export default function ListaOrdensPage() {
             .filter((item: any) => item.tecnico_id && item.tecnico_id !== null && item.tecnico_id !== undefined)
             .map((item: any) => String(item.tecnico_id))
         )] as string[];
-        const responsavelIds = [...new Set(data
-          .filter((item: any) => item.atendente_id && item.atendente_id !== null && item.atendente_id !== undefined)
-          .map((item: any) => item.atendente_id))];
 
+        // Usuários da empresa: resolve foto por atendente_id, auth_user_id ou nome (muitas OS só têm `atendente` em texto)
         // ✅ Executar todas as queries de relacionamento em paralelo (em lotes — evita falha do .in() com muitos IDs)
         const fetchClientesBatched = async (ids: string[]) => {
           if (ids.length === 0) return [] as any[];
@@ -593,17 +646,6 @@ export default function ListaOrdensPage() {
               .from('clientes')
               .select('id, nome, telefone, email')
               .in('id', chunk);
-            if (error) throw error;
-            if (data) rows.push(...data);
-          }
-          return rows;
-        };
-
-        const fetchUsuariosBatched = async (ids: string[], fields: string) => {
-          if (ids.length === 0) return [] as any[];
-          const rows: any[] = [];
-          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
-            const { data, error } = await supabase.from('usuarios').select(fields).in('id', chunk);
             if (error) throw error;
             if (data) rows.push(...data);
           }
@@ -630,12 +672,13 @@ export default function ListaOrdensPage() {
 
         const tecnicosPromise = tecnicoIds.length > 0 ? fetchTecnicosBatched(tecnicoIds) : Promise.resolve([]);
 
-        const [clientesResult, tecnicosResult, responsaveisResult] = await Promise.allSettled([
+        const [clientesResult, tecnicosResult, usuariosEmpresaResult] = await Promise.allSettled([
           clienteIds.length > 0 ? fetchClientesBatched(clienteIds as string[]) : Promise.resolve([]),
           tecnicosPromise,
-          responsavelIds.length > 0
-            ? fetchUsuariosBatched(responsavelIds as string[], 'id, nome, foto_url')
-            : Promise.resolve([]),
+          supabase
+            .from('usuarios')
+            .select('id, nome, foto_url, auth_user_id')
+            .eq('empresa_id', empresaId),
         ]);
 
         // Processar resultados
@@ -665,13 +708,16 @@ export default function ListaOrdensPage() {
           }, {} as Record<string, string>);
         }
 
-        let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
-        if (responsaveisResult.status === 'fulfilled') {
-          const responsaveisData = responsaveisResult.value as any[];
-          responsaveisDict = responsaveisData.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
-            acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
-            return acc;
-          }, {} as Record<string, { nome: string; foto_url: string | null }>);
+        let responsaveisLookup = buildResponsaveisLookup([]);
+        if (usuariosEmpresaResult.status === 'fulfilled') {
+          const usuariosPayload = usuariosEmpresaResult.value as { data?: any[]; error?: unknown };
+          if (usuariosPayload?.error) {
+            console.error('❌ Erro ao buscar usuários da empresa:', usuariosPayload.error);
+          } else {
+            responsaveisLookup = buildResponsaveisLookup(usuariosPayload?.data || []);
+          }
+        } else {
+          console.error('❌ Erro ao buscar usuários da empresa:', usuariosEmpresaResult.reason);
         }
 
         // ✅ OTIMIZADO: Buscar vendas e contas_pagar apenas para OSs que realmente precisam (lazy loading)
@@ -759,7 +805,7 @@ export default function ListaOrdensPage() {
           
           // Buscar atendente_id separadamente se necessário
           const atendenteId = item.atendente_id || null;
-          const responsavelInfo = atendenteId ? responsaveisDict[atendenteId] : null;
+          const responsavelInfo = resolveResponsavel(responsaveisLookup, atendenteId, item.atendente);
           const responsavelNome = responsavelInfo?.nome || item.atendente || '';
           const responsavelAvatar = responsavelInfo?.foto_url || null;
           const responsavelId = atendenteId;
@@ -1094,8 +1140,18 @@ export default function ListaOrdensPage() {
 
   }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter, activeTab]);
 
-  const totalPages = Math.ceil(filteredOrdens.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredOrdens.length / itemsPerPage));
   const paginated = filteredOrdens.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const visiblePages = useMemo(
+    () => getVisiblePageNumbers(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
@@ -1117,9 +1173,13 @@ export default function ListaOrdensPage() {
     setCurrentPage(1);
   }, []);
 
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
-  }, []);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      const max = Math.max(1, Math.ceil(filteredOrdens.length / itemsPerPage));
+      setCurrentPage(Math.max(1, Math.min(page, max)));
+    },
+    [filteredOrdens.length, itemsPerPage]
+  );
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -1974,7 +2034,11 @@ export default function ListaOrdensPage() {
 
           {/* Paginação */}
           {totalPages > 1 && (
-            <div className="mt-6 flex justify-center gap-2">
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
               <Button
                   onClick={() => handlePageChange(currentPage - 1)}
                 variant="outline"
@@ -1983,21 +2047,40 @@ export default function ListaOrdensPage() {
                 >
                   Anterior
               </Button>
-              
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <Button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                  >
-                    {page}
+
+              {visiblePages[0] > 1 && (
+                <>
+                  <Button onClick={() => handlePageChange(1)} variant="outline" size="sm">
+                    1
                   </Button>
-                );
-              })}
-              
+                  {visiblePages[0] > 2 && (
+                    <span className="px-1 text-gray-400 self-center">…</span>
+                  )}
+                </>
+              )}
+
+              {visiblePages.map((page) => (
+                <Button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  variant={currentPage === page ? 'default' : 'outline'}
+                  size="sm"
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {visiblePages[visiblePages.length - 1] < totalPages && (
+                <>
+                  {visiblePages[visiblePages.length - 1] < totalPages - 1 && (
+                    <span className="px-1 text-gray-400 self-center">…</span>
+                  )}
+                  <Button onClick={() => handlePageChange(totalPages)} variant="outline" size="sm">
+                    {totalPages}
+                  </Button>
+                </>
+              )}
+
               <Button
                   onClick={() => handlePageChange(currentPage + 1)}
                 variant="outline"
@@ -2007,10 +2090,9 @@ export default function ListaOrdensPage() {
                   Próxima
               </Button>
               </div>
+              </div>
           )}
         
-        {/* Alerta de Laudos Prontos */}
-        <LaudoProntoAlert />
       </MenuLayout>
     </AuthGuardFinal>
   );

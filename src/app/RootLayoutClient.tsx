@@ -15,6 +15,7 @@ import { ConfirmProvider } from '@/components/ConfirmDialog';
 
 import dynamic from 'next/dynamic';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
+import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import PricingCalculatorFAB from '@/components/PricingCalculatorFAB';
 
 const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
@@ -109,6 +110,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
                 <ConfirmProvider>
                   <AuthContent>
                     <StickyOrcamentoPopup />
+                    <LaudoProntoAlert />
                     <PricingCalculatorFAB />
                     <>{children}</>
                   </AuthContent>
