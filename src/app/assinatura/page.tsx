@@ -19,6 +19,9 @@ import {
   isCobrancaPendente,
 } from '@/lib/billing/cobrancaStatus';
 
+/** Histórico de cobranças na página — desligado temporariamente. */
+const EXIBIR_HISTORICO_PAGAMENTOS = false;
+
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
   id: string;
@@ -187,6 +190,10 @@ export default function AssinaturaPage() {
   }, [empresaData?.id, filtroStatus]);
 
   useEffect(() => {
+    if (!EXIBIR_HISTORICO_PAGAMENTOS) {
+      setLoading(false);
+      return;
+    }
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
@@ -217,6 +224,32 @@ export default function AssinaturaPage() {
 
   const labelStatus = resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
 
+  const sincronizarComAsaas = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+      const res = await fetch('/api/assinatura/sincronizar', {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.activated) {
+        dispatchAssinaturaUpdated();
+        window.location.reload();
+        return;
+      }
+      alert(
+        json?.error ||
+          'Não foi possível liberar a assinatura automaticamente. Verifique se o e-mail da empresa é o mesmo do cliente no Asaas.'
+      );
+      if (res.ok) dispatchAssinaturaUpdated();
+    } catch {
+      alert('Erro ao sincronizar. Tente novamente.');
+    }
+    if (EXIBIR_HISTORICO_PAGAMENTOS) carregar();
+  };
+
   return (
     <AuthGuardFinal>
       <MenuLayout>
@@ -228,7 +261,7 @@ export default function AssinaturaPage() {
                 Assinatura
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Histórico de pagamentos da sua assinatura
+                Gerencie seu plano e acompanhe o status da assinatura
               </p>
               {(emTesteGratis || trialEncerrado) && dataCadastroEmpresa && (
                 <div
@@ -377,6 +410,21 @@ export default function AssinaturaPage() {
             </div>
           </div>
 
+          <div className="mb-6 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={sincronizarComAsaas}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <FiRefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Atualizar assinatura
+            </Button>
+          </div>
+
+          {EXIBIR_HISTORICO_PAGAMENTOS && (
+            <>
           {/* Resumo de cobranças */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
@@ -406,31 +454,7 @@ export default function AssinaturaPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-                  const res = await fetch('/api/assinatura/sincronizar', {
-                    cache: 'no-store',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json', ...authHeader },
-                  });
-                  const json = await res.json().catch(() => null);
-                  if (res.ok && json?.activated) {
-                    dispatchAssinaturaUpdated();
-                    window.location.reload();
-                    return;
-                  }
-                  alert(
-                    json?.error ||
-                      'Não foi possível liberar a assinatura automaticamente. Verifique se o e-mail da empresa é o mesmo do cliente no Asaas.'
-                  );
-                  if (res.ok) dispatchAssinaturaUpdated();
-                } catch {
-                  alert('Erro ao sincronizar. Tente novamente.');
-                }
-                carregar();
-              }}
+              onClick={sincronizarComAsaas}
               disabled={loading}
               className="flex items-center gap-2"
             >
@@ -524,7 +548,7 @@ export default function AssinaturaPage() {
           </div>
 
           {/* Modal Pagar cobrança pendente com PIX */}
-          {pagarPixItem && (
+          {EXIBIR_HISTORICO_PAGAMENTOS && pagarPixItem && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPagarPixItem(null)}>
               <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-xl max-w-md w-full p-4 relative" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -545,6 +569,8 @@ export default function AssinaturaPage() {
                 />
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </MenuLayout>
