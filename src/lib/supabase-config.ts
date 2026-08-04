@@ -1,11 +1,33 @@
-// Configuração centralizada do Supabase
+// Configuração centralizada do Supabase (aceita nomes legados e novos do dashboard)
+function readSupabaseUrl(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+}
+
+function readSupabaseAnonKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    ''
+  );
+}
+
+function readSupabaseServiceKey(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    ''
+  );
+}
+
 export const supabaseConfig = {
-  url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nxamrvfusyrtkcshehfm.supabase.co',
-  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_yeCVZiOGAsnR7D9jDDkdNw_r-aOcv31',
-  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_3dbdcMGcAy0QzCOOQh4TWg_deFhjsXQ'
+  url: readSupabaseUrl(),
+  anonKey: readSupabaseAnonKey(),
+  serviceRoleKey: readSupabaseServiceKey(),
 };
 
-// Validação das configurações
+export { readSupabaseUrl, readSupabaseAnonKey, readSupabaseServiceKey };
+
+// Validação — variáveis públicas (client + server)
 if (!supabaseConfig.url) {
   throw new Error('NEXT_PUBLIC_SUPABASE_URL is required');
 }
@@ -14,6 +36,7 @@ if (!supabaseConfig.anonKey) {
   throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is required');
 }
 
-if (!supabaseConfig.serviceRoleKey) {
+// Service role só existe no servidor; validar aqui quebrava o app no browser
+if (typeof window === 'undefined' && !supabaseConfig.serviceRoleKey) {
   throw new Error('SUPABASE_SERVICE_ROLE_KEY is required');
 }
