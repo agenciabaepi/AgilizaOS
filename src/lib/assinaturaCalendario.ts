@@ -17,6 +17,18 @@ function parseYmd(s: string): number {
   return Date.UTC(y, m - 1, d);
 }
 
+function parseCalendarDateLocal(iso: string): Date | null {
+  const s = String(iso).trim();
+  const head = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (head) {
+    const [y, m, d] = head[1].split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+  const dt = new Date(s);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 /**
  * Diferença em dias civis (horário local): dataRef − hoje.
  * 0 = mesmo dia; <0 = data já passou.
@@ -25,10 +37,10 @@ export function diffDiasCalendario(dataRefIso: string | null | undefined, agora 
   if (!dataRefIso) return null;
   const hoje = new Date(agora);
   hoje.setHours(0, 0, 0, 0);
-  const ref = new Date(dataRefIso);
-  if (Number.isNaN(ref.getTime())) return null;
+  const ref = parseCalendarDateLocal(dataRefIso);
+  if (!ref) return null;
   ref.setHours(0, 0, 0, 0);
-  return Math.ceil((ref.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.round((ref.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 /**

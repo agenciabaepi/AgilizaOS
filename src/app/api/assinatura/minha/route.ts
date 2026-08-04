@@ -6,6 +6,7 @@ import {
   corrigirAssinaturaAtivaIndevida,
   forcarLiberacaoPorUltimoPagamentoAsaas,
 } from '@/lib/billing/ativarAssinaturaSegura';
+import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 import {
   computeAcessoBloqueadoServidor,
   expirarTrialsVencidosEmpresa,
@@ -206,6 +207,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       assinatura: { ...rowSanitizada, planos },
+      resumo: buildResumoAssinatura(
+        {
+          status: String(rowSanitizada.status),
+          data_fim: rowSanitizada.data_fim as string | null,
+          proxima_cobranca: rowSanitizada.proxima_cobranca as string | null,
+          data_trial_fim: rowSanitizada.data_trial_fim as string | null,
+        },
+        { empresaCreatedAt, empresaDiasTrial }
+      ),
       empresa_created_at: empresaCreatedAt,
       sistema_liberado: sistemaLiberado,
       recursos_customizados: empRow?.recursos_customizados ?? null,

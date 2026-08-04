@@ -20,6 +20,8 @@ import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { PLANO_SLUGS } from '@/config/planModules';
 import { getPlanLimits } from '@/config/planLimits';
 import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
+import type { ResumoAssinatura } from '@/lib/billing/resumoAssinatura';
+import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -151,6 +153,7 @@ function buildAssinaturaTrialImplicita(
 
 type SubscriptionContextValue = {
   assinatura: Assinatura | null;
+  resumoAssinatura: ResumoAssinatura | null;
   limites: Limites | null;
   loading: boolean;
   isTrialExpired: () => boolean;
@@ -169,6 +172,7 @@ const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user, usuarioData, empresaData } = useAuth();
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
+  const [resumoAssinatura, setResumoAssinatura] = useState<ResumoAssinatura | null>(null);
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadedEmpresaId, setLoadedEmpresaId] = useState<string | null>(null);
@@ -189,6 +193,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const resetSubscriptionState = useCallback(() => {
     setAssinatura(null);
+    setResumoAssinatura(null);
     setLimites(null);
     setLoadedEmpresaId(null);
     loadedEmpresaIdRef.current = null;
@@ -320,6 +325,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (isStale()) return;
       if (liberadoEmpresa) setSistemaLiberado(true);
 
+      let resumoFromApi: ResumoAssinatura | null = null;
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const headers: HeadersInit = { cache: 'no-store' };
@@ -334,6 +341,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const json = await res.json();
           if (json?.assinatura) primeiraAssinatura = json.assinatura as Record<string, unknown>;
+          if (json?.resumo) resumoFromApi = json.resumo as ResumoAssinatura;
           if (typeof json?.empresa_created_at === 'string' && json.empresa_created_at) {
             empresaCriadaEm = json.empresa_created_at;
           }
@@ -397,6 +405,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           plano: planoFromAssinaturaRow(primeiraAssinatura),
         };
         setAssinatura(assinaturaMapeada);
+        setResumoAssinatura(
+          resumoFromApi ??
+            buildResumoAssinatura(
+              {
+                status: assinaturaMapeada.status,
+                data_fim: assinaturaMapeada.data_fim,
+                proxima_cobranca: assinaturaMapeada.proxima_cobranca,
+                data_trial_fim: assinaturaMapeada.data_trial_fim,
+              },
+              {
+                empresaCreatedAt: empresaCriadaEmParaPick,
+                empresaDiasTrial: empresaDataSnapshot?.dias_trial,
+              }
+            )
+        );
         setLoadedEmpresaId(empresaId);
         loadedEmpresaIdRef.current = empresaId;
         await fetchLimitesForEmpresa(empresaId, assinaturaMapeada.plano);
@@ -408,6 +431,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         );
         if (implicit) {
           setAssinatura(implicit);
+          setResumoAssinatura(
+            resumoFromApi ??
+              buildResumoAssinatura(
+                {
+                  status: implicit.status,
+                  data_fim: implicit.data_fim,
+                  proxima_cobranca: implicit.proxima_cobranca,
+                  data_trial_fim: implicit.data_trial_fim,
+                },
+                {
+                  empresaCreatedAt: empresaCriadaEmParaPick,
+                  empresaDiasTrial: empresaDataSnapshot?.dias_trial,
+                }
+              )
+          );
           setLoadedEmpresaId(empresaId);
           loadedEmpresaIdRef.current = empresaId;
           await fetchLimitesForEmpresa(empresaId, implicit.plano);
@@ -443,6 +481,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setAssinatura(null);
+      setResumoAssinatura(null);
       setLimites(null);
       setLoadedEmpresaId(null);
       loadedEmpresaIdRef.current = null;
@@ -665,6 +704,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SubscriptionContextValue>(
     () => ({
       assinatura,
+      resumoAssinatura,
       limites,
       loading,
       isTrialExpired,
@@ -679,6 +719,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }),
     [
       assinatura,
+      resumoAssinatura,
       limites,
       loading,
       isTrialExpired,

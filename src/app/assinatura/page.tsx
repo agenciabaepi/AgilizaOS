@@ -12,6 +12,12 @@ import RenovarSistemaShowcase from '@/components/assinatura/RenovarSistemaShowca
 import PlanosAssinaturaCards from '@/components/assinatura/PlanosAssinaturaCards';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
+import {
+  cobrancaFoiPaga,
+  getDataPagamentoCobranca,
+  getVencimentoExibicaoCobranca,
+  isCobrancaPendente,
+} from '@/lib/billing/cobrancaStatus';
 
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
@@ -45,80 +51,6 @@ function getValor(item: ItemAssinatura): number {
 }
 function getStatus(item: ItemAssinatura): string {
   return item.status || 'PENDING';
-}
-/** Igual ao backend: período de acesso após confirmação do pagamento */
-const DIAS_ACESSO_APOS_PAGAMENTO = 30;
-
-function parseFirstCalendarDate(iso: string): Date | null {
-  const s = String(iso).trim();
-  const head = s.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (head) {
-    const [y, m, d] = head[1].split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-  const dt = new Date(s);
-  return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-/** Retorna YYYY-MM-DD (dia civil local) após somar `dias`. */
-function addCalendarDaysFromIso(iso: string, dias: number): string | null {
-  const base = parseFirstCalendarDate(iso);
-  if (!base) return null;
-  const out = new Date(base);
-  out.setDate(out.getDate() + dias);
-  const y = out.getFullYear();
-  const mo = String(out.getMonth() + 1).padStart(2, '0');
-  const da = String(out.getDate()).padStart(2, '0');
-  return `${y}-${mo}-${da}`;
-}
-
-function getDataPagamento(item: ItemAssinatura): string | null {
-  if (isAsaas(item)) return item.paymentDate || null;
-  return item.paid_at || null;
-}
-
-function isPendente(item: ItemAssinatura): boolean {
-  const s = (getStatus(item) || '').toUpperCase();
-  const pagavel = s === 'PENDING' || s === 'OVERDUE';
-  return !!pagavel && !getDataPagamento(item);
-}
-
-function cobrancaFoiPaga(item: ItemAssinatura): boolean {
-  if (isPendente(item)) return false;
-  if (getDataPagamento(item)) return true;
-  const s = (getStatus(item) || '').toLowerCase();
-  return ['confirmed', 'received', 'approved', 'pago'].includes(s);
-}
-
-/**
- * Data mostrada na 1ª coluna: pendente = vencimento da cobrança (Asaas);
- * pago = último dia do período de 30 dias após o pagamento (igual `proxima_cobranca` no sistema).
- */
-function getDataVencimentoLista(item: ItemAssinatura): string | null {
-  const pago = cobrancaFoiPaga(item);
-  if (isAsaas(item)) {
-    if (pago) {
-      const base = item.paymentDate || item.dueDate;
-      if (!base) return item.dueDate || null;
-      return (
-        addCalendarDaysFromIso(base, DIAS_ACESSO_APOS_PAGAMENTO) ||
-        item.dueDate ||
-        null
-      );
-    }
-    return item.dueDate || null;
-  }
-  const pg = item as Pagamento & { _from?: 'db' };
-  if (pago && pg.paid_at) {
-    return addCalendarDaysFromIso(pg.paid_at, DIAS_ACESSO_APOS_PAGAMENTO) || null;
-  }
-  return pg.created_at || null;
-}
-
-/** ID da cobrança no Asaas (para obter QR PIX de cobrança existente) */
-function getPaymentId(item: ItemAssinatura): string {
-  return isAsaas(item) ? item.id : (item as Pagamento).mercadopago_payment_id;
 }
 
 function formatarMoeda(valor: number) {
@@ -194,19 +126,19 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function diasRestantes(proximaCobranca: string | null): number | null {
-  if (!proximaCobranca) return null;
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const prox = new Date(proximaCobranca);
-  prox.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((prox.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+function getPaymentId(item: ItemAssinatura): string {
+  return isAsaas(item) ? item.id : (item as Pagamento).mercadopago_payment_id;
+}
+
+function toCobrancaItem(item: ItemAssinatura) {
+  return isAsaas(item)
+    ? { status: item.status, paymentDate: item.paymentDate, dueDate: item.dueDate }
+    : { status: item.status, paid_at: item.paid_at, created_at: item.created_at };
 }
 
 export default function AssinaturaPage() {
   const { empresaData } = useAuth();
-  const { assinatura, diasRestantesTrial, isTrialExpired } = useSubscription();
+  const { assinatura, resumoAssinatura, diasRestantesTrial, isTrialExpired } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [itens, setItens] = useState<ItemAssinatura[]>([]);
   const [total, setTotal] = useState(0);
@@ -258,43 +190,15 @@ export default function AssinaturaPage() {
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
-  // Ao abrir a página com assinatura vencida, tenta liberar se houver pagamento confirmado
-  useEffect(() => {
-    if (!empresaData?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers: HeadersInit = { cache: 'no-store' };
-        if (session?.access_token) {
-          (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
-        }
-        const res = await fetch('/api/assinatura/sincronizar', {
-          credentials: 'include',
-          headers,
-        });
-        if (cancelled) return;
-        if (res.ok) {
-          dispatchAssinaturaUpdated();
-          await carregar();
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [empresaData?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Ao abrir a página, não sincronizar automaticamente (evita recalcular cobertura sem ação do usuário).
+  // Use o botão "Atualizar" para reconciliar com o Asaas.
 
-  const pendentes = itens.filter((p) => {
-    const s = (getStatus(p) || '').toLowerCase();
-    return s === 'pending' || !getDataPagamento(p);
-  });
+  const pendentes = itens.filter((p) => isCobrancaPendente(toCobrancaItem(p)));
 
   const statusCanceladoOuInativo = assinatura?.status && ['cancelled', 'expired', 'suspended'].includes(assinatura.status);
-  const emTesteGratis = assinatura?.status === 'trial' && !isTrialExpired();
-  const trialEncerrado = assinatura?.status === 'trial' && isTrialExpired();
+  const emTesteGratis = resumoAssinatura?.em_teste_gratis ?? (assinatura?.status === 'trial' && !isTrialExpired());
+  const trialEncerrado = resumoAssinatura?.trial_encerrado ?? (assinatura?.status === 'trial' && isTrialExpired());
+  const coberturaRef = resumoAssinatura?.cobertura_ate ?? null;
   const dataCadastroEmpresa =
     empresaData?.created_at?.trim() ||
     (assinatura?.data_inicio ? String(assinatura.data_inicio).trim() : null);
@@ -309,24 +213,9 @@ export default function AssinaturaPage() {
   });
   const diasRest = emTesteGratis
     ? diasRestantesTrial()
-    : !statusCanceladoOuInativo && assinatura?.proxima_cobranca
-      ? diasRestantes(assinatura.proxima_cobranca)
-      : null;
+    : resumoAssinatura?.dias_restantes ?? null;
 
-  const labelStatus =
-    diasRest !== null && diasRest < 0
-      ? 'Vencida'
-      : assinatura?.status === 'active'
-        ? 'Ativa'
-        : assinatura?.status === 'trial'
-          ? 'Trial'
-          : assinatura?.status === 'cancelled'
-            ? 'Cancelada'
-            : assinatura?.status === 'expired'
-              ? 'Expirada'
-              : assinatura?.status === 'suspended'
-                ? 'Suspensa'
-                : assinatura?.status || '—';
+  const labelStatus = resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
 
   return (
     <AuthGuardFinal>
@@ -420,19 +309,27 @@ export default function AssinaturaPage() {
           </div>
 
           {/* Resumo da assinatura (vencimento e dias restantes) */}
-          {!statusCanceladoOuInativo &&
-            !emTesteGratis &&
-            diasRest != null &&
-            diasRest >= 0 &&
-            diasRest <= 7 && (
-              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                {diasRest === 0
-                  ? 'Sua assinatura vence hoje.'
-                  : diasRest === 1
-                    ? 'Sua assinatura vence amanhã.'
-                    : `Sua assinatura vence em ${diasRest} dias.`}{' '}
-                Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
-                a partir do vencimento atual, não da data do pagamento.
+          {!statusCanceladoOuInativo && !emTesteGratis && diasRest != null && diasRest <= 7 && (
+              <div
+                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+                  diasRest < 0
+                    ? 'border-red-200 bg-red-50 text-red-950'
+                    : 'border-sky-200 bg-sky-50 text-sky-950'
+                }`}
+              >
+                {diasRest < 0
+                  ? `Sua assinatura venceu há ${Math.abs(diasRest)} dia${Math.abs(diasRest) === 1 ? '' : 's'}. Renove para continuar usando o sistema.`
+                  : diasRest === 0
+                    ? 'Sua assinatura vence hoje.'
+                    : diasRest === 1
+                      ? 'Sua assinatura vence amanhã.'
+                      : `Sua assinatura vence em ${diasRest} dias.`}{' '}
+                {diasRest >= 0 && (
+                  <>
+                    Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
+                    a partir do vencimento atual, não da data do pagamento.
+                  </>
+                )}
               </div>
             )}
 
@@ -452,8 +349,8 @@ export default function AssinaturaPage() {
                   ? '—'
                   : emTesteGratis && dataFimTrialIso
                     ? formatarDataShort(dataFimTrialIso)
-                    : assinatura?.proxima_cobranca
-                      ? formatarDataShort(assinatura.proxima_cobranca)
+                    : coberturaRef
+                      ? formatarDataShort(coberturaRef)
                       : '—'}
               </p>
             </div>
@@ -568,35 +465,37 @@ export default function AssinaturaPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-zinc-700/50">
                     <tr>
+                      <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
+                        Data pagamento
+                      </th>
                       <th
                         className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300"
-                        title="Pendente: vencimento da cobrança. Pago: último dia do período de 30 dias após o pagamento (mesma regra do sistema)."
+                        title="Pendente: vencimento da cobrança. Pago: último dia do período de 30 dias após o pagamento."
                       >
                         Vencimento
                       </th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Valor</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Status</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Data pagamento</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-zinc-700">
                     {itens.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700/30">
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {formatarDataShort(getDataPagamentoCobranca(toCobrancaItem(p)))}
+                        </td>
                         <td className="px-4 py-3 text-gray-900 dark:text-white whitespace-nowrap">
-                          {formatarDataShort(getDataVencimentoLista(p))}
+                          {formatarDataShort(getVencimentoExibicaoCobranca(toCobrancaItem(p)))}
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                           {formatarMoeda(getValor(p))}
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge status={getStatus(p)} />
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                          {formatarDataShort(getDataPagamento(p))}
+                          <StatusBadge status={cobrancaFoiPaga(toCobrancaItem(p)) ? 'approved' : getStatus(p)} />
                         </td>
                         <td className="px-4 py-3">
-                          {isPendente(p) ? (
+                          {isCobrancaPendente(toCobrancaItem(p)) ? (
                             <Button
                               size="sm"
                               variant="outline"

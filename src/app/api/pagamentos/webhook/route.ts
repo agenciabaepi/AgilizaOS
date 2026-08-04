@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssinatura';
+import { isoToYmd } from '@/lib/billing/calcularCoberturaPagamento';
 
-const DIAS_ACESSO_PAGAMENTO = 30;
-
-/**
- * Aceita datas ISO ou YYYY-MM-DD e evita drift de fuso para exibição.
- */
 function parsePaymentDate(rawDate?: string | null): Date | null {
   if (!rawDate) return null;
   const raw = String(rawDate).trim();
@@ -20,84 +16,59 @@ function parsePaymentDate(rawDate?: string | null): Date | null {
   return parsed;
 }
 
-async function upsertFromPaymentId(paymentId: string, rawPayload: any) {
+async function upsertFromPaymentId(paymentId: string, rawPayload: unknown) {
   const { config, Payment } = configureMercadoPago();
   const payment = await new Payment(config).get({ id: paymentId });
   if (!payment) throw new Error('Pagamento não encontrado no MP');
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value; },
-        set() {},
-        remove() {},
-      },
-    }
-  );
+  const supabase = getSupabaseAdmin();
 
-  // Buscar pelo payment_id
   const { data: pagamento } = await supabase
     .from('pagamentos')
     .select('id,empresa_id,valor,plano_id')
     .eq('mercadopago_payment_id', String(paymentId))
     .maybeSingle();
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     mercadopago_payment_id: String(paymentId),
     status: payment.status as string,
-    status_detail: (payment as any).status_detail || null,
+    status_detail: (payment as { status_detail?: string }).status_detail || null,
     webhook_received: true,
     webhook_data: rawPayload,
     updated_at: new Date().toISOString(),
   };
-  const dataPagamento = parsePaymentDate((payment as any).date_approved) || new Date();
+  const dataPagamento = parsePaymentDate((payment as { date_approved?: string }).date_approved) || new Date();
   if (payment.status === 'approved') updateData.paid_at = dataPagamento.toISOString();
 
   if (pagamento?.id) {
     await supabase.from('pagamentos').update(updateData).eq('id', pagamento.id);
 
-    // Se aprovado, ativar assinatura da empresa (tolerante ao plano)
     if ((payment.status as string) === 'approved' && pagamento.empresa_id) {
-      const preco = Number(pagamento.valor || 0);
-      const inicioAssinatura = dataPagamento;
-      const proximaCobranca = new Date(inicioAssinatura);
-      proximaCobranca.setDate(proximaCobranca.getDate() + DIAS_ACESSO_PAGAMENTO);
-      const { data: trial } = await supabase
-        .from('assinaturas')
-        .select('id,plano_id')
-        .eq('empresa_id', pagamento.empresa_id)
-        .eq('status', 'trial')
-        .maybeSingle();
-      if (trial?.id) {
-        await supabase
-          .from('assinaturas')
-          .update({
-            status: 'active',
-            plano_id: pagamento.plano_id || trial.plano_id || null,
-            data_inicio: inicioAssinatura.toISOString(),
-            data_trial_fim: null,
-            proxima_cobranca: proximaCobranca.toISOString(),
-            data_fim: proximaCobranca.toISOString(),
-            valor: preco,
-          })
-          .eq('id', trial.id);
-      } else {
-        const { data: plano } = await supabase.from('planos').select('id,preco').eq('preco', preco).maybeSingle();
-        await supabase
-          .from('assinaturas')
-          .insert({
-            empresa_id: pagamento.empresa_id,
-            plano_id: pagamento.plano_id || plano?.id || null,
-            status: 'active',
-            data_inicio: inicioAssinatura.toISOString(),
-            data_trial_fim: null,
-            proxima_cobranca: proximaCobranca.toISOString(),
-            data_fim: proximaCobranca.toISOString(),
-            valor: preco,
-          });
+      const payYmd =
+        isoToYmd(dataPagamento.toISOString()) ||
+        isoToYmd((payment as { date_approved?: string }).date_approved);
+      if (!payYmd) throw new Error('Data de pagamento inválida');
+
+      const { data: row } = await supabase
+        .from('pagamentos')
+        .select(
+          'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em'
+        )
+        .eq('id', pagamento.id)
+        .single();
+
+      if (row?.id) {
+        const result = await aplicarPagamentoAssinatura(supabase, {
+          empresaId: pagamento.empresa_id,
+          pagamento: row,
+          gatewayPaymentId: String(paymentId),
+          paymentYmd: payYmd,
+          paidAtIso: dataPagamento.toISOString(),
+          valorAsaas: Number(pagamento.valor) || Number((payment as { transaction_amount?: number }).transaction_amount),
+        });
+        if (!result.ok) {
+          console.warn('webhook MP: aplicarPagamentoAssinatura', result);
+        }
       }
     }
   }
@@ -107,38 +78,33 @@ async function upsertFromPaymentId(paymentId: string, rawPayload: any) {
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const id = url.searchParams.get('id') || url.searchParams.get('payment_id') || url.searchParams.get('data.id');
     const topic = url.searchParams.get('topic') || url.searchParams.get('type');
-    if (topic && !String(topic).includes('payment')) {
-      return NextResponse.json({ received: true, ignored: true });
+    const id = url.searchParams.get('id') || url.searchParams.get('data.id');
+    if (topic === 'payment' && id) {
+      await upsertFromPaymentId(id, { topic, id });
     }
-    if (!id) return NextResponse.json({ received: true, message: 'no id' });
-    const status = await upsertFromPaymentId(String(id), { query: Object.fromEntries(url.searchParams.entries()) });
-    return NextResponse.json({ received: true, payment_id: id, status });
-  } catch (error) {
-    console.error('Erro no webhook GET:', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const raw = await request.text();
-    let body: any = {};
-    try { body = JSON.parse(raw); } catch { body = {}; }
-
-    // MP pode enviar diferentes formatos: { type: 'payment', data: { id } } ou { action: 'payment.updated', data: { id } }
-    const type = body?.type || body?.topic || body?.action || '';
-    const paymentId = body?.data?.id || body?.id || body?.resource?.split('/').pop();
-    if (type && !String(type).includes('payment')) {
-      return NextResponse.json({ received: true, ignored: true });
+    const body = await request.json().catch(() => null);
+    const paymentId =
+      body?.data?.id ||
+      body?.id ||
+      (typeof body === 'object' && body && 'resource' in body
+        ? String((body as { resource?: string }).resource || '').split('/').pop()
+        : null);
+    if (paymentId) {
+      await upsertFromPaymentId(String(paymentId), body);
     }
-    if (!paymentId) return NextResponse.json({ received: true, message: 'no id' });
-
-    const status = await upsertFromPaymentId(String(paymentId), body);
-    return NextResponse.json({ received: true, payment_id: paymentId, status });
-  } catch (error) {
-    console.error('Erro no webhook POST:', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

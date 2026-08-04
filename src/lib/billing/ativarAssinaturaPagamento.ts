@@ -15,7 +15,7 @@ export async function ativarAssinaturaPorPagamento(
   now: string,
   dataFim: Date,
   planoSlug?: string | null,
-  opts?: { asaasPaymentId?: string | null; observacaoExtra?: string | null }
+  opts?: { observacaoExtra?: string | null }
 ): Promise<boolean> {
   const slug =
     planoSlug === PLANO_SLUGS.BASICO || planoSlug === PLANO_SLUGS.COMPLETO
@@ -52,7 +52,7 @@ async function applyActivation(
   valor: number,
   now: string,
   dataFim: Date,
-  opts?: { asaasPaymentId?: string | null; observacaoExtra?: string | null }
+  opts?: { observacaoExtra?: string | null }
 ): Promise<boolean> {
   const { data: empresa } = await supabase
     .from('empresas')
@@ -79,13 +79,9 @@ async function applyActivation(
   }
 
   const dataFimIso = dataFim.toISOString();
-  const payId = opts?.asaasPaymentId ? String(opts.asaasPaymentId).trim() : '';
   const extra = opts?.observacaoExtra ? String(opts.observacaoExtra).trim() : '';
-  const observacoes = [
-    '[auto] Renovada/ativada por pagamento confirmado no Asaas',
-    payId ? `payment:${payId}` : '',
-    extra,
-  ]
+
+  const observacoes = ['[auto] Renovada/ativada por pagamento confirmado', extra]
     .filter(Boolean)
     .join(' ');
 

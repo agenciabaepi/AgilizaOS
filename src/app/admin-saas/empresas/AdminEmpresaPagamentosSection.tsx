@@ -427,8 +427,8 @@ export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                     <tr>
-                      <th className="px-4 py-3">Vencimento</th>
                       <th className="px-4 py-3">Pago em</th>
+                      <th className="px-4 py-3">Vencimento</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Valor (Asaas)</th>
                       <th className="px-4 py-3">Tipo</th>
@@ -462,10 +462,10 @@ export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
                       return (
                         <tr key={`${p.fonte}-${p.id}`} className="hover:bg-gray-50/80">
                           <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                            {formatarData(p.due_date || p.created_at)}
+                            {formatarData(p.paid_at)}
                           </td>
                           <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                            {formatarData(p.paid_at)}
+                            {formatarData(p.due_date || p.created_at)}
                           </td>
                           <td className="px-4 py-3">
                             <StatusPagamentoBadge status={p.status} />
