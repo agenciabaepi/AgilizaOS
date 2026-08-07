@@ -625,45 +625,6 @@ export default function DetalheBancadaPage() {
       // Mostrar toast de sucesso
       addToast('success', 'Dados salvos com sucesso!');
       clearDraft();
-      // Se enviou orçamento, emite notificação backend
-      try {
-        if ((statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO') && empresaId && id) {
-          await fetch('/api/notificacoes/emitir', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              empresa_id: empresaId,
-              tipo: 'orcamento_enviado',
-              os_id: id,
-              mensagem: `OS #${os?.numero_os || ''} - orçamento enviado pelo técnico.`
-            })
-          });
-        }
-        
-        // Se concluiu o reparo, emite notificação (usar valor salvo)
-        if (statusTecnicoParaSalvar === 'REPARO CONCLUÍDO' && empresaId && id) {
-          try {
-            const response = await fetch('/api/notificacoes/emitir', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                empresa_id: empresaId,
-                tipo: 'reparo_concluido',
-                os_id: id,
-                mensagem: `OS #${os?.numero_os || ''} - reparo concluído pelo técnico.`
-              })
-            });
-            
-            if (response.ok) {
-              const result = await response.json();
-            }
-          } catch (error) {
-            // Erro ao emitir notificação
-          }
-        }
-      } catch (e) {
-        // Falha ao emitir notificação
-      }
       
     } catch (error) {
       const errorMessage = (error as Error).message || 'Erro desconhecido ao salvar';

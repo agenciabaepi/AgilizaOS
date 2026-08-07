@@ -19,6 +19,10 @@ import {
   osElegivelParaGarantia,
   toDateOnlyLocal,
 } from '@/lib/garantiaOs';
+import {
+  emitirNotificacaoAtendente,
+  tipoNotificacaoPorStatusTecnico,
+} from '@/lib/emitirNotificacaoAtendente';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -262,6 +266,36 @@ export async function POST(request: NextRequest) {
     const novoStatusRaw = body.newStatus !== undefined ? String(body.newStatus).trim() : (newStatus ? String(newStatus).trim() : '');
     const novoStatusTecnicoRaw = body.newStatusTecnico !== undefined ? String(body.newStatusTecnico).trim() : (newStatusTecnico ? String(newStatusTecnico).trim() : '');
 
+    // Laudo preenchido pelo técnico (app ou bancada): espelha regra da bancada web
+    const laudoTexto =
+      typeof updateData.laudo === 'string' ? updateData.laudo.trim() : '';
+    const laudoAnterior =
+      typeof (osAnterior as { laudo?: string }).laudo === 'string'
+        ? (osAnterior as { laudo: string }).laudo.trim()
+        : '';
+    const laudoNovoPreenchido = laudoTexto.length > 0 && laudoTexto !== laudoAnterior;
+
+    if (laudoNovoPreenchido) {
+      const stLaudoAnt = normalizeStatus(osAnteriorStatusTecnico)
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/_/g, ' ');
+      const jaOrcamentoEnviado =
+        stLaudoAnt.includes('ORCAMENTO') && stLaudoAnt.includes('CONCLUIDO');
+      const tecnicoSemReparo = isStatusSemReparo(osAnteriorStatusTecnico);
+      const tecnicoReparoConcluido = isStatusTecnicoFinal(osAnteriorStatusTecnico);
+
+      if (!jaOrcamentoEnviado && !tecnicoSemReparo && !tecnicoReparoConcluido) {
+        const statusOrcamento = 'ORÇAMENTO CONCLUÍDO';
+        if (!novoStatusTecnicoRaw) {
+          dadosAtualizacao.status_tecnico = statusOrcamento;
+        }
+        if (!novoStatusRaw) {
+          dadosAtualizacao.status = mapTecnicoParaOS(statusOrcamento) || dadosAtualizacao.status;
+        }
+      }
+    }
+
     const tecnicoAlterou = !!novoStatusTecnicoRaw && novoStatusTecnicoRaw !== osAnteriorStatusTecnico;
     const atendenteAlterou = !!novoStatusRaw && novoStatusRaw !== osAnteriorStatus;
 
@@ -368,6 +402,34 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
       if (corrigida) ordemAtualizada = corrigida;
+    }
+
+    // Notificar atendentes (app mobile, bancada web, etc.) via tabela notificacoes
+    try {
+      const empresaNotif = ordemAtualizada?.empresa_id ?? osAnterior.empresa_id;
+      const statusTecnicoAnt = extractStatusText((osAnterior as any).status_tecnico);
+      const statusTecnicoNovo = extractStatusText(ordemAtualizada?.status_tecnico);
+      const tipoNotif = tipoNotificacaoPorStatusTecnico(statusTecnicoAnt, statusTecnicoNovo);
+
+      if (empresaNotif && tipoNotif) {
+        const numeroOs = ordemAtualizada?.numero_os ?? (osAnterior as any).numero_os ?? '';
+        const mensagem =
+          tipoNotif === 'orcamento_enviado'
+            ? `OS #${numeroOs} - orçamento enviado pelo técnico.`
+            : `OS #${numeroOs} - reparo concluído pelo técnico.`;
+
+        const ok = await emitirNotificacaoAtendente(supabase, {
+          empresa_id: empresaNotif,
+          os_id: osAnterior.id,
+          tipo: tipoNotif,
+          mensagem,
+        });
+        if (ok) {
+          console.log(`✅ Notificação ${tipoNotif} emitida para atendentes, O.S.`, osAnterior.id);
+        }
+      }
+    } catch (notifAtendenteError) {
+      console.warn('⚠️ Erro ao emitir notificação para atendentes (não crítico):', notifAtendenteError);
     }
 
     // Enviar push ao técnico quando ele é atribuído ou alterado na O.S.
@@ -831,14 +893,23 @@ export async function POST(request: NextRequest) {
 
     // CRM WhatsApp — mensagem automática ao cliente (Cloud API)
     try {
-      const newStatusString = newStatus ? String(newStatus) : '';
-      if (osAnterior.empresa_id) {
+      const statusPersistido =
+        extractStatusText(ordemAtualizada?.status) ||
+        extractStatusText(dadosAtualizacao.status) ||
+        (newStatus ? String(newStatus) : '');
+      const statusTecnicoPersistido =
+        extractStatusText(ordemAtualizada?.status_tecnico) ||
+        extractStatusText(dadosAtualizacao.status_tecnico) ||
+        (newStatusTecnico ? String(newStatusTecnico) : '');
+      const statusParaAutomacao = statusPersistido || statusTecnicoPersistido;
+
+      if (osAnterior.empresa_id && statusParaAutomacao) {
         await dispatchAutomacaoOs({
           empresa_id: osAnterior.empresa_id,
           os_id: osAnterior.id,
           evento: 'os_status_alterado',
-          status_anterior: osAnterior.status ?? undefined,
-          status_novo: newStatusString,
+          status_anterior: extractStatusText((osAnterior as any).status) || undefined,
+          status_novo: statusParaAutomacao,
         });
       }
     } catch (crmError) {
