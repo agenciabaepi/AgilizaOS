@@ -5,7 +5,7 @@ import { FiFileText, FiBell, FiEye, FiArrowRight, FiX } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { playNotificationSound, unlockNotificationAudio } from '@/lib/playNotificationSound';
+import { playOrcamentoNotificationSound, requestAudioPermission } from '@/utils/audioPlayer';
 
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -107,7 +107,7 @@ function processarPendencias(
   } else {
     const novas = itens.filter((os) => !refs.previousIdsRef.current.has(os.id));
     if (novas.length > 0) {
-      void playNotificationSound();
+      void playOrcamentoNotificationSound();
       openModalIfAllowed(itens.length, true);
     } else {
       openModalIfAllowed(itens.length);
@@ -274,7 +274,7 @@ export default function LaudoProntoAlert() {
 
       setModalOpen(true);
       dismissedAtRef.current = Date.now();
-      void playNotificationSound();
+      void playOrcamentoNotificationSound();
     }, 60_000);
 
     return () => window.clearInterval(reminderTimer);
@@ -282,7 +282,7 @@ export default function LaudoProntoAlert() {
 
   useEffect(() => {
     const unlock = () => {
-      void unlockNotificationAudio();
+      void requestAudioPermission();
     };
     window.addEventListener('pointerdown', unlock, { once: true });
     return () => window.removeEventListener('pointerdown', unlock);
