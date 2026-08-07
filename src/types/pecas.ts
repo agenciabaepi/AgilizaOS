@@ -43,14 +43,28 @@ export interface PecaSubcategoriaCatalogo {
   pecas_count?: number;
 }
 
+/** Fornecedor / marca da peça (ex.: Soft OLED, JK) — não confundir com marca do aparelho. */
+export interface PecaFornecedorCatalogo {
+  id: string;
+  nome: string;
+  slug: string;
+  imagem_url?: string | null;
+  ordem: number;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PecaCatalogo {
   id: string;
   grupo_id: string;
   categoria_id?: string | null;
   subcategoria_id?: string | null;
+  fornecedor_id?: string | null;
   codigo?: string | null;
   nome: string;
   descricao?: string | null;
+  /** Nome do fornecedor (espelho de fornecedor.nome para busca/compat) */
   marca?: string | null;
   modelo_compativel?: string | null;
   preco: number;
@@ -67,4 +81,5 @@ export interface PecaCatalogo {
   grupo?: Pick<PecaGrupoCatalogo, 'id' | 'nome' | 'slug'> | null;
   categoria?: Pick<PecaCategoriaCatalogo, 'id' | 'nome' | 'slug'> | null;
   subcategoria?: (Pick<PecaSubcategoriaCatalogo, 'id' | 'nome' | 'slug'> & { ordem?: number }) | null;
+  fornecedor?: Pick<PecaFornecedorCatalogo, 'id' | 'nome' | 'slug' | 'imagem_url'> | null;
 }

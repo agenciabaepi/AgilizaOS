@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { FiPlus, FiEdit2, FiTrash2, FiPackage, FiLayers, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiPackage, FiLayers, FiSearch, FiTag } from 'react-icons/fi';
 import type {
   PecaCatalogo,
   PecaGrupoCatalogo,
   PecaCategoriaCatalogo,
   PecaSubcategoriaCatalogo,
+  PecaFornecedorCatalogo,
 } from '@/types/pecas';
+import ToggleSwitch from '@/components/ToggleSwitch';
 
 function formatMoney(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -18,10 +20,10 @@ const emptyForm = {
   grupo_id: '',
   categoria_id: '',
   subcategoria_id: '',
+  fornecedor_id: '',
   codigo: '',
   nome: '',
   descricao: '',
-  marca: '',
   modelo_compativel: '',
   preco: '',
   custo: '',
@@ -39,6 +41,7 @@ export default function PecasCatalogoClient() {
   const [grupos, setGrupos] = useState<PecaGrupoCatalogo[]>([]);
   const [categorias, setCategorias] = useState<PecaCategoriaCatalogo[]>([]);
   const [subcategorias, setSubcategorias] = useState<PecaSubcategoriaCatalogo[]>([]);
+  const [fornecedores, setFornecedores] = useState<PecaFornecedorCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<PecaCatalogo | null>(null);
@@ -47,6 +50,7 @@ export default function PecasCatalogoClient() {
   const [busca, setBusca] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [filtroBaixoEstoque, setFiltroBaixoEstoque] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const fetchGrupos = useCallback(async () => {
@@ -83,6 +87,15 @@ export default function PecasCatalogoClient() {
     if (data.ok) setSubcategorias(data.subcategorias || []);
   }, []);
 
+  const fetchFornecedores = useCallback(async () => {
+    const res = await fetch('/api/admin-saas/pecas-fornecedores-catalogo?incluir_inativos=true', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    const data = await res.json();
+    if (data.ok) setFornecedores(data.fornecedores || []);
+  }, []);
+
   const fetchPecas = useCallback(async () => {
     setLoading(true);
     try {
@@ -107,7 +120,8 @@ export default function PecasCatalogoClient() {
 
   useEffect(() => {
     fetchGrupos();
-  }, [fetchGrupos]);
+    fetchFornecedores();
+  }, [fetchGrupos, fetchFornecedores]);
 
   useEffect(() => {
     fetchPecas();
@@ -135,10 +149,10 @@ export default function PecasCatalogoClient() {
       grupo_id: peca.grupo_id,
       categoria_id: peca.categoria_id || '',
       subcategoria_id: peca.subcategoria_id || '',
+      fornecedor_id: peca.fornecedor_id || '',
       codigo: peca.codigo || '',
       nome: peca.nome,
       descricao: peca.descricao || '',
-      marca: peca.marca || '',
       modelo_compativel: peca.modelo_compativel || '',
       preco: String(peca.preco ?? ''),
       custo: peca.custo != null ? String(peca.custo) : '',
@@ -172,6 +186,30 @@ export default function PecasCatalogoClient() {
     }
   };
 
+  const toggleAtivo = async (peca: PecaCatalogo) => {
+    const next = !peca.ativo;
+    setTogglingId(peca.id);
+    setPecas((list) => list.map((p) => (p.id === peca.id ? { ...p, ativo: next } : p)));
+    try {
+      const res = await fetch('/api/admin-saas/pecas-catalogo', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: peca.id, ativo: next }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setPecas((list) => list.map((p) => (p.id === peca.id ? { ...p, ativo: peca.ativo } : p)));
+        setMessage({ type: 'error', text: data.error || 'Erro ao atualizar status' });
+      }
+    } catch {
+      setPecas((list) => list.map((p) => (p.id === peca.id ? { ...p, ativo: peca.ativo } : p)));
+      setMessage({ type: 'error', text: 'Erro de conexão' });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const categoriasDoForm = categorias.filter((c) => c.grupo_id === form.grupo_id);
   const subcategoriasDoForm = subcategorias.filter((s) => s.categoria_id === form.categoria_id);
 
@@ -198,10 +236,10 @@ export default function PecasCatalogoClient() {
         grupo_id: form.grupo_id,
         categoria_id: form.categoria_id || null,
         subcategoria_id: form.subcategoria_id || null,
+        fornecedor_id: form.fornecedor_id || null,
         codigo: form.codigo.trim() || null,
         nome: form.nome.trim(),
         descricao: form.descricao.trim() || null,
-        marca: form.marca.trim() || null,
         modelo_compativel: form.modelo_compativel.trim() || null,
         preco: Number(form.preco) || 0,
         custo: form.custo !== '' ? Number(form.custo) : null,
@@ -253,6 +291,12 @@ export default function PecasCatalogoClient() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/admin-saas/pecas/fornecedores"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FiTag /> Fornecedores
+          </Link>
           <Link
             href="/admin-saas/pecas/grupos"
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -339,7 +383,13 @@ export default function PecasCatalogoClient() {
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-900">{peca.nome}</div>
                         <div className="text-xs text-gray-500">
-                          {[peca.codigo, peca.marca, peca.modelo_compativel].filter(Boolean).join(' · ')}
+                          {[
+                            peca.codigo,
+                            peca.fornecedor?.nome || peca.marca,
+                            peca.modelo_compativel,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                         <div className="text-xs text-gray-400 md:hidden mt-0.5">
                           {peca.grupo?.nome}
@@ -364,13 +414,17 @@ export default function PecasCatalogoClient() {
                         <span className="text-gray-400 text-xs"> / mín {peca.estoque_min}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                            peca.ativo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}
-                        >
-                          {peca.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <ToggleSwitch
+                            checked={peca.ativo}
+                            disabled={togglingId === peca.id}
+                            label={peca.ativo ? 'Desativar peça' : 'Ativar peça'}
+                            onChange={() => void toggleAtivo(peca)}
+                          />
+                          <span className={`text-xs ${peca.ativo ? 'text-emerald-700' : 'text-gray-400'}`}>
+                            {peca.ativo ? 'Ativo' : 'Off'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -527,13 +581,40 @@ export default function PecasCatalogoClient() {
                   />
                 </label>
 
-                <label className="block">
-                  <span className="text-xs font-medium text-gray-600">Fornecedor / marca peça</span>
-                  <input
-                    value={form.marca}
-                    onChange={(e) => setForm((f) => ({ ...f, marca: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
+                <label className="block sm:col-span-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-gray-600">Fornecedor / marca peça</span>
+                    <Link
+                      href="/admin-saas/pecas/fornecedores"
+                      className="text-[11px] text-gray-500 underline"
+                      target="_blank"
+                    >
+                      Gerenciar
+                    </Link>
+                  </div>
+                  <select
+                    value={form.fornecedor_id}
+                    onChange={(e) => setForm((f) => ({ ...f, fornecedor_id: e.target.value }))}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Sem fornecedor</option>
+                    {fornecedores
+                      .filter((f) => f.ativo || f.id === form.fornecedor_id)
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.nome}
+                        </option>
+                      ))}
+                  </select>
+                  {fornecedores.length === 0 && (
+                    <p className="text-[11px] text-amber-700 mt-1">
+                      Cadastre fornecedores em{' '}
+                      <Link href="/admin-saas/pecas/fornecedores" className="underline" target="_blank">
+                        Fornecedores
+                      </Link>{' '}
+                      para selecionar aqui.
+                    </p>
+                  )}
                 </label>
 
                 <label className="block sm:col-span-2">

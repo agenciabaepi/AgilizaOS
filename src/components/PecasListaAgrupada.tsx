@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { FiPackage, FiSearch } from 'react-icons/fi';
 import type { PecaCatalogo, PecaSubcategoriaCatalogo } from '@/types/pecas';
+import { isUltimaPeca, isUltimasPecas } from '@/lib/pecas-estoque';
 
 function formatMoney(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -15,7 +16,32 @@ type GrupoTipo = {
   pecas: PecaCatalogo[];
 };
 
+function EstoqueBadge({ estoque, estoqueMin }: { estoque: number; estoqueMin?: number }) {
+  if (isUltimaPeca(estoque)) {
+    return (
+      <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+        Última peça!
+      </span>
+    );
+  }
+  if (isUltimasPecas(estoque, estoqueMin)) {
+    return (
+      <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+        Últimas peças
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+      Em estoque
+    </span>
+  );
+}
+
 function PecaCard({ peca }: { peca: PecaCatalogo }) {
+  const fornecedorNome = peca.fornecedor?.nome || peca.marca;
+  const fornecedorLogo = peca.fornecedor?.imagem_url;
+
   return (
     <li className="bg-white border border-zinc-200 rounded-2xl p-3.5 flex gap-3 shadow-sm">
       <div className="w-20 h-20 shrink-0 rounded-xl bg-zinc-100 overflow-hidden flex items-center justify-center">
@@ -29,19 +55,27 @@ function PecaCard({ peca }: { peca: PecaCatalogo }) {
       <div className="min-w-0 flex-1 flex flex-col justify-between">
         <div>
           <h2 className="font-semibold text-[15px] leading-snug line-clamp-2">{peca.nome}</h2>
-          {(peca.marca || peca.modelo_compativel) && (
-            <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
-              {[peca.marca, peca.modelo_compativel].filter(Boolean).join(' · ')}
-            </p>
+          {(fornecedorNome || peca.modelo_compativel) && (
+            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+              {fornecedorLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={fornecedorLogo}
+                  alt={fornecedorNome || 'Fornecedor'}
+                  className="w-4 h-4 object-contain shrink-0"
+                />
+              ) : null}
+              <p className="text-xs text-zinc-500 line-clamp-1">
+                {[fornecedorNome, peca.modelo_compativel].filter(Boolean).join(' · ')}
+              </p>
+            </div>
           )}
         </div>
-        <div className="flex items-end justify-between mt-2">
+        <div className="flex items-end justify-between gap-2 mt-2">
           <span className="text-base font-bold tracking-tight">
             {formatMoney(Number(peca.preco))}
           </span>
-          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-            Em estoque
-          </span>
+          <EstoqueBadge estoque={peca.estoque} estoqueMin={peca.estoque_min} />
         </div>
       </div>
     </li>
@@ -66,7 +100,7 @@ export default function PecasListaAgrupada({
     const q = busca.trim().toLowerCase();
     if (!q) return pecas;
     return pecas.filter((p) =>
-      [p.nome, p.codigo, p.marca, p.modelo_compativel, p.subcategoria?.nome]
+      [p.nome, p.codigo, p.marca, p.fornecedor?.nome, p.modelo_compativel, p.subcategoria?.nome]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q))
     );

@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
       const { data: pecas, error: pecasErr } = await supabase
         .from('pecas_catalogo')
         .select(
-          'id, grupo_id, categoria_id, subcategoria_id, codigo, nome, descricao, marca, modelo_compativel, preco, estoque, unidade, imagem_url, destaque, ordem, subcategoria:pecas_subcategorias_catalogo(id, nome, slug, ordem)'
+          'id, grupo_id, categoria_id, subcategoria_id, fornecedor_id, codigo, nome, descricao, marca, modelo_compativel, preco, estoque, estoque_min, unidade, imagem_url, destaque, ordem, subcategoria:pecas_subcategorias_catalogo(id, nome, slug, ordem), fornecedor:pecas_fornecedores_catalogo(id, nome, slug, imagem_url)'
         )
         .eq('ativo', true)
         .gt('estoque', 0)
@@ -235,7 +235,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('pecas_catalogo')
       .select(
-        'id, grupo_id, categoria_id, subcategoria_id, codigo, nome, descricao, marca, modelo_compativel, preco, estoque, unidade, imagem_url, destaque, ordem, categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug)'
+        'id, grupo_id, categoria_id, subcategoria_id, fornecedor_id, codigo, nome, descricao, marca, modelo_compativel, preco, estoque, estoque_min, unidade, imagem_url, destaque, ordem, categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug), fornecedor:pecas_fornecedores_catalogo(id, nome, slug, imagem_url)'
       )
       .eq('ativo', true)
       .gt('estoque', 0)

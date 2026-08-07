@@ -3,9 +3,54 @@
 import { useMemo, useState } from 'react';
 import { FiPackage, FiSearch } from 'react-icons/fi';
 import type { PecaCatalogo } from '@/types/pecas';
+import { isUltimaPeca, isUltimasPecas } from '@/lib/pecas-estoque';
 
 function formatMoney(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function EstoqueBadge({ estoque, estoqueMin }: { estoque: number; estoqueMin?: number }) {
+  if (isUltimaPeca(estoque)) {
+    return (
+      <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+        Última peça!
+      </span>
+    );
+  }
+  if (isUltimasPecas(estoque, estoqueMin)) {
+    return (
+      <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+        Últimas peças
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+      Em estoque
+    </span>
+  );
+}
+
+function FornecedorLinha({ peca }: { peca: PecaCatalogo }) {
+  const nome = peca.fornecedor?.nome || peca.marca;
+  const logo = peca.fornecedor?.imagem_url;
+  if (!nome && !peca.modelo_compativel) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logo}
+          alt={nome || 'Fornecedor'}
+          className="w-4 h-4 object-contain shrink-0"
+        />
+      ) : null}
+      <p className="text-xs text-zinc-500 line-clamp-1">
+        {[nome, peca.modelo_compativel].filter(Boolean).join(' · ')}
+      </p>
+    </div>
+  );
 }
 
 export default function PecasLista({
@@ -21,7 +66,15 @@ export default function PecasLista({
     const q = busca.trim().toLowerCase();
     if (!q) return pecas;
     return pecas.filter((p) =>
-      [p.nome, p.codigo, p.marca, p.modelo_compativel, p.categoria?.nome, p.subcategoria?.nome]
+      [
+        p.nome,
+        p.codigo,
+        p.marca,
+        p.fornecedor?.nome,
+        p.modelo_compativel,
+        p.categoria?.nome,
+        p.subcategoria?.nome,
+      ]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q))
     );
@@ -65,24 +118,18 @@ export default function PecasLista({
               <div className="min-w-0 flex-1 flex flex-col justify-between">
                 <div>
                   <h2 className="font-semibold text-[15px] leading-snug line-clamp-2">{peca.nome}</h2>
-                  {(peca.marca || peca.modelo_compativel) && (
-                    <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
-                      {[peca.marca, peca.modelo_compativel].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
+                  <FornecedorLinha peca={peca} />
                   {(peca.categoria?.nome || peca.subcategoria?.nome) && (
                     <p className="text-[11px] text-zinc-400 mt-0.5">
                       {[peca.categoria?.nome, peca.subcategoria?.nome].filter(Boolean).join(' / ')}
                     </p>
                   )}
                 </div>
-                <div className="flex items-end justify-between mt-2">
+                <div className="flex items-end justify-between gap-2 mt-2">
                   <span className="text-base font-bold tracking-tight">
                     {formatMoney(Number(peca.preco))}
                   </span>
-                  <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    Em estoque
-                  </span>
+                  <EstoqueBadge estoque={peca.estoque} estoqueMin={peca.estoque_min} />
                 </div>
               </div>
             </li>

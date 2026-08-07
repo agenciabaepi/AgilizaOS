@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('pecas_catalogo')
       .select(
-        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug)'
+        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug), fornecedor:pecas_fornecedores_catalogo(id, nome, slug, imagem_url)'
       )
       .order('ordem', { ascending: true })
       .order('nome', { ascending: true });
@@ -78,16 +78,28 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
+    const fornecedorId = body.fornecedor_id ? String(body.fornecedor_id).trim() : null;
+    let marca = body.marca ? String(body.marca).trim() : null;
+    if (fornecedorId) {
+      const { data: forn } = await supabase
+        .from('pecas_fornecedores_catalogo')
+        .select('nome')
+        .eq('id', fornecedorId)
+        .maybeSingle();
+      if (forn?.nome) marca = forn.nome;
+    }
+
     const { data, error } = await supabase
       .from('pecas_catalogo')
       .insert({
         grupo_id: grupoId,
         categoria_id: body.categoria_id ? String(body.categoria_id).trim() : null,
         subcategoria_id: body.subcategoria_id ? String(body.subcategoria_id).trim() : null,
+        fornecedor_id: fornecedorId,
         codigo: body.codigo ? String(body.codigo).trim() : null,
         nome,
         descricao: body.descricao ? String(body.descricao).trim() : null,
-        marca: body.marca ? String(body.marca).trim() : null,
+        marca,
         modelo_compativel: body.modelo_compativel ? String(body.modelo_compativel).trim() : null,
         preco: parseMoney(body.preco),
         custo: body.custo !== undefined && body.custo !== null && body.custo !== '' ? parseMoney(body.custo) : null,
@@ -100,7 +112,7 @@ export async function POST(req: NextRequest) {
         ordem: typeof body.ordem === 'number' ? body.ordem : 100,
       })
       .select(
-        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug)'
+        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug), fornecedor:pecas_fornecedores_catalogo(id, nome, slug, imagem_url)'
       )
       .single();
 
@@ -163,12 +175,28 @@ export async function PUT(req: NextRequest) {
     if (body.ordem !== undefined) updateData.ordem = Number(body.ordem) || 0;
 
     const supabase = getSupabaseAdmin();
+
+    if (body.fornecedor_id !== undefined) {
+      const fornecedorId = body.fornecedor_id ? String(body.fornecedor_id).trim() : null;
+      updateData.fornecedor_id = fornecedorId;
+      if (fornecedorId) {
+        const { data: forn } = await supabase
+          .from('pecas_fornecedores_catalogo')
+          .select('nome')
+          .eq('id', fornecedorId)
+          .maybeSingle();
+        if (forn?.nome) updateData.marca = forn.nome;
+      } else if (body.marca === undefined) {
+        updateData.marca = null;
+      }
+    }
+
     const { data, error } = await supabase
       .from('pecas_catalogo')
       .update(updateData)
       .eq('id', id)
       .select(
-        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug)'
+        '*, grupo:pecas_grupos_catalogo(id, nome, slug), categoria:pecas_categorias_catalogo(id, nome, slug), subcategoria:pecas_subcategorias_catalogo(id, nome, slug), fornecedor:pecas_fornecedores_catalogo(id, nome, slug, imagem_url)'
       )
       .maybeSingle();
 
