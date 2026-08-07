@@ -13,6 +13,7 @@ import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
 
+import { warmupOrcamentoAudio } from '@/utils/audioPlayer';
 import dynamic from 'next/dynamic';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
@@ -63,6 +64,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
     suppressLogsInProduction();
     suppressNetworkErrors();
     preCheckProblematicTables().catch(() => {});
+    warmupOrcamentoAudio();
   }, []);
 
   if (isAdminRoute(pathname) || isPecasPublicRoute(pathname)) {

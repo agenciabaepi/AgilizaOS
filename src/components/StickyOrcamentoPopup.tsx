@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { playOrcamentoNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
+import { playOrcamentoNotificationSound } from '@/utils/audioPlayer';
 
 interface Notificacao {
   id: string;
@@ -28,47 +28,7 @@ export default function StickyOrcamentoPopup() {
   // Reproduzir som quando a modal for aberta - APENAS para atendentes
   useEffect(() => {
     if (open && notif && isAtendente) {
-      console.log('🔔 StickyOrcamentoPopup: Modal aberta, tentando reproduzir som...');
-      
-      // Tentar reproduzir som múltiplas vezes para garantir que funcione
-      const tryPlaySound = async () => {
-        let attempts = 0;
-        const maxAttempts = 3;
-        
-        while (attempts < maxAttempts) {
-          attempts++;
-          console.log(`🔔 StickyOrcamentoPopup: Tentativa ${attempts}/${maxAttempts}`);
-          
-          try {
-            const success = await playOrcamentoNotificationSound();
-            if (success) {
-              console.log(`✅ StickyOrcamentoPopup: Som reproduzido com sucesso na tentativa ${attempts}!`);
-              return;
-            } else if (attempts === maxAttempts) {
-              // Na última tentativa, criar botão de ativação
-              console.warn('⚠️ StickyOrcamentoPopup: Todas as tentativas falharam - criando botão de ativação');
-              createAudioActivationButton();
-            }
-          } catch (error) {
-            console.warn(`⚠️ StickyOrcamentoPopup: Tentativa ${attempts} falhou:`, error);
-            if (attempts === maxAttempts) {
-              // Na última tentativa, criar botão de ativação
-              createAudioActivationButton();
-            }
-          }
-          
-          // Pequena pausa entre tentativas
-          if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        }
-        
-        console.warn('⚠️ StickyOrcamentoPopup: Todas as tentativas falharam');
-      };
-      
-      tryPlaySound();
-    } else if (open && notif && !isAtendente) {
-      console.log('🔔 StickyOrcamentoPopup: Som não reproduzido - usuário não é atendente');
+      void playOrcamentoNotificationSound();
     }
   }, [open, notif, isAtendente]);
 

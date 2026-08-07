@@ -3,19 +3,24 @@
 export const NOTIFICATION_SOUND_PATH = '/assets/sounds/Msn.mp3';
 export const ORCAMENTO_SOUND_PATH = '/assets/sounds/orcamento_audio.mp3';
 
+const DEFAULT_VOLUME = 0.85;
+const ORCAMENTO_MAX_ATTEMPTS = 6;
+const ORCAMENTO_RETRY_MS = 180;
+
 export class AudioPlayer {
   private static instance: AudioPlayer;
   private audioContext: AudioContext | null = null;
-  private audioBuffer: AudioBuffer | null = null;
   private isInitialized = false;
-  private preloadedAudio: HTMLAudioElement | null = null;
+  private preloadedByUrl = new Map<string, HTMLAudioElement>();
   private userInteracted = false;
   private permissionRequested = false;
+  private pendingSoundUrl: string | null = null;
+  private interactionListenersAttached = false;
+  private lastOrcamentoPlayAt = 0;
 
   private constructor() {
-    // Pré-carregar o áudio quando a instância for criada
-    this.preloadAudio();
-    // Detectar interação do usuário
+    this.preloadSound(NOTIFICATION_SOUND_PATH);
+    this.preloadSound(ORCAMENTO_SOUND_PATH);
     this.setupUserInteractionDetection();
   }
 
@@ -26,314 +31,243 @@ export class AudioPlayer {
     return AudioPlayer.instance;
   }
 
-  // Detectar interação do usuário para permitir autoplay
   private setupUserInteractionDetection(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || this.interactionListenersAttached) return;
+    this.interactionListenersAttached = true;
 
-    const events = ['click', 'touchstart', 'keydown', 'mousedown'];
-    
-    const handleUserInteraction = async () => {
-      if (!this.userInteracted) {
-        console.log('👆 AudioPlayer: Interação do usuário detectada!');
-        this.userInteracted = true;
-        
-        // Solicitar permissão de áudio na primeira interação
-        if (!this.permissionRequested) {
-          await this.requestAudioPermission();
-          this.permissionRequested = true;
-        }
-      }
+    const events = ['click', 'touchstart', 'keydown', 'mousedown', 'pointerdown'] as const;
+
+    const handleUserInteraction = () => {
+      void this.onUserInteraction();
     };
 
-    events.forEach(event => {
-      document.addEventListener(event, handleUserInteraction, { once: true, passive: true });
+    events.forEach((event) => {
+      document.addEventListener(event, handleUserInteraction, { passive: true });
     });
   }
 
-  // Pré-carregar o áudio para melhorar a confiabilidade
-  private preloadAudio(): void {
-    try {
-      console.log('🔄 AudioPlayer: Pré-carregando áudio...');
-      this.preloadedAudio = new Audio(NOTIFICATION_SOUND_PATH);
-      this.preloadedAudio.volume = 0.7;
-      this.preloadedAudio.preload = 'auto';
-      this.preloadedAudio.crossOrigin = 'anonymous';
-      
-      this.preloadedAudio.addEventListener('canplaythrough', () => {
-        console.log('✅ AudioPlayer: Áudio pré-carregado com sucesso!');
-      });
-      
-      this.preloadedAudio.addEventListener('error', (error) => {
-        console.warn('⚠️ AudioPlayer: Erro ao pré-carregar áudio:', error);
-      });
-      
-      this.preloadedAudio.load();
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Erro ao criar instância pré-carregada:', error);
+  private async onUserInteraction(): Promise<void> {
+    if (!this.userInteracted) {
+      this.userInteracted = true;
     }
+
+    if (!this.permissionRequested) {
+      this.permissionRequested = true;
+      await this.requestAudioPermission();
+    }
+
+    if (this.pendingSoundUrl) {
+      const url = this.pendingSoundUrl;
+      this.pendingSoundUrl = null;
+      await this.playSound(url, 2);
+    }
+  }
+
+  preloadSound(soundUrl: string): HTMLAudioElement {
+    const existing = this.preloadedByUrl.get(soundUrl);
+    if (existing) return existing;
+
+    const audio = new Audio(soundUrl);
+    audio.volume = DEFAULT_VOLUME;
+    audio.preload = 'auto';
+    audio.load();
+    this.preloadedByUrl.set(soundUrl, audio);
+    return audio;
+  }
+
+  warmupOrcamentoAudio(): void {
+    this.preloadSound(ORCAMENTO_SOUND_PATH);
   }
 
   async initialize(): Promise<boolean> {
     if (this.isInitialized) return true;
 
     try {
-      // Tentar criar AudioContext
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
         this.audioContext = new AudioContextClass();
-        
-        // Se estiver suspenso, tentar resumir
         if (this.audioContext.state === 'suspended') {
           await this.audioContext.resume();
         }
       }
 
       this.isInitialized = true;
-      console.log('✅ AudioPlayer: Inicializado com sucesso');
       return true;
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Erro ao inicializar:', error);
+    } catch {
       return false;
     }
   }
 
-  async playNotificationSound(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
-    console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação...');
-    console.log(`👆 AudioPlayer: Usuário interagiu: ${this.userInteracted}`);
-
-    // Sem gesto do usuário, navegadores bloqueiam áudio. Tentar apenas HTML5 uma vez.
-    if (!this.userInteracted) {
-      try {
-        const audio = new Audio(soundUrl);
-        audio.volume = 0.7;
-        await audio.play();
-        this.userInteracted = true;
-        console.log('✅ AudioPlayer: Som reproduzido (sem gesto prévio).');
-        return true;
-      } catch {
-        console.log('⚠️ AudioPlayer: Reprodução bloqueada até haver interação (clique/toque/tecla).');
-        return false;
-      }
-    }
-
-    // Tentar múltiplas vezes com diferentes métodos (fallback)
-    const methods = [
-      () => (soundUrl === NOTIFICATION_SOUND_PATH ? this.playWithPreloadedAudio() : this.playWithSimpleAudio(soundUrl)),
-      () => this.playWithHTML5Audio(soundUrl),
-      () => this.playWithWebAudioAPI(soundUrl),
-      () => this.playWithSimpleAudio(soundUrl),
-      () => this.playWithHTML5Audio(soundUrl),
-      () => this.playWithWebAudioAPI(soundUrl),
-    ];
-
-    for (let i = 0; i < methods.length; i++) {
-      try {
-        console.log(`🎵 AudioPlayer: Tentativa ${i + 1}/${methods.length}`);
-        const success = await methods[i]();
-        if (success) {
-          console.log(`✅ AudioPlayer: Sucesso na tentativa ${i + 1}!`);
-          return true;
-        }
-      } catch (error) {
-        console.warn(`⚠️ AudioPlayer: Tentativa ${i + 1} falhou:`, error);
-      }
-      
-      // Pequena pausa entre tentativas (menor para tempo real)
-      if (i < methods.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    }
-
-    console.warn('⚠️ AudioPlayer: Todas as tentativas falharam');
-    return false;
-  }
-
-  private async playWithHTML5Audio(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
-    try {
-      console.log('🎵 AudioPlayer: Tentando com HTML5 Audio...');
-      
-      const audio = new Audio(soundUrl);
-      audio.volume = 0.7;
-      audio.preload = 'auto';
-      audio.crossOrigin = 'anonymous';
-
-      // Configurar eventos
-      const playPromise = new Promise<boolean>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout ao carregar áudio'));
-        }, 3000);
-
-        audio.addEventListener('canplaythrough', () => {
-          clearTimeout(timeout);
-          console.log('📱 AudioPlayer: Áudio carregado, tentando reproduzir...');
-          
-          audio.play().then(() => {
-            console.log('✅ AudioPlayer: HTML5 Audio funcionou!');
-            resolve(true);
-          }).catch(playError => {
-            console.warn('⚠️ AudioPlayer: Erro ao reproduzir:', playError);
-            reject(playError);
-          });
-        });
-
-        audio.addEventListener('error', (error) => {
-          clearTimeout(timeout);
-          console.warn('⚠️ AudioPlayer: Erro ao carregar áudio:', error);
-          reject(error);
-        });
-
-        audio.addEventListener('loadstart', () => {
-          console.log('📱 AudioPlayer: Iniciando carregamento...');
-        });
-      });
-
-      // Iniciar carregamento
-      audio.load();
-      
-      return await playPromise;
-
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: HTML5 Audio falhou:', error);
-      return false;
-    }
-  }
-
-  private async playWithWebAudioAPI(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
-    try {
-      console.log('🎵 AudioPlayer: Tentando com Web Audio API...');
-      
-      if (!this.audioContext) {
-        await this.initialize();
-        if (!this.audioContext) return false;
-      }
-
-      // Carregar o arquivo de áudio
-      const response = await fetch(soundUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-      // Criar source e reproduzir
-      const source = this.audioContext.createBufferSource();
-      source.buffer = this.audioBuffer;
-      source.connect(this.audioContext.destination);
-      source.start();
-
-      console.log('✅ AudioPlayer: Web Audio API funcionou!');
-      return true;
-
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Web Audio API falhou:', error);
-      return false;
-    }
-  }
-
-  // Método usando áudio pré-carregado
-  private async playWithPreloadedAudio(): Promise<boolean> {
-    try {
-      console.log('🎵 AudioPlayer: Tentando com áudio pré-carregado...');
-      
-      if (!this.preloadedAudio) {
-        console.warn('⚠️ AudioPlayer: Áudio pré-carregado não disponível');
-        return false;
-      }
-      
-      // Resetar o áudio para o início
-      this.preloadedAudio.currentTime = 0;
-      
-      // Tentar reproduzir
-      await this.preloadedAudio.play();
-      console.log('✅ AudioPlayer: Áudio pré-carregado funcionou!');
-      return true;
-
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Áudio pré-carregado falhou:', error);
-      return false;
-    }
-  }
-
-  // Método mais simples e direto
-  private async playWithSimpleAudio(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
-    try {
-      console.log('🎵 AudioPlayer: Tentando método simples...');
-      
-      const audio = new Audio(soundUrl);
-      audio.volume = 0.7;
-      
-      // Tentar reproduzir imediatamente
-      await audio.play();
-      console.log('✅ AudioPlayer: Método simples funcionou!');
-      return true;
-
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Método simples falhou:', error);
-      return false;
-    }
-  }
-
-  // Método para solicitar permissão de áudio
   async requestAudioPermission(): Promise<boolean> {
     try {
       if (!this.audioContext) {
         await this.initialize();
       }
 
-      if (this.audioContext && this.audioContext.state === 'suspended') {
+      if (this.audioContext?.state === 'suspended') {
         await this.audioContext.resume();
       }
 
-      console.log('✅ AudioPlayer: Permissão de áudio concedida');
       return true;
-    } catch (error) {
-      console.warn('⚠️ AudioPlayer: Erro ao solicitar permissão:', error);
+    } catch {
       return false;
     }
   }
 
-  // Método para criar botão de ativação de áudio (fallback apenas quando necessário)
-  createAudioActivationButton(): HTMLElement | null {
-    if (typeof window === 'undefined' || this.userInteracted) return null;
-    
-    // Não criar botão automaticamente - tentar reproduzir som primeiro
-    console.log('🔔 AudioPlayer: Tentando reproduzir som sem botão de ativação...');
-    this.playNotificationSound();
-    return null;
+  async playSound(soundUrl: string, maxAttempts = 4): Promise<boolean> {
+    await this.requestAudioPermission();
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const methods = [
+        () => this.playWithPreloadedUrl(soundUrl),
+        () => this.playWithSimpleAudio(soundUrl),
+        () => this.playWithHTML5Audio(soundUrl),
+        () => this.playWithWebAudioAPI(soundUrl),
+      ];
+
+      for (const method of methods) {
+        try {
+          if (await method()) {
+            this.userInteracted = true;
+            return true;
+          }
+        } catch {
+          /* próximo método */
+        }
+      }
+
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, ORCAMENTO_RETRY_MS));
+      }
+    }
+
+    this.pendingSoundUrl = soundUrl;
+    return false;
+  }
+
+  async playNotificationSound(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
+    return this.playSound(soundUrl);
+  }
+
+  async playOrcamentoSound(): Promise<boolean> {
+    const now = Date.now();
+    if (now - this.lastOrcamentoPlayAt < 800) return true;
+
+    this.warmupOrcamentoAudio();
+    const success = await this.playSound(ORCAMENTO_SOUND_PATH, ORCAMENTO_MAX_ATTEMPTS);
+    if (success) {
+      this.lastOrcamentoPlayAt = now;
+    }
+    return success;
+  }
+
+  private async playWithPreloadedUrl(soundUrl: string): Promise<boolean> {
+    const audio = this.preloadSound(soundUrl);
+    audio.currentTime = 0;
+    audio.volume = DEFAULT_VOLUME;
+    await audio.play();
+    return true;
+  }
+
+  private async playWithHTML5Audio(soundUrl: string): Promise<boolean> {
+    const audio = new Audio(soundUrl);
+    audio.volume = DEFAULT_VOLUME;
+    audio.preload = 'auto';
+
+    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      await audio.play();
+      return true;
+    }
+
+    return new Promise<boolean>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('timeout')), 4000);
+
+      const tryPlay = () => {
+        audio
+          .play()
+          .then(() => {
+            clearTimeout(timeout);
+            resolve(true);
+          })
+          .catch(reject);
+      };
+
+      audio.addEventListener('canplaythrough', tryPlay, { once: true });
+      audio.addEventListener('loadeddata', tryPlay, { once: true });
+      audio.addEventListener(
+        'error',
+        () => {
+          clearTimeout(timeout);
+          reject(new Error('load error'));
+        },
+        { once: true }
+      );
+
+      audio.load();
+    });
+  }
+
+  private async playWithWebAudioAPI(soundUrl: string): Promise<boolean> {
+    if (!this.audioContext) {
+      await this.initialize();
+      if (!this.audioContext) return false;
+    }
+
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
+    const response = await fetch(soundUrl);
+    if (!response.ok) return false;
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.audioContext.destination);
+    source.start();
+    return true;
+  }
+
+  private async playWithSimpleAudio(soundUrl: string): Promise<boolean> {
+    const audio = new Audio(soundUrl);
+    audio.volume = DEFAULT_VOLUME;
+    await audio.play();
+    return true;
+  }
+
+  createAudioActivationButton(soundUrl: string = ORCAMENTO_SOUND_PATH): HTMLElement | null {
+    if (typeof window === 'undefined') return null;
+
+    const existing = document.getElementById('audio-activation-btn');
+    if (existing) return existing;
 
     const button = document.createElement('button');
-    button.innerHTML = '🔊 Ativar Notificações Sonoras';
+    button.id = 'audio-activation-btn';
+    button.type = 'button';
+    button.innerHTML = '🔊 Toque para ativar o som de orçamento';
     button.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
-      background: #D1FE6E;
-      color: #000;
+      background: #2563eb;
+      color: #fff;
       border: none;
       padding: 12px 20px;
       border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
-      z-index: 10000;
+      z-index: 10001;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       font-size: 14px;
     `;
 
     button.addEventListener('click', async () => {
-      console.log('🔊 AudioPlayer: Usuário clicou para ativar áudio');
       this.userInteracted = true;
       this.permissionRequested = true;
-      
-      // Testar reprodução
-      const success = await this.playNotificationSound();
+      const success = await this.playSound(soundUrl, ORCAMENTO_MAX_ATTEMPTS);
       if (success) {
-        button.innerHTML = '✅ Áudio Ativado!';
-        button.style.background = '#4CAF50';
-        button.style.color = '#fff';
-        setTimeout(() => {
-          button.remove();
-        }, 2000);
-      } else {
-        button.innerHTML = '❌ Erro ao Ativar';
-        button.style.background = '#f44336';
-        button.style.color = '#fff';
+        button.remove();
       }
     });
 
@@ -342,33 +276,34 @@ export class AudioPlayer {
   }
 }
 
-// Função helper para usar o AudioPlayer
 export const playNotificationSound = async (
   soundUrl: string = NOTIFICATION_SOUND_PATH
 ): Promise<boolean> => {
-  const player = AudioPlayer.getInstance();
-  return await player.playNotificationSound(soundUrl);
+  return AudioPlayer.getInstance().playNotificationSound(soundUrl);
 };
 
 export const playOrcamentoNotificationSound = async (): Promise<boolean> => {
-  return playNotificationSound(ORCAMENTO_SOUND_PATH);
+  const player = AudioPlayer.getInstance();
+  const success = await player.playOrcamentoSound();
+  if (!success) {
+    player.createAudioActivationButton(ORCAMENTO_SOUND_PATH);
+  }
+  return success;
 };
 
-// Função para solicitar permissão de áudio
 export const requestAudioPermission = async (): Promise<boolean> => {
-  const player = AudioPlayer.getInstance();
-  return await player.requestAudioPermission();
+  return AudioPlayer.getInstance().requestAudioPermission();
 };
 
-// Função para criar botão de ativação de áudio
+export const warmupOrcamentoAudio = (): void => {
+  AudioPlayer.getInstance().warmupOrcamentoAudio();
+};
+
 export const createAudioActivationButton = (): HTMLElement | null => {
-  const player = AudioPlayer.getInstance();
-  return player.createAudioActivationButton();
+  return AudioPlayer.getInstance().createAudioActivationButton(ORCAMENTO_SOUND_PATH);
 };
 
-// Não inicializar áudio automaticamente: o contexto só deve ser criado/retomado
-// após um gesto do usuário (clique, toque, tecla). O AudioPlayer já registra
-// esses eventos no construtor e ativa permissão na primeira interação.
 export const initializeAudioContext = async (): Promise<void> => {
-  // No-op: evita erro "AudioContext was not allowed to start" em carregamento.
+  warmupOrcamentoAudio();
+  await requestAudioPermission();
 };

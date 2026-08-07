@@ -5,7 +5,7 @@ import { FiFileText, FiBell, FiEye, FiArrowRight, FiX } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { playOrcamentoNotificationSound, requestAudioPermission } from '@/utils/audioPlayer';
+import { playOrcamentoNotificationSound, warmupOrcamentoAudio, requestAudioPermission } from '@/utils/audioPlayer';
 
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -265,6 +265,17 @@ export default function LaudoProntoAlert() {
 
   useEffect(() => {
     if (!podeVerNotificacao()) return;
+    warmupOrcamentoAudio();
+    void requestAudioPermission();
+  }, [podeVerNotificacao]);
+
+  useEffect(() => {
+    if (!modalOpen || pendencias.length === 0) return;
+    void playOrcamentoNotificationSound();
+  }, [modalOpen, pendencias.length]);
+
+  useEffect(() => {
+    if (!podeVerNotificacao()) return;
 
     const reminderTimer = window.setInterval(() => {
       if (modalOpenRef.current) return;
@@ -274,19 +285,10 @@ export default function LaudoProntoAlert() {
 
       setModalOpen(true);
       dismissedAtRef.current = Date.now();
-      void playOrcamentoNotificationSound();
     }, 60_000);
 
     return () => window.clearInterval(reminderTimer);
   }, [podeVerNotificacao]);
-
-  useEffect(() => {
-    const unlock = () => {
-      void requestAudioPermission();
-    };
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
-  }, []);
 
   if (!podeVerNotificacao() || !modalOpen || pendencias.length === 0) {
     return null;
