@@ -1,4 +1,8 @@
 // Utilitário para reprodução de áudio com fallbacks
+
+export const NOTIFICATION_SOUND_PATH = '/assets/sounds/Msn.mp3';
+export const ORCAMENTO_SOUND_PATH = '/assets/sounds/orcamento_audio.mp3';
+
 export class AudioPlayer {
   private static instance: AudioPlayer;
   private audioContext: AudioContext | null = null;
@@ -50,7 +54,7 @@ export class AudioPlayer {
   private preloadAudio(): void {
     try {
       console.log('🔄 AudioPlayer: Pré-carregando áudio...');
-      this.preloadedAudio = new Audio('/assets/sounds/Msn.mp3');
+      this.preloadedAudio = new Audio(NOTIFICATION_SOUND_PATH);
       this.preloadedAudio.volume = 0.7;
       this.preloadedAudio.preload = 'auto';
       this.preloadedAudio.crossOrigin = 'anonymous';
@@ -93,14 +97,14 @@ export class AudioPlayer {
     }
   }
 
-  async playNotificationSound(): Promise<boolean> {
+  async playNotificationSound(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
     console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação...');
     console.log(`👆 AudioPlayer: Usuário interagiu: ${this.userInteracted}`);
 
     // Sem gesto do usuário, navegadores bloqueiam áudio. Tentar apenas HTML5 uma vez.
     if (!this.userInteracted) {
       try {
-        const audio = new Audio('/assets/sounds/Msn.mp3');
+        const audio = new Audio(soundUrl);
         audio.volume = 0.7;
         await audio.play();
         this.userInteracted = true;
@@ -114,12 +118,12 @@ export class AudioPlayer {
 
     // Tentar múltiplas vezes com diferentes métodos (fallback)
     const methods = [
-      () => this.playWithPreloadedAudio(), // Usar áudio pré-carregado
-      () => this.playWithHTML5Audio(),
-      () => this.playWithWebAudioAPI(),
-      () => this.playWithSimpleAudio(), // Método mais simples
-      () => this.playWithHTML5Audio(), // Retry HTML5
-      () => this.playWithWebAudioAPI()  // Retry Web Audio
+      () => (soundUrl === NOTIFICATION_SOUND_PATH ? this.playWithPreloadedAudio() : this.playWithSimpleAudio(soundUrl)),
+      () => this.playWithHTML5Audio(soundUrl),
+      () => this.playWithWebAudioAPI(soundUrl),
+      () => this.playWithSimpleAudio(soundUrl),
+      () => this.playWithHTML5Audio(soundUrl),
+      () => this.playWithWebAudioAPI(soundUrl),
     ];
 
     for (let i = 0; i < methods.length; i++) {
@@ -144,11 +148,11 @@ export class AudioPlayer {
     return false;
   }
 
-  private async playWithHTML5Audio(): Promise<boolean> {
+  private async playWithHTML5Audio(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
     try {
       console.log('🎵 AudioPlayer: Tentando com HTML5 Audio...');
       
-      const audio = new Audio('/assets/sounds/Msn.mp3');
+      const audio = new Audio(soundUrl);
       audio.volume = 0.7;
       audio.preload = 'auto';
       audio.crossOrigin = 'anonymous';
@@ -194,7 +198,7 @@ export class AudioPlayer {
     }
   }
 
-  private async playWithWebAudioAPI(): Promise<boolean> {
+  private async playWithWebAudioAPI(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
     try {
       console.log('🎵 AudioPlayer: Tentando com Web Audio API...');
       
@@ -204,7 +208,7 @@ export class AudioPlayer {
       }
 
       // Carregar o arquivo de áudio
-      const response = await fetch('/assets/sounds/Msn.mp3');
+      const response = await fetch(soundUrl);
       const arrayBuffer = await response.arrayBuffer();
       this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
@@ -248,11 +252,11 @@ export class AudioPlayer {
   }
 
   // Método mais simples e direto
-  private async playWithSimpleAudio(): Promise<boolean> {
+  private async playWithSimpleAudio(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
     try {
       console.log('🎵 AudioPlayer: Tentando método simples...');
       
-      const audio = new Audio('/assets/sounds/Msn.mp3');
+      const audio = new Audio(soundUrl);
       audio.volume = 0.7;
       
       // Tentar reproduzir imediatamente
@@ -339,9 +343,15 @@ export class AudioPlayer {
 }
 
 // Função helper para usar o AudioPlayer
-export const playNotificationSound = async (): Promise<boolean> => {
+export const playNotificationSound = async (
+  soundUrl: string = NOTIFICATION_SOUND_PATH
+): Promise<boolean> => {
   const player = AudioPlayer.getInstance();
-  return await player.playNotificationSound();
+  return await player.playNotificationSound(soundUrl);
+};
+
+export const playOrcamentoNotificationSound = async (): Promise<boolean> => {
+  return playNotificationSound(ORCAMENTO_SOUND_PATH);
 };
 
 // Função para solicitar permissão de áudio

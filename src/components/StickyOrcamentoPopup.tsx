@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
+import { playOrcamentoNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
 
 interface Notificacao {
   id: string;
@@ -40,7 +40,7 @@ export default function StickyOrcamentoPopup() {
           console.log(`🔔 StickyOrcamentoPopup: Tentativa ${attempts}/${maxAttempts}`);
           
           try {
-            const success = await playNotificationSound();
+            const success = await playOrcamentoNotificationSound();
             if (success) {
               console.log(`✅ StickyOrcamentoPopup: Som reproduzido com sucesso na tentativa ${attempts}!`);
               return;
