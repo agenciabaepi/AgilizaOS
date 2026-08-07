@@ -51,6 +51,11 @@ function isAdminRoute(pathname: string | null): boolean {
   return pathname?.startsWith('/admin-login') === true || pathname?.startsWith('/admin-saas') === true;
 }
 
+/** Catálogo público de peças — layout leve, sem auth/FAB/banners do sistema. */
+function isPecasPublicRoute(pathname: string | null): boolean {
+  return pathname === '/pecas' || pathname?.startsWith('/pecas/') === true;
+}
+
 export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -60,7 +65,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
     preCheckProblematicTables().catch(() => {});
   }, []);
 
-  if (isAdminRoute(pathname)) {
+  if (isAdminRoute(pathname) || isPecasPublicRoute(pathname)) {
     return (
       <html lang="pt-BR" suppressHydrationWarning>
         <head>
@@ -69,16 +74,20 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
           <script src="/aggressive-suppressor.js?v=2"></script>
         </head>
         <body suppressHydrationWarning>
-          <ThemeProvider>
-            <SupabaseStatusBanner />
-            <AuthProvider>
-              <ToastProvider>
-                <ConfirmProvider>
-                  {children}
-                </ConfirmProvider>
-              </ToastProvider>
-            </AuthProvider>
-          </ThemeProvider>
+          {isAdminRoute(pathname) ? (
+            <ThemeProvider>
+              <SupabaseStatusBanner />
+              <AuthProvider>
+                <ToastProvider>
+                  <ConfirmProvider>
+                    {children}
+                  </ConfirmProvider>
+                </ToastProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          ) : (
+            children
+          )}
           <Analytics />
         </body>
       </html>

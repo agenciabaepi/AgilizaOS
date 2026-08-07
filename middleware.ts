@@ -89,7 +89,7 @@ export async function middleware(request: NextRequest) {
   const publicPaths = [
     '/login', '/cadastro', '/fale-conosco', '/empresa-desativada', '/', '/sobre', '/termos', '/politicas-privacidade',
     '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
-    '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar',
+    '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar', '/pecas',
   ];
   const isPublicPath = publicPaths.some((path) => {
     if (pathname === path) return true;

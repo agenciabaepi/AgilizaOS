@@ -14,6 +14,7 @@ import {
   FiDroplet,
   FiPercent,
   FiMessageCircle,
+  FiCpu,
 } from 'react-icons/fi';
 
 export type AdminSaasNavLink = {
@@ -36,6 +37,7 @@ export const ADMIN_SAAS_NAV_LINKS: AdminSaasNavLink[] = [
   { href: '/admin-saas/aparelhos', label: 'Aparelhos', icon: FiSmartphone },
   { href: '/admin-saas/cores', label: 'Cores', icon: FiDroplet },
   { href: '/admin-saas/checklist', label: 'Checklist', icon: FiCheckSquare },
+  { href: '/admin-saas/pecas', label: 'Peças', icon: FiCpu },
   { href: '/admin-saas/planos', label: 'Planos e preços', icon: FiSettings },
   { href: '/admin-saas/cupons', label: 'Cupons', icon: FiPercent },
 ];

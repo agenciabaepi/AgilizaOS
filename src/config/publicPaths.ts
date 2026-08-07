@@ -20,6 +20,7 @@ const PUBLIC_PATH_LIST = [
   '/clear-cache',
   '/os',
   '/os/buscar',
+  '/pecas',
 ] as const;
 
 /**
