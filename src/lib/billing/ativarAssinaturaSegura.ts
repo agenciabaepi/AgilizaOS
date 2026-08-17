@@ -9,6 +9,7 @@ import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssina
 import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import {
   buscarPagamentosConfirmadosAsaasEmpresa,
+  paymentYmdFromAsaas,
   ultimoPagamentoConfirmadoAsaas,
 } from '@/lib/billing/buscarPagamentosAsaasEmpresa';
 import { garantirPagamentoLocal } from '@/lib/billing/garantirPagamentoLocal';
@@ -19,7 +20,7 @@ import {
   DIAS_ACESSO_PAGAMENTO,
   calcularCoberturaAposPagamento,
 } from '@/lib/billing/calcularCoberturaPagamento';
-import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
+import { getCoberturaAteYmd, coberturaYmdParaIso } from '@/lib/billing/coberturaAssinatura';
 
 export { DIAS_ACESSO_PAGAMENTO };
 
@@ -32,6 +33,26 @@ function toYmd(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function hojeYmdBrasil(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return toYmd(new Date());
+  }
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -246,8 +267,8 @@ export async function repararAssinaturaComAsaas(
 }
 
 /**
- * Garante vínculo local e aplica o último pagamento confirmado no Asaas.
- * Usado pelo botão "Atualizar" e reparos administrativos.
+ * Libera pelo último pagamento confirmado no Asaas, sem empilhar histórico.
+ * Se a cobertura estiver inflada (vários PIX antigos aplicados de uma vez), recorta para pagamento+30.
  */
 export async function forcarLiberacaoPorUltimoPagamentoAsaas(
   supabase: SupabaseClient,
@@ -276,10 +297,69 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
     };
   }
 
-  return processarPagamentoConfirmado(supabase, {
-    asaasPaymentId: latest.id,
+  const hoje = hojeYmdBrasil();
+  const paymentYmd = paymentYmdFromAsaas(latest, hoje);
+  const alvo = addDaysYmd(paymentYmd, DIAS_ACESSO_PAGAMENTO);
+  const maxLegitimo = addDaysYmd(paymentYmd, DIAS_ACESSO_PAGAMENTO * 2);
+
+  const { data: assinaturaAtual } = await supabase
+    .from('assinaturas')
+    .select('id, data_fim, proxima_cobranca, observacoes')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const atual = getCoberturaAteYmd(assinaturaAtual);
+  let coberturaFinal = alvo;
+  if (atual && atual >= hoje && atual <= maxLegitimo) {
+    coberturaFinal = atual;
+  }
+
+  const paidAt =
+    parseAsaasBillingDate(latest.paymentDate) ??
+    parseAsaasBillingDate(latest.dueDate) ??
+    new Date();
+
+  await garantirPagamentoLocal(supabase, {
     empresaId,
+    asaasPaymentId: latest.id,
+    valor: latest.value,
+    paidAtIso: paidAt.toISOString(),
+    status: 'approved',
   });
+
+  const ativou = await ativarAssinaturaPorPagamento(
+    supabase,
+    empresaId,
+    paidAt.toISOString(),
+    new Date(coberturaYmdParaIso(coberturaFinal)),
+    null,
+    {
+      observacaoExtra:
+        atual && atual > maxLegitimo
+          ? '(cobertura recortada para o último pagamento Asaas)'
+          : null,
+      gatewayPaymentId: latest.id,
+    }
+  );
+
+  if (!ativou) {
+    return {
+      ok: false,
+      error: 'Pagamento confirmado, mas falha ao atualizar assinatura',
+      code: 'ativacao_falhou',
+      paymentId: latest.id,
+    };
+  }
+
+  return {
+    ok: true,
+    activated: true,
+    alreadyActive: atual === coberturaFinal && atual != null && atual >= hoje,
+    coberturaAte: coberturaFinal,
+    paymentId: latest.id,
+  };
 }
 
 export async function assinaturaAtivaTemDireito(

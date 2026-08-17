@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { listRecentConfirmedPayments } from '@/lib/asaas';
-import {
-  forcarLiberacaoPorUltimoPagamentoAsaas,
-  processarPagamentoConfirmado,
-} from '@/lib/billing/ativarAssinaturaSegura';
+import { listRecentConfirmedPayments, type AsaasPayment } from '@/lib/asaas';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
+import { resolverEmpresaIdPorPagamentoAsaas } from '@/lib/billing/resolverEmpresaPagamentoAsaas';
 import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
 import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
 
@@ -38,10 +36,14 @@ function authorizeCron(req: NextRequest): boolean {
   return false;
 }
 
+function pagamentoMaisNovo(a: AsaasPayment, b: AsaasPayment): AsaasPayment {
+  const da = a.paymentDate || a.dueDate || '';
+  const db = b.paymentDate || b.dueDate || '';
+  return da >= db ? a : b;
+}
+
 /**
- * Rede de segurança: pagamentos confirmados no Asaas que o webhook não aplicou
- * (PIX gerado só no Asaas, vencimento no dia, e-mail diferente, etc.).
- *
+ * Rede de segurança externa: um pagamento (o último) por empresa.
  * GET /api/cron/liberar-assinaturas
  */
 export async function GET(req: NextRequest) {
@@ -53,35 +55,16 @@ export async function GET(req: NextRequest) {
   const hoje = hojeYmdSp();
   const started = Date.now();
 
-  const pagamentosProcessados: Array<{
-    paymentId: string;
-    ok: boolean;
-    code?: string;
-    error?: string;
-    coberturaAte?: string;
-  }> = [];
-  let pagamentosOk = 0;
-  let pagamentosFalha = 0;
-
+  const porEmpresa = new Map<string, AsaasPayment>();
   try {
     const recentes = await listRecentConfirmedPayments(MAX_PAGAMENTOS);
     for (const p of recentes.slice(0, MAX_PAGAMENTOS)) {
       if (!p?.id || String(p.id).startsWith('mock_')) continue;
-      if (Date.now() - started > 22000) break;
-
-      const result = await processarPagamentoConfirmado(supabase, {
-        asaasPaymentId: p.id,
-        payment: p,
-      });
-      pagamentosProcessados.push({
-        paymentId: p.id,
-        ok: result.ok,
-        code: result.ok ? undefined : result.code,
-        error: result.ok ? undefined : result.error,
-        coberturaAte: result.ok ? result.coberturaAte : undefined,
-      });
-      if (result.ok) pagamentosOk++;
-      else pagamentosFalha++;
+      if (Date.now() - started > 12000) break;
+      const empresaId = await resolverEmpresaIdPorPagamentoAsaas(supabase, p.id, p);
+      if (!empresaId) continue;
+      const atual = porEmpresa.get(empresaId);
+      porEmpresa.set(empresaId, atual ? pagamentoMaisNovo(atual, p) : p);
     }
   } catch (e) {
     console.error('cron liberar-assinaturas: listRecentConfirmedPayments', e);
@@ -97,8 +80,7 @@ export async function GET(req: NextRequest) {
     console.error('cron liberar-assinaturas: assinaturas', assErr.message);
   }
 
-  const empresasVencidas: string[] = [];
-  const visto = new Set<string>();
+  const visto = new Set<string>(porEmpresa.keys());
   for (const row of assinaturas || []) {
     const empresaId = String(row.empresa_id || '').trim();
     if (!empresaId || visto.has(empresaId)) continue;
@@ -107,10 +89,10 @@ export async function GET(req: NextRequest) {
     const vencida =
       (cobertura != null && cobertura < hoje) ||
       (!cobertura && ['expired', 'overdue', 'suspended', 'past_due'].includes(status));
-    if (!vencida) continue;
+    const inflada = cobertura != null && cobertura > hoje && cobertura.slice(0, 4) >= '2027';
+    if (!vencida && !inflada) continue;
     visto.add(empresaId);
-    empresasVencidas.push(empresaId);
-    if (empresasVencidas.length >= MAX_EMPRESAS) break;
+    if (visto.size >= MAX_EMPRESAS) break;
   }
 
   const empresasProcessadas: Array<{
@@ -118,11 +100,12 @@ export async function GET(req: NextRequest) {
     ok: boolean;
     code?: string;
     error?: string;
+    coberturaAte?: string;
   }> = [];
   let empresasOk = 0;
   let empresasFalha = 0;
 
-  for (const empresaId of empresasVencidas) {
+  for (const empresaId of visto) {
     if (Date.now() - started > 27000) break;
     const result = await forcarLiberacaoPorUltimoPagamentoAsaas(supabase, empresaId);
     empresasProcessadas.push({
@@ -130,6 +113,7 @@ export async function GET(req: NextRequest) {
       ok: result.ok,
       code: result.ok ? undefined : result.code,
       error: result.ok ? undefined : result.error,
+      coberturaAte: result.ok ? result.coberturaAte : undefined,
     });
     if (result.ok) empresasOk++;
     else empresasFalha++;
@@ -139,14 +123,8 @@ export async function GET(req: NextRequest) {
     ok: true,
     hoje,
     elapsedMs: Date.now() - started,
-    pagamentos: {
-      vistos: pagamentosProcessados.length,
-      ok: pagamentosOk,
-      falha: pagamentosFalha,
-      detalhes: pagamentosProcessados.slice(0, 40),
-    },
-    empresasVencidas: {
-      candidatas: empresasVencidas.length,
+    empresas: {
+      candidatas: visto.size,
       ok: empresasOk,
       falha: empresasFalha,
       detalhes: empresasProcessadas.slice(0, 40),
