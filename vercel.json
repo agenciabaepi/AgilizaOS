@@ -7,16 +7,12 @@
   },
   "crons": [
     {
-      "path": "/api/pagamentos/reconciliar",
-      "schedule": "0 3 * * *"
+      "path": "/api/cron/liberar-assinaturas",
+      "schedule": "0 21 * * *"
     },
     {
       "path": "/api/cron/lembrete-assinatura",
       "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/cron/liberar-assinaturas",
-      "schedule": "15 * * * *"
     }
   ],
   "regions": ["iad1"],
