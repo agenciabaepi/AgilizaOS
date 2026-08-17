@@ -6,6 +6,7 @@ import {
   type AsaasPayment,
 } from '@/lib/asaas';
 import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssinatura';
+import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import {
   buscarPagamentosConfirmadosAsaasEmpresa,
   ultimoPagamentoConfirmadoAsaas,
@@ -13,7 +14,12 @@ import {
 import { garantirPagamentoLocal } from '@/lib/billing/garantirPagamentoLocal';
 import { resolverEmpresaIdPorPagamentoAsaas } from '@/lib/billing/resolverEmpresaPagamentoAsaas';
 import { activeRowCalendarValid } from '@/lib/billing/pickAssinatura';
-import { isoToYmd, DIAS_ACESSO_PAGAMENTO } from '@/lib/billing/calcularCoberturaPagamento';
+import {
+  isoToYmd,
+  DIAS_ACESSO_PAGAMENTO,
+  calcularCoberturaAposPagamento,
+} from '@/lib/billing/calcularCoberturaPagamento';
+import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
 
 export { DIAS_ACESSO_PAGAMENTO };
 
@@ -81,7 +87,7 @@ export async function processarPagamentoConfirmado(
     isoToYmd(paymentAsaas.dueDate) ||
     toYmd(paidAt);
 
-  const pagamento = await garantirPagamentoLocal(supabase, {
+  const { pagamento, error: pagErr } = await garantirPagamentoLocal(supabase, {
     empresaId,
     asaasPaymentId,
     valor: paymentAsaas.value,
@@ -89,35 +95,93 @@ export async function processarPagamentoConfirmado(
     status: 'approved',
   });
 
-  if (!pagamento?.id) {
+  if (pagamento?.id) {
+    const empresaAlvo = String(pagamento.empresa_id || empresaId).trim() || empresaId;
+    const result = await aplicarPagamentoAssinatura(supabase, {
+      empresaId: empresaAlvo,
+      pagamento,
+      gatewayPaymentId: asaasPaymentId,
+      paymentYmd,
+      paidAtIso: paidAt.toISOString(),
+      valorAsaas: paymentAsaas.value,
+    });
+    if (!result.ok) {
+      return { ok: false, error: result.error, code: result.code, paymentId: asaasPaymentId };
+    }
     return {
-      ok: false,
-      error: 'Falha ao gravar o pagamento local para liberar a assinatura',
-      code: 'db_error',
+      ok: true,
+      activated: result.activated,
+      alreadyActive: result.alreadyApplied,
+      coberturaAte: result.coberturaAte,
       paymentId: asaasPaymentId,
     };
   }
 
-  const empresaAlvo = String(pagamento.empresa_id || empresaId).trim() || empresaId;
-
-  const result = await aplicarPagamentoAssinatura(supabase, {
-    empresaId: empresaAlvo,
-    pagamento,
-    gatewayPaymentId: asaasPaymentId,
-    paymentYmd,
-    paidAtIso: paidAt.toISOString(),
-    valorAsaas: paymentAsaas.value,
+  console.warn('processarPagamentoConfirmado: sem linha local, ativando mesmo assim', {
+    asaasPaymentId,
+    empresaId,
+    pagErr,
   });
 
-  if (!result.ok) {
-    return { ok: false, error: result.error, code: result.code, paymentId: asaasPaymentId };
+  const { data: assinaturaAtual } = await supabase
+    .from('assinaturas')
+    .select('id, data_fim, proxima_cobranca, observacoes')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const payMarker = `[pay:${asaasPaymentId}]`;
+  if (String(assinaturaAtual?.observacoes || '').includes(payMarker)) {
+    const coberturaAte =
+      getCoberturaAteYmd(assinaturaAtual) || paymentYmd;
+    return {
+      ok: true,
+      alreadyActive: true,
+      activated: true,
+      coberturaAte,
+      paymentId: asaasPaymentId,
+    };
+  }
+
+  const coberturaAtual = getCoberturaAteYmd(assinaturaAtual);
+  const { coberturaYmd, dataFimIso, adiantou } = calcularCoberturaAposPagamento({
+    dataPagamentoYmd: paymentYmd,
+    coberturaAtualYmd: coberturaAtual,
+  });
+
+  const ativou = await ativarAssinaturaPorPagamento(
+    supabase,
+    empresaId,
+    paidAt.toISOString(),
+    new Date(dataFimIso),
+    null,
+    {
+      observacaoExtra: [
+        pagErr ? `(pagamentos: ${pagErr})` : 'sem linha em pagamentos',
+        adiantou ? `(adiantamento: +${DIAS_ACESSO_PAGAMENTO}d a partir de ${coberturaAtual})` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      gatewayPaymentId: asaasPaymentId,
+    }
+  );
+
+  if (!ativou) {
+    return {
+      ok: false,
+      error: pagErr
+        ? `Falha ao gravar pagamento (${pagErr}) e ao atualizar assinatura`
+        : 'Falha ao atualizar assinatura',
+      code: 'ativacao_falhou',
+      paymentId: asaasPaymentId,
+    };
   }
 
   return {
     ok: true,
-    activated: result.activated,
-    alreadyActive: result.alreadyApplied,
-    coberturaAte: result.coberturaAte,
+    activated: true,
+    coberturaAte: coberturaYmd,
     paymentId: asaasPaymentId,
   };
 }

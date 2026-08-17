@@ -27,7 +27,6 @@ async function selectPagamento(
       .from('pagamentos')
       .select(columns)
       .eq('mercadopago_payment_id', asaasPaymentId)
-      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) continue;
@@ -52,10 +51,10 @@ export async function garantirPagamentoLocal(
     paidAtIso: string;
     status?: string;
   }
-): Promise<PagamentoLocalRow | null> {
+): Promise<{ pagamento: PagamentoLocalRow | null; error?: string }> {
   const asaasPaymentId = String(params.asaasPaymentId || '').trim();
   const empresaId = String(params.empresaId || '').trim();
-  if (!asaasPaymentId || !empresaId) return null;
+  if (!asaasPaymentId || !empresaId) return { pagamento: null, error: 'Parâmetros inválidos' };
 
   const existing = await selectPagamento(supabase, asaasPaymentId);
   if (existing?.id) {
@@ -66,7 +65,7 @@ export async function garantirPagamentoLocal(
         esperado: empresaId,
       });
     }
-    return existing;
+    return { pagamento: existing };
   }
 
   const insertPayload = {
@@ -81,10 +80,12 @@ export async function garantirPagamentoLocal(
 
   if (error) {
     const again = await selectPagamento(supabase, asaasPaymentId);
-    if (again?.id) return again;
+    if (again?.id) return { pagamento: again };
     console.error('garantirPagamentoLocal insert:', error.message);
-    return null;
+    return { pagamento: null, error: error.message };
   }
 
-  return selectPagamento(supabase, asaasPaymentId);
+  const inserted = await selectPagamento(supabase, asaasPaymentId);
+  if (inserted?.id) return { pagamento: inserted };
+  return { pagamento: null, error: 'Insert ok, mas a linha não foi lida de volta' };
 }
