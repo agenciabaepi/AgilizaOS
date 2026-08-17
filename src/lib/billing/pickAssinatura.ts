@@ -1,5 +1,6 @@
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
+import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
 
 /** Trial ainda dentro do período (último dia civil incluso). */
 export function trialRowCalendarValid(
@@ -53,6 +54,18 @@ export function pickAssinaturaParaContexto(
 
   const validTrial = sorted.find((r) => trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial));
   if (validTrial) return validTrial;
+
+  const comCobertura = sorted
+    .filter((r) => String(r.status || '').toLowerCase() !== 'cancelled')
+    .map((r) => ({ r, cob: getCoberturaAteYmd(r) }))
+    .filter((x): x is { r: Record<string, unknown>; cob: string } => !!x.cob)
+    .sort((a, b) => b.cob.localeCompare(a.cob));
+
+  const vigente = comCobertura.find((x) => {
+    const d = diffDiasCalendario(x.cob);
+    return d !== null && d >= 0;
+  });
+  if (vigente) return vigente.r;
 
   const validActive = sorted.find((r) => activeRowCalendarValid(r));
   if (validActive) return validActive;

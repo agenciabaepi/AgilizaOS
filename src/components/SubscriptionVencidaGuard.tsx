@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiCreditCard, FiAlertCircle } from 'react-icons/fi';
+import { FiCreditCard, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 import { isAllowedWhenSubscriptionExpired } from '@/config/allowedPathsWhenSubscriptionExpired';
 import { isPublicPath } from '@/config/publicPaths';
+import { supabase } from '@/lib/supabaseClient';
 
 /** Rotas do admin - não aplicamos bloqueio de assinatura */
 function isAdminRoute(pathname: string | null): boolean {
@@ -23,6 +25,8 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
   const pathname = usePathname();
   const { user, usuarioData, empresaData, userDataReady } = useAuth();
   const { loading, isAssinaturaVencida } = useSubscription();
+  const [verificando, setVerificando] = useState(false);
+  const [erroVerificar, setErroVerificar] = useState<string | null>(null);
 
   if (isAdminRoute(pathname) || isPublicPath(pathname || '')) {
     return <>{children}</>;
@@ -99,6 +103,48 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
             <FiCreditCard className="w-5 h-5" />
             Ir para Assinatura
           </Link>
+
+          <button
+            type="button"
+            disabled={verificando}
+            onClick={async () => {
+              setErroVerificar(null);
+              setVerificando(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const headers: HeadersInit = { cache: 'no-store' };
+                if (session?.access_token) {
+                  (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+                }
+                const res = await fetch('/api/assinatura/sincronizar', {
+                  credentials: 'include',
+                  headers,
+                });
+                const json = await res.json().catch(() => null);
+                if (res.ok && json?.activated) {
+                  dispatchAssinaturaUpdated();
+                  window.location.reload();
+                  return;
+                }
+                setErroVerificar(
+                  json?.error ||
+                    'Ainda não encontramos o pagamento. Se já pagou, aguarde 1 minuto e tente de novo.'
+                );
+              } catch {
+                setErroVerificar('Não foi possível verificar agora. Tente novamente.');
+              } finally {
+                setVerificando(false);
+              }
+            }}
+            className="mt-3 inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-zinc-600 text-gray-900 dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-60"
+          >
+            <FiRefreshCw className={`w-5 h-5 ${verificando ? 'animate-spin' : ''}`} />
+            {verificando ? 'Verificando pagamento…' : 'Já paguei: liberar agora'}
+          </button>
+
+          {erroVerificar && (
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-3">{erroVerificar}</p>
+          )}
 
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
             Na página de assinatura você pode renovar ou pagar cobranças pendentes. Após o pagamento, o acesso é liberado automaticamente.

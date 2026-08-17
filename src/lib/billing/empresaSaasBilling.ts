@@ -49,7 +49,21 @@ export function computeAssinaturaVencidaPorBilling(
     return d !== null && d < 0;
   }
 
-  if (['cancelled', 'expired', 'suspended', 'pending_payment'].includes(assinatura.status)) {
+  if (['cancelled'].includes(assinatura.status)) {
+    return true;
+  }
+
+  const coberturaAindaVale = (iso: string | null | undefined) => {
+    if (!iso) return false;
+    const d = diff(iso);
+    return d !== null && d >= 0;
+  };
+  const temCoberturaVigente =
+    coberturaAindaVale(assinatura.data_fim) || coberturaAindaVale(assinatura.proxima_cobranca);
+
+  // Status antigo `expired` com data de cobertura ainda válida = já pagou; não bloquear.
+  if (['expired', 'suspended', 'pending_payment'].includes(assinatura.status)) {
+    if (temCoberturaVigente) return false;
     return true;
   }
 

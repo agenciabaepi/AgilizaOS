@@ -11,6 +11,8 @@ import {
   computeAcessoBloqueadoServidor,
   expirarTrialsVencidosEmpresa,
 } from '@/lib/billing/trialBilling';
+import { diffDiasCalendarioInTimeZone } from '@/lib/assinaturaCalendario';
+import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -137,6 +139,27 @@ export async function GET(req: NextRequest) {
       row,
       sistemaLiberado
     );
+
+    const coberturaYmd = (rowSanitizada.data_fim || rowSanitizada.proxima_cobranca) as string | undefined;
+    const statusAtual = String(rowSanitizada.status || '').toLowerCase();
+    if (
+      coberturaYmd &&
+      ['expired', 'suspended', 'pending_payment'].includes(statusAtual) &&
+      !sistemaLiberado
+    ) {
+      const d = diffDiasCalendarioInTimeZone(coberturaYmd, BILLING_TIME_ZONE);
+      if (d !== null && d >= 0 && rowSanitizada.id) {
+        await admin
+          .from('assinaturas')
+          .update({
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', rowSanitizada.id as string)
+          .eq('empresa_id', empresaId);
+        rowSanitizada = { ...rowSanitizada, status: 'active' };
+      }
+    }
 
     let acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
       empresaId,

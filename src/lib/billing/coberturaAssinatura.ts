@@ -42,12 +42,16 @@ export function labelStatusAssinatura(params: {
   const { diasRestantes, emTesteGratis } = params;
   const statusNorm = String(params.status || '').toLowerCase();
 
-  if (!emTesteGratis && diasRestantes !== null && diasRestantes !== undefined && diasRestantes < 0) {
+  if (statusNorm === 'cancelled') return 'Cancelada';
+  if (emTesteGratis) return 'Trial';
+  if (diasRestantes !== null && diasRestantes !== undefined && diasRestantes < 0) {
     return 'Vencida';
+  }
+  if (diasRestantes !== null && diasRestantes !== undefined && diasRestantes >= 0) {
+    return 'Ativa';
   }
   if (statusNorm === 'active' || statusNorm === 'ativa') return 'Ativa';
   if (statusNorm === 'trial') return 'Trial';
-  if (statusNorm === 'cancelled') return 'Cancelada';
   if (statusNorm === 'expired') return 'Expirada';
   if (statusNorm === 'suspended') return 'Suspensa';
   return params.status || '—';

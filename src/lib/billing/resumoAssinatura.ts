@@ -35,9 +35,7 @@ export function buildResumoAssinatura(
 
   const dias_restantes = emTesteGratis
     ? diffDiasCalendario(getTrialFimYmd(assinatura, opts), agora)
-    : status && ['cancelled', 'expired', 'suspended'].includes(String(status))
-      ? null
-      : diasRestantesCobertura(assinatura, agora);
+    : diasRestantesCobertura(assinatura, agora);
 
   return {
     cobertura_ate,

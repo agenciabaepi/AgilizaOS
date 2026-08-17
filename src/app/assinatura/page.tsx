@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
@@ -141,7 +141,7 @@ function toCobrancaItem(item: ItemAssinatura) {
 
 export default function AssinaturaPage() {
   const { empresaData } = useAuth();
-  const { assinatura, resumoAssinatura, diasRestantesTrial, isTrialExpired } = useSubscription();
+  const { assinatura, resumoAssinatura, diasRestantesTrial, isTrialExpired, isAssinaturaVencida } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [itens, setItens] = useState<ItemAssinatura[]>([]);
   const [total, setTotal] = useState(0);
@@ -197,8 +197,7 @@ export default function AssinaturaPage() {
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
-  // Ao abrir a página, não sincronizar automaticamente (evita recalcular cobertura sem ação do usuário).
-  // Use o botão "Atualizar" para reconciliar com o Asaas.
+  const autoSyncRef = useRef(false);
 
   const pendentes = itens.filter((p) => isCobrancaPendente(toCobrancaItem(p)));
 
@@ -224,7 +223,7 @@ export default function AssinaturaPage() {
 
   const labelStatus = resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
 
-  const sincronizarComAsaas = async () => {
+  const sincronizarComAsaas = async (opts?: { silent?: boolean }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
@@ -239,16 +238,26 @@ export default function AssinaturaPage() {
         window.location.reload();
         return;
       }
-      alert(
-        json?.error ||
-          'Não foi possível liberar a assinatura automaticamente. Verifique se o e-mail da empresa é o mesmo do cliente no Asaas.'
-      );
+      if (!opts?.silent) {
+        alert(
+          json?.error ||
+            'Não foi possível liberar a assinatura automaticamente. Verifique se o e-mail da empresa é o mesmo do cliente no Asaas.'
+        );
+      }
       if (res.ok) dispatchAssinaturaUpdated();
     } catch {
-      alert('Erro ao sincronizar. Tente novamente.');
+      if (!opts?.silent) alert('Erro ao sincronizar. Tente novamente.');
     }
     if (EXIBIR_HISTORICO_PAGAMENTOS) carregar();
   };
+
+  useEffect(() => {
+    if (autoSyncRef.current) return;
+    if (!isAssinaturaVencida()) return;
+    autoSyncRef.current = true;
+    void sincronizarComAsaas({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uma vez por visita
+  }, [isAssinaturaVencida]);
 
   return (
     <AuthGuardFinal>
