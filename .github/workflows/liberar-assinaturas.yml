@@ -1,0 +1,35 @@
+name: Liberar assinaturas pagas
+
+# Sistema externo (fora da Vercel): a cada 15 minutos consulta o Asaas
+# e libera empresas que já pagaram mas continuam bloqueadas.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  liberar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar pagamentos e liberar sistemas
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://consert.app
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "Configure o secret CRON_SECRET neste repositório (mesmo valor da Vercel)."
+            exit 1
+          fi
+          curl -fsS -m 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Accept: application/json" \
+            "${APP_URL}/api/cron/liberar-assinaturas" \
+            | tee /tmp/liberar.json
+          python3 - <<'PY'
+          import json, sys
+          data = json.load(open("/tmp/liberar.json"))
+          print(json.dumps(data, ensure_ascii=False, indent=2)[:4000])
+          sys.exit(0 if data.get("ok") else 1)
+          PY
