@@ -15,7 +15,7 @@ jobs:
       - name: Verificar pagamentos e liberar sistemas
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          APP_URL: https://consert.app
+          APP_URL: https://gestaoconsert.com.br
         run: |
           set -euo pipefail
           if [ -z "${CRON_SECRET}" ]; then

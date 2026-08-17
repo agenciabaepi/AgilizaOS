@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
     paymentId: string;
     ok: boolean;
     code?: string;
+    error?: string;
     coberturaAte?: string;
   }> = [];
   let pagamentosOk = 0;
@@ -70,11 +71,13 @@ export async function GET(req: NextRequest) {
 
       const result = await processarPagamentoConfirmado(supabase, {
         asaasPaymentId: p.id,
+        payment: p,
       });
       pagamentosProcessados.push({
         paymentId: p.id,
         ok: result.ok,
         code: result.ok ? undefined : result.code,
+        error: result.ok ? undefined : result.error,
         coberturaAte: result.ok ? result.coberturaAte : undefined,
       });
       if (result.ok) pagamentosOk++;
@@ -110,7 +113,12 @@ export async function GET(req: NextRequest) {
     if (empresasVencidas.length >= MAX_EMPRESAS) break;
   }
 
-  const empresasProcessadas: Array<{ empresaId: string; ok: boolean; code?: string }> = [];
+  const empresasProcessadas: Array<{
+    empresaId: string;
+    ok: boolean;
+    code?: string;
+    error?: string;
+  }> = [];
   let empresasOk = 0;
   let empresasFalha = 0;
 
@@ -121,6 +129,7 @@ export async function GET(req: NextRequest) {
       empresaId,
       ok: result.ok,
       code: result.ok ? undefined : result.code,
+      error: result.ok ? undefined : result.error,
     });
     if (result.ok) empresasOk++;
     else empresasFalha++;

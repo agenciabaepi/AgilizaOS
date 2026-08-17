@@ -3,6 +3,7 @@ import {
   getPayment,
   isPaymentConfirmed,
   parseAsaasBillingDate,
+  type AsaasPayment,
 } from '@/lib/asaas';
 import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssinatura';
 import {
@@ -33,7 +34,7 @@ function toYmd(d: Date): string {
  */
 export async function processarPagamentoConfirmado(
   supabase: SupabaseClient,
-  params: { asaasPaymentId: string; empresaId?: string | null }
+  params: { asaasPaymentId: string; empresaId?: string | null; payment?: AsaasPayment | null }
 ): Promise<ProcessarPagamentoResult> {
   const asaasPaymentId = String(params.asaasPaymentId || '').trim();
   if (!asaasPaymentId) {
@@ -43,12 +44,14 @@ export async function processarPagamentoConfirmado(
     return { ok: false, error: 'Pagamento simulado não ativa assinatura', code: 'mock_payment' };
   }
 
-  let paymentAsaas;
-  try {
-    paymentAsaas = await getPayment(asaasPaymentId);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Erro ao consultar Asaas';
-    return { ok: false, error: message, code: 'asaas_error' };
+  let paymentAsaas = params.payment?.id === asaasPaymentId ? params.payment : null;
+  if (!paymentAsaas) {
+    try {
+      paymentAsaas = await getPayment(asaasPaymentId);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao consultar Asaas';
+      return { ok: false, error: message, code: 'asaas_error' };
+    }
   }
 
   if (!isPaymentConfirmed(paymentAsaas?.status || '', paymentAsaas?.paymentDate)) {

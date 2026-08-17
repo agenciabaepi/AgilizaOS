@@ -12,31 +12,31 @@ export type PagamentoLocalRow = {
   assinatura_aplicada_em?: string | null;
 };
 
-const SELECT_PAGAMENTO =
-  'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em';
-
-const SELECT_PAGAMENTO_BASICO =
-  'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id';
+const SELECTS = [
+  'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em',
+  'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id',
+  'id, empresa_id, status, valor, paid_at',
+];
 
 async function selectPagamento(
   supabase: SupabaseClient,
   asaasPaymentId: string
 ): Promise<PagamentoLocalRow | null> {
-  const full = await supabase
-    .from('pagamentos')
-    .select(SELECT_PAGAMENTO)
-    .eq('mercadopago_payment_id', asaasPaymentId)
-    .maybeSingle();
-
-  if (!full.error && full.data?.id) return full.data as PagamentoLocalRow;
-
-  const basic = await supabase
-    .from('pagamentos')
-    .select(SELECT_PAGAMENTO_BASICO)
-    .eq('mercadopago_payment_id', asaasPaymentId)
-    .maybeSingle();
-
-  return (basic.data as PagamentoLocalRow | null) ?? null;
+  for (const columns of SELECTS) {
+    const { data, error } = await supabase
+      .from('pagamentos')
+      .select(columns)
+      .eq('mercadopago_payment_id', asaasPaymentId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) continue;
+    if (data && typeof data === 'object' && 'id' in data && data.id) {
+      return data as PagamentoLocalRow;
+    }
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -77,11 +77,7 @@ export async function garantirPagamentoLocal(
     paid_at: params.paidAtIso,
   };
 
-  const { data: inserted, error } = await supabase
-    .from('pagamentos')
-    .insert(insertPayload)
-    .select(SELECT_PAGAMENTO_BASICO)
-    .maybeSingle();
+  const { error } = await supabase.from('pagamentos').insert(insertPayload);
 
   if (error) {
     const again = await selectPagamento(supabase, asaasPaymentId);
@@ -90,5 +86,5 @@ export async function garantirPagamentoLocal(
     return null;
   }
 
-  return (inserted as PagamentoLocalRow | null) ?? null;
+  return selectPagamento(supabase, asaasPaymentId);
 }
