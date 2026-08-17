@@ -15,7 +15,7 @@ export async function ativarAssinaturaPorPagamento(
   now: string,
   dataFim: Date,
   planoSlug?: string | null,
-  opts?: { observacaoExtra?: string | null }
+  opts?: { observacaoExtra?: string | null; gatewayPaymentId?: string | null }
 ): Promise<boolean> {
   const slug =
     planoSlug === PLANO_SLUGS.BASICO || planoSlug === PLANO_SLUGS.COMPLETO
@@ -52,7 +52,7 @@ async function applyActivation(
   valor: number,
   now: string,
   dataFim: Date,
-  opts?: { observacaoExtra?: string | null }
+  opts?: { observacaoExtra?: string | null; gatewayPaymentId?: string | null }
 ): Promise<boolean> {
   const { data: empresa } = await supabase
     .from('empresas')
@@ -80,10 +80,26 @@ async function applyActivation(
 
   const dataFimIso = dataFim.toISOString();
   const extra = opts?.observacaoExtra ? String(opts.observacaoExtra).trim() : '';
+  const payMarker = opts?.gatewayPaymentId
+    ? `[pay:${String(opts.gatewayPaymentId).trim()}]`
+    : '';
 
-  const observacoes = ['[auto] Renovada/ativada por pagamento confirmado', extra]
+  let observacoesPrevias = '';
+  if (assinaturaId) {
+    const { data: atual } = await supabase
+      .from('assinaturas')
+      .select('observacoes')
+      .eq('id', assinaturaId)
+      .maybeSingle();
+    observacoesPrevias = String(atual?.observacoes || '');
+  }
+  const markersPrevios = [...observacoesPrevias.matchAll(/\[pay:[^\]]+\]/g)].map((m) => m[0]);
+  const markers = [...new Set([...markersPrevios, payMarker].filter(Boolean))].slice(-8);
+
+  const observacoes = ['[auto] Renovada/ativada por pagamento confirmado', extra, ...markers]
     .filter(Boolean)
-    .join(' ');
+    .join(' ')
+    .slice(0, 1800);
 
   const payload = {
     plano_id: planoId,

@@ -2,8 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getPayment,
   isPaymentConfirmed,
+  listCustomersByCpfCnpj,
   listCustomersByEmail,
   listPaymentsByCustomer,
+  type AsaasCustomer,
 } from '@/lib/asaas';
 
 export type PagamentoAsaasConfirmado = {
@@ -22,7 +24,7 @@ export async function buscarPagamentosConfirmadosAsaasEmpresa(
 ): Promise<PagamentoAsaasConfirmado[]> {
   const { data: empresa } = await supabase
     .from('empresas')
-    .select('email')
+    .select('email, cnpj, cpf')
     .eq('id', empresaId)
     .maybeSingle();
 
@@ -54,24 +56,44 @@ export async function buscarPagamentosConfirmadosAsaasEmpresa(
     }
   }
 
+  const customersById = new Map<string, AsaasCustomer>();
   const email = typeof empresa?.email === 'string' ? empresa.email.trim() : '';
+  const doc = String(empresa?.cnpj || empresa?.cpf || '').replace(/\D/g, '');
+
   if (email) {
     try {
-      const customers = await listCustomersByEmail(email);
-      for (const c of customers) {
-        const payments = await listPaymentsByCustomer(c.id);
-        for (const p of payments) {
-          if (!p?.id || !isPaymentConfirmed(p.status || '', p.paymentDate)) continue;
-          byId.set(p.id, {
-            id: p.id,
-            paymentDate: p.paymentDate,
-            dueDate: p.dueDate,
-            value: p.value,
-          });
-        }
+      for (const c of await listCustomersByEmail(email)) {
+        if (c?.id) customersById.set(c.id, c);
       }
     } catch (e) {
       console.warn('buscarPagamentosConfirmadosAsaasEmpresa: listCustomersByEmail falhou', e);
+    }
+  }
+
+  if (doc.length >= 11) {
+    try {
+      for (const c of await listCustomersByCpfCnpj(doc)) {
+        if (c?.id) customersById.set(c.id, c);
+      }
+    } catch (e) {
+      console.warn('buscarPagamentosConfirmadosAsaasEmpresa: listCustomersByCpfCnpj falhou', e);
+    }
+  }
+
+  for (const c of customersById.values()) {
+    try {
+      const payments = await listPaymentsByCustomer(c.id);
+      for (const p of payments) {
+        if (!p?.id || !isPaymentConfirmed(p.status || '', p.paymentDate)) continue;
+        byId.set(p.id, {
+          id: p.id,
+          paymentDate: p.paymentDate,
+          dueDate: p.dueDate,
+          value: p.value,
+        });
+      }
+    } catch (e) {
+      console.warn('buscarPagamentosConfirmadosAsaasEmpresa: listPaymentsByCustomer falhou', e);
     }
   }
 

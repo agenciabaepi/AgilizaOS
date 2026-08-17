@@ -76,6 +76,8 @@ export interface AsaasPayment {
   dueDate: string;
   paymentDate?: string;
   customer?: string;
+  description?: string;
+  externalReference?: string;
 }
 
 export interface AsaasPixQrCode {
@@ -109,14 +111,16 @@ export async function createPaymentPix(params: {
   value: number;
   dueDate: string;
   description?: string;
+  externalReference?: string;
 }): Promise<AsaasPayment> {
-  const body = {
+  const body: Record<string, unknown> = {
     customer: params.customer,
     billingType: 'PIX',
     value: params.value,
     dueDate: params.dueDate,
     description: params.description || undefined,
   };
+  if (params.externalReference) body.externalReference = params.externalReference;
   return asaasFetch<AsaasPayment>('/v3/payments', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -144,6 +148,16 @@ export async function getCustomer(customerId: string): Promise<AsaasCustomer> {
 export async function listCustomersByEmail(email: string): Promise<AsaasCustomer[]> {
   const encoded = encodeURIComponent(email);
   const res = await asaasFetch<AsaasCustomersResponse>(`/v3/customers?email=${encoded}`);
+  return res?.data ?? [];
+}
+
+/** Listar clientes por CPF/CNPJ (somente dígitos). */
+export async function listCustomersByCpfCnpj(cpfCnpj: string): Promise<AsaasCustomer[]> {
+  const doc = String(cpfCnpj || '').replace(/\D/g, '');
+  if (doc.length < 11) return [];
+  const res = await asaasFetch<AsaasCustomersResponse>(
+    `/v3/customers?cpfCnpj=${encodeURIComponent(doc)}`
+  );
   return res?.data ?? [];
 }
 
@@ -179,6 +193,22 @@ export async function listPayments(params: ListPaymentsParams = {}): Promise<Asa
 export async function listPaymentsByCustomer(customerId: string): Promise<AsaasPayment[]> {
   const res = await listPayments({ customer: customerId, limit: 100 });
   return res?.data ?? [];
+}
+
+/** Últimas cobranças confirmadas no Asaas (RECEIVED + CONFIRMED). */
+export async function listRecentConfirmedPayments(limitPerStatus = 50): Promise<AsaasPayment[]> {
+  const byId = new Map<string, AsaasPayment>();
+  for (const status of ['RECEIVED', 'CONFIRMED'] as const) {
+    try {
+      const res = await listPayments({ status, limit: limitPerStatus });
+      for (const p of res?.data || []) {
+        if (p?.id) byId.set(p.id, p);
+      }
+    } catch (e) {
+      console.warn('listRecentConfirmedPayments:', status, e);
+    }
+  }
+  return [...byId.values()];
 }
 
 /** Obter QR Code PIX da cobrança */

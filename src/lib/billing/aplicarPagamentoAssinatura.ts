@@ -69,11 +69,29 @@ export async function aplicarPagamentoAssinatura(
 
   const { data: assinaturaAtual } = await supabase
     .from('assinaturas')
-    .select('id, status, data_fim, proxima_cobranca')
+    .select('id, status, data_fim, proxima_cobranca, observacoes')
     .eq('empresa_id', empresaId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const payMarker = `[pay:${gatewayPaymentId}]`;
+  if (String(assinaturaAtual?.observacoes || '').includes(payMarker)) {
+    const coberturaAtualMarker = getCoberturaAteYmd(
+      assinaturaAtual as { data_fim?: string | null; proxima_cobranca?: string | null } | null
+    );
+    await marcarPagamentoAprovado(supabase, pagamento.id, empresaId, {
+      paidAtIso: pagamento.paid_at || paidAtIso,
+      valor: params.valorAsaas ?? pagamento.valor,
+      coberturaAte: coberturaAtualMarker || paymentYmd,
+    });
+    return {
+      ok: true,
+      coberturaAte: coberturaAtualMarker || paymentYmd,
+      alreadyApplied: true,
+      activated: true,
+    };
+  }
 
   const coberturaAtual = getCoberturaAteYmd(
     assinaturaAtual as { data_fim?: string | null; proxima_cobranca?: string | null } | null
@@ -94,6 +112,7 @@ export async function aplicarPagamentoAssinatura(
       observacaoExtra: adiantou
         ? `(adiantamento: +${DIAS_ACESSO_PAGAMENTO}d a partir de ${coberturaAtual})`
         : null,
+      gatewayPaymentId,
     }
   );
 
@@ -134,7 +153,35 @@ async function marcarPagamentoAprovado(
   const valor = Number(params.valor ?? 0);
   if (Number.isFinite(valor) && valor > 0) update.valor = valor;
 
-  await supabase.from('pagamentos').update(update).eq('id', pagamentoId).eq('empresa_id', empresaId);
+  const { error } = await supabase
+    .from('pagamentos')
+    .update(update)
+    .eq('id', pagamentoId)
+    .eq('empresa_id', empresaId);
+
+  if (!error) return;
+
+  const missingCoverageCols =
+    /cobertura_aplicada_ate|assinatura_aplicada_em/i.test(error.message || '');
+  if (!missingCoverageCols) {
+    console.error('marcarPagamentoAprovado:', error.message);
+    return;
+  }
+
+  const fallback: Record<string, unknown> = {
+    status: 'approved',
+    paid_at: params.paidAtIso,
+    updated_at: new Date().toISOString(),
+  };
+  if (Number.isFinite(valor) && valor > 0) fallback.valor = valor;
+  const retry = await supabase
+    .from('pagamentos')
+    .update(fallback)
+    .eq('id', pagamentoId)
+    .eq('empresa_id', empresaId);
+  if (retry.error) {
+    console.error('marcarPagamentoAprovado fallback:', retry.error.message);
+  }
 }
 
 /** Corrige assinatura se datas no banco divergiram do registro idempotente do pagamento. */

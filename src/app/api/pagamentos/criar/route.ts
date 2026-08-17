@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     const { data: empresaData, error: empresaError } = await admin
       .from('empresas')
-      .select('id, nome, email, cnpj')
+      .select('id, nome, email, cnpj, cpf')
       .eq('id', usuario.empresa_id)
       .single();
 
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
 
     const customerName = (empresaData.nome || 'Cliente').trim();
     const customerEmail = (empresaData.email || user.email || `contato-${empresaData.id}@temp.com`).trim();
-    const cpfCnpj = empresaData.cnpj ? String(empresaData.cnpj).replace(/\D/g, '') : undefined;
+    const cpfCnpj = String(empresaData.cnpj || empresaData.cpf || '').replace(/\D/g, '') || undefined;
 
     const customer = await createCustomer({
       name: customerName,
@@ -211,7 +211,8 @@ export async function POST(req: NextRequest) {
         dueDate: formatDueDate(1),
         description:
           descricao ||
-          `Mensalidade ConsertOS - R$ ${valorCobranca.toFixed(2)}${codigoCupom ? ` (cupom ${codigoCupom})` : ''}`,
+          `Mensalidade ConsertOS - empresa:${empresaData.id} - R$ ${valorCobranca.toFixed(2)}${codigoCupom ? ` (cupom ${codigoCupom})` : ''}`,
+        externalReference: empresaData.id,
       });
     } catch (asaasErr) {
       if (cupomUsoId) {

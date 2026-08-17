@@ -1,11 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getPayment, isPaymentConfirmed, parseAsaasBillingDate } from '@/lib/asaas';
+import {
+  getPayment,
+  isPaymentConfirmed,
+  parseAsaasBillingDate,
+} from '@/lib/asaas';
 import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssinatura';
 import {
   buscarPagamentosConfirmadosAsaasEmpresa,
-  paymentYmdFromAsaas,
   ultimoPagamentoConfirmadoAsaas,
 } from '@/lib/billing/buscarPagamentosAsaasEmpresa';
+import { garantirPagamentoLocal } from '@/lib/billing/garantirPagamentoLocal';
+import { resolverEmpresaIdPorPagamentoAsaas } from '@/lib/billing/resolverEmpresaPagamentoAsaas';
 import { activeRowCalendarValid } from '@/lib/billing/pickAssinatura';
 import { isoToYmd, DIAS_ACESSO_PAGAMENTO } from '@/lib/billing/calcularCoberturaPagamento';
 
@@ -15,19 +20,6 @@ export type ProcessarPagamentoResult =
   | { ok: true; alreadyActive?: boolean; activated?: boolean; coberturaAte?: string; paymentId?: string }
   | { ok: false; error: string; code?: string; coberturaAte?: string; paymentId?: string };
 
-type PagamentoRow = {
-  id: string;
-  empresa_id: string;
-  mercadopago_payment_id: string | null;
-  status: string | null;
-  valor: number | null;
-  paid_at: string | null;
-  plano_slug: string | null;
-  cupom_uso_id: string | null;
-  cobertura_aplicada_ate?: string | null;
-  assinatura_aplicada_em?: string | null;
-};
-
 function toYmd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -35,52 +27,20 @@ function toYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function hojeYmdBrasil(): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Sao_Paulo',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-  } catch {
-    return toYmd(new Date());
-  }
-}
-
 /**
- * Ativa/renova assinatura após pagamento confirmado no gateway (webhook ou sync manual).
+ * Ativa/renova assinatura após pagamento confirmado no Asaas.
+ * Não exige linha local prévia: cria o vínculo e libera.
  */
 export async function processarPagamentoConfirmado(
   supabase: SupabaseClient,
-  params: { asaasPaymentId: string; empresaId: string }
+  params: { asaasPaymentId: string; empresaId?: string | null }
 ): Promise<ProcessarPagamentoResult> {
   const asaasPaymentId = String(params.asaasPaymentId || '').trim();
-  const empresaId = String(params.empresaId || '').trim();
-
-  if (!asaasPaymentId || !empresaId) {
+  if (!asaasPaymentId) {
     return { ok: false, error: 'Parâmetros inválidos', code: 'invalid_params' };
   }
   if (asaasPaymentId.startsWith('mock_')) {
     return { ok: false, error: 'Pagamento simulado não ativa assinatura', code: 'mock_payment' };
-  }
-
-  const { data: pagamento, error: pagamentoErr } = await supabase
-    .from('pagamentos')
-    .select(
-      'id, empresa_id, mercadopago_payment_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em'
-    )
-    .eq('mercadopago_payment_id', asaasPaymentId)
-    .eq('empresa_id', empresaId)
-    .maybeSingle();
-
-  if (pagamentoErr) return { ok: false, error: pagamentoErr.message, code: 'db_error' };
-  if (!pagamento?.id) {
-    return {
-      ok: false,
-      error: 'Cobrança não vinculada a esta empresa. Assinatura não pode ser ativada.',
-      code: 'pagamento_nao_vinculado',
-    };
   }
 
   let paymentAsaas;
@@ -95,19 +55,51 @@ export async function processarPagamentoConfirmado(
     return { ok: false, error: 'Pagamento ainda não confirmado no gateway', code: 'not_confirmed' };
   }
 
+  let empresaId = String(params.empresaId || '').trim();
+  if (!empresaId) {
+    empresaId =
+      (await resolverEmpresaIdPorPagamentoAsaas(supabase, asaasPaymentId, paymentAsaas)) || '';
+  }
+  if (!empresaId) {
+    return {
+      ok: false,
+      error: 'Pagamento confirmado no Asaas, mas não foi possível identificar a empresa',
+      code: 'pagamento_nao_vinculado',
+      paymentId: asaasPaymentId,
+    };
+  }
+
   const paidAt =
     parseAsaasBillingDate(paymentAsaas.paymentDate) ??
     parseAsaasBillingDate(paymentAsaas.dueDate) ??
-    (pagamento.paid_at ? new Date(pagamento.paid_at) : new Date());
+    new Date();
   const paymentYmd =
     isoToYmd(paymentAsaas.paymentDate) ||
     isoToYmd(paymentAsaas.dueDate) ||
-    isoToYmd(pagamento.paid_at) ||
     toYmd(paidAt);
 
-  const result = await aplicarPagamentoAssinatura(supabase, {
+  const pagamento = await garantirPagamentoLocal(supabase, {
     empresaId,
-    pagamento: pagamento as PagamentoRow,
+    asaasPaymentId,
+    valor: paymentAsaas.value,
+    paidAtIso: paidAt.toISOString(),
+    status: 'approved',
+  });
+
+  if (!pagamento?.id) {
+    return {
+      ok: false,
+      error: 'Falha ao gravar o pagamento local para liberar a assinatura',
+      code: 'db_error',
+      paymentId: asaasPaymentId,
+    };
+  }
+
+  const empresaAlvo = String(pagamento.empresa_id || empresaId).trim() || empresaId;
+
+  const result = await aplicarPagamentoAssinatura(supabase, {
+    empresaId: empresaAlvo,
+    pagamento,
     gatewayPaymentId: asaasPaymentId,
     paymentYmd,
     paidAtIso: paidAt.toISOString(),
@@ -115,7 +107,7 @@ export async function processarPagamentoConfirmado(
   });
 
   if (!result.ok) {
-    return { ok: false, error: result.error, code: result.code };
+    return { ok: false, error: result.error, code: result.code, paymentId: asaasPaymentId };
   }
 
   return {
@@ -217,65 +209,10 @@ export async function forcarLiberacaoPorUltimoPagamentoAsaas(
     };
   }
 
-  const paidAt =
-    parseAsaasBillingDate(latest.paymentDate) ??
-    parseAsaasBillingDate(latest.dueDate) ??
-    new Date();
-  const paymentYmd = paymentYmdFromAsaas(latest, hojeYmdBrasil());
-
-  let { data: pagLocal } = await supabase
-    .from('pagamentos')
-    .select(
-      'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em'
-    )
-    .eq('mercadopago_payment_id', latest.id)
-    .maybeSingle();
-
-  if (!pagLocal?.id) {
-    const { data: inserted, error: insErr } = await supabase
-      .from('pagamentos')
-      .insert({
-        empresa_id: empresaId,
-        mercadopago_payment_id: latest.id,
-        status: 'approved',
-        valor: Number(latest.value) || 0,
-        paid_at: paidAt.toISOString(),
-      })
-      .select(
-        'id, empresa_id, status, valor, paid_at, plano_slug, cupom_uso_id, cobertura_aplicada_ate, assinatura_aplicada_em'
-      )
-      .maybeSingle();
-    if (insErr || !inserted?.id) {
-      return {
-        ok: false,
-        error: insErr?.message || 'Falha ao vincular pagamento local',
-        code: 'db_error',
-        paymentId: latest.id,
-      };
-    }
-    pagLocal = inserted;
-  }
-
-  const result = await aplicarPagamentoAssinatura(supabase, {
+  return processarPagamentoConfirmado(supabase, {
+    asaasPaymentId: latest.id,
     empresaId,
-    pagamento: pagLocal as PagamentoRow,
-    gatewayPaymentId: latest.id,
-    paymentYmd,
-    paidAtIso: paidAt.toISOString(),
-    valorAsaas: latest.value,
   });
-
-  if (!result.ok) {
-    return { ok: false, error: result.error, code: result.code, paymentId: latest.id };
-  }
-
-  return {
-    ok: true,
-    activated: result.activated,
-    alreadyActive: result.alreadyApplied,
-    coberturaAte: result.coberturaAte,
-    paymentId: latest.id,
-  };
 }
 
 export async function assinaturaAtivaTemDireito(

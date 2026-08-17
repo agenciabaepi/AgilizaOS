@@ -33,12 +33,6 @@ export async function GET(req: NextRequest) {
     const statusAsaas = payment?.status || 'PENDING';
     const approvedThisPayment = isPaymentConfirmed(statusAsaas, payment?.paymentDate);
 
-    const { data: pagamentoRow } = await supabase
-      .from('pagamentos')
-      .select('id, empresa_id, status, plano_slug')
-      .eq('mercadopago_payment_id', paymentId)
-      .maybeSingle();
-
     if (!approvedThisPayment) {
       return NextResponse.json({
         status: statusAsaas,
@@ -47,22 +41,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (!pagamentoRow?.empresa_id) {
-      console.warn(
-        'pagamentos/status: Asaas confirmado sem vínculo local — assinatura NÃO ativada',
-        paymentId
-      );
-      return NextResponse.json({
-        status: 'approved',
-        activated: false,
-        code: 'pagamento_nao_vinculado',
-        error: 'Pagamento confirmado no Asaas, mas sem vínculo local para liberar assinatura',
-      });
-    }
-
     const result = await processarPagamentoConfirmado(supabase, {
       asaasPaymentId: paymentId,
-      empresaId: pagamentoRow.empresa_id,
     });
 
     if (!result.ok) {
@@ -79,6 +59,7 @@ export async function GET(req: NextRequest) {
       status: 'approved',
       activated: true,
       alreadyActive: result.alreadyActive === true,
+      coberturaAte: result.coberturaAte,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao consultar status';

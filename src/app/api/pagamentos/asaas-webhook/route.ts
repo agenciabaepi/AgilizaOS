@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Webhook Asaas — PAYMENT_RECEIVED / PAYMENT_CONFIRMED.
  * Configurar no painel Asaas: https://<dominio>/api/pagamentos/asaas-webhook
  *
- * Libera a assinatura mesmo se o cliente fechar a tela do PIX.
+ * Identifica a empresa mesmo sem linha local em `pagamentos` e libera a assinatura.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -36,47 +36,41 @@ export async function POST(req: NextRequest) {
       event === 'PAYMENT_CONFIRMED' ||
       event === 'PAYMENT_RECEIVED_IN_CASH' ||
       status === 'RECEIVED' ||
-      status === 'CONFIRMED';
+      status === 'CONFIRMED' ||
+      status === 'RECEIVED_IN_CASH';
 
     if (!paid) {
       return NextResponse.json({ ok: true, ignored: true, event, status });
     }
 
     const supabase = getSupabaseAdmin();
-    const { data: row } = await supabase
-      .from('pagamentos')
-      .select('id, empresa_id')
-      .eq('mercadopago_payment_id', paymentId)
-      .maybeSingle();
-
-    if (!row?.empresa_id) {
-      console.warn('asaas-webhook: pagamento sem vínculo local', paymentId, event);
-      return NextResponse.json({
-        ok: true,
-        activated: false,
-        code: 'pagamento_nao_vinculado',
-      });
-    }
-
     const result = await processarPagamentoConfirmado(supabase, {
       asaasPaymentId: paymentId,
-      empresaId: row.empresa_id,
     });
 
     if (!result.ok) {
       console.error('asaas-webhook: falha ao ativar', paymentId, result);
-      return NextResponse.json({
-        ok: false,
-        activated: false,
-        code: result.code,
-        error: result.error,
-      });
+      const retryable =
+        result.code === 'asaas_error' ||
+        result.code === 'ativacao_falhou' ||
+        result.code === 'db_error';
+      return NextResponse.json(
+        {
+          ok: false,
+          activated: false,
+          code: result.code,
+          error: result.error,
+        },
+        { status: retryable ? 500 : 200 }
+      );
     }
 
     return NextResponse.json({
       ok: true,
       activated: true,
       alreadyActive: result.alreadyActive === true,
+      coberturaAte: result.coberturaAte,
+      paymentId: result.paymentId,
     });
   } catch (e) {
     console.error('POST /api/pagamentos/asaas-webhook:', e);
