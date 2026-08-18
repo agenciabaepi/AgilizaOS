@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3, FiVideo, FiPlay, FiClock } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 import { useAuth } from '@/context/AuthContext';
+import { fetchStatusEmpresa, normalizeStatusNome } from '@/lib/statusEmpresa';
 import { useOsEditDraft } from '@/hooks/useOsEditDraft';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import {
@@ -136,7 +137,7 @@ export default function DetalheBancadaPage() {
   const [servicos, setServicos] = useState<string>('');
   const [salvando, setSalvando] = useState(false);
   const [saveStep, setSaveStep] = useState<'imagens' | 'videos' | 'dados' | null>(null);
-  const [statusTecnicoOptions, setStatusTecnicoOptions] = useState<{ id: string, nome: string }[]>([]);
+  const [statusTecnicoOptions, setStatusTecnicoOptions] = useState<{ id: string; nome: string; origem?: string }[]>([]);
   const [mostrarBotaoIniciar, setMostrarBotaoIniciar] = useState(false);
   const [progressBarReady, setProgressBarReady] = useState(false);
 
@@ -386,50 +387,30 @@ export default function DetalheBancadaPage() {
 
   useEffect(() => {
     async function fetchStatusTecnico() {
-      // Status padrão do técnico
-      const statusPadrao = [
-        { id: '1', nome: 'AGUARDANDO INÍCIO' },
-        { id: '2', nome: 'EM ANÁLISE' },
-        { id: '3', nome: 'ORÇAMENTO CONCLUÍDO' },
-        { id: '4', nome: 'EM EXECUÇÃO' },
-        { id: '6', nome: 'SEM REPARO' },
-        { id: '7', nome: 'REPARO CONCLUÍDO' }
+      const empresaId = usuarioData?.empresa_id || os?.empresa_id || null;
+      const catalogo = await fetchStatusEmpresa(supabase, {
+        empresaId,
+        tipo: 'tecnico',
+      });
+
+      const fallback = [
+        { id: '1', nome: 'AGUARDANDO INÍCIO', cor: '#6b7280', ordem: 1, tipo: 'tecnico' as const, origem: 'fixo' as const },
+        { id: '2', nome: 'EM ANÁLISE', cor: '#6b7280', ordem: 2, tipo: 'tecnico' as const, origem: 'fixo' as const },
+        { id: '3', nome: 'ORÇAMENTO CONCLUÍDO', cor: '#6b7280', ordem: 3, tipo: 'tecnico' as const, origem: 'fixo' as const },
+        { id: '4', nome: 'EM EXECUÇÃO', cor: '#6b7280', ordem: 4, tipo: 'tecnico' as const, origem: 'fixo' as const },
+        { id: '6', nome: 'SEM REPARO', cor: '#6b7280', ordem: 6, tipo: 'tecnico' as const, origem: 'fixo' as const },
+        { id: '7', nome: 'REPARO CONCLUÍDO', cor: '#6b7280', ordem: 7, tipo: 'tecnico' as const, origem: 'fixo' as const },
       ];
-      
-      // Buscar status técnicos personalizados da empresa
-      const { data: statusEmpresa } = await supabase
-        .from('status')
-        .select('id, nome')
-        .eq('tipo', 'tecnico');
-      
-      // Buscar status técnicos fixos do sistema
-      const { data: statusFixos } = await supabase
-        .from('status_fixo')
-        .select('id, nome')
-        .eq('tipo', 'tecnico');
-      
-      // Combinar todos os status e remover duplicatas
-      const todosStatus = [
-        ...statusPadrao,
-        ...(statusFixos || []),
-        ...(statusEmpresa || [])
-      ];
-      
-      // ✅ CORRIGIDO: Remover duplicatas baseado no nome
-      const statusUnicos = todosStatus
-        // Regra atual: AGUARDANDO PEÇA não é status editável do técnico
-        .filter((status) => {
-          const nome = (status.nome || '').toUpperCase().trim();
-          return nome !== 'AGUARDANDO PEÇA' && nome !== 'AGUARDANDO_PECA';
-        })
-        .filter((status, index, array) =>
-          array.findIndex(s => s.nome === status.nome) === index
-        );
-      
-      setStatusTecnicoOptions(statusUnicos);
+
+      const base = catalogo.length > 0 ? catalogo : fallback;
+      const semAguardandoPeca = base.filter((status) => {
+        const nome = normalizeStatusNome(status.nome);
+        return nome !== 'AGUARDANDO PECA';
+      });
+      setStatusTecnicoOptions(semAguardandoPeca);
     }
-    fetchStatusTecnico();
-  }, []);
+    void fetchStatusTecnico();
+  }, [usuarioData?.empresa_id, os?.empresa_id]);
 
   const handleSalvar = async () => {
     // ✅ VALIDAÇÃO: Verificar se ID e OS existem antes de prosseguir
@@ -1393,7 +1374,9 @@ export default function DetalheBancadaPage() {
                   >
                     <option value="">Selecione o status</option>
                     {statusTecnicoOptions.map(option => (
-                      <option key={option.id} value={option.nome}>{option.nome}</option>
+                      <option key={option.id} value={option.nome}>
+                        {option.origem === 'personalizado' ? `${option.nome} (personalizado)` : option.nome}
+                      </option>
                     ))}
                   </select>
                 </div>

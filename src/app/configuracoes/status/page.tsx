@@ -354,6 +354,8 @@ export default function StatusPage() {
                       setEditandoStatusOS('');
                       setNewStatusOS('');
                       setNewCorOS('#000000');
+                    } else {
+                      alert('Erro ao atualizar o status. ' + (error.message || 'Tente novamente.'));
                     }
                   } else if (newStatusOS.trim()) {
                     // Inserir novo status
@@ -379,6 +381,8 @@ export default function StatusPage() {
                       setCustomStatusOS([...customStatusOS, data]);
                       setNewStatusOS('');
                       setNewCorOS('#000000');
+                    } else {
+                      alert('Erro ao adicionar o status. ' + (error?.message || 'Tente novamente.'));
                     }
                   }
                 }}
@@ -586,6 +590,8 @@ export default function StatusPage() {
                       setEditandoStatusTec('');
                       setNewStatusTec('');
                       setNewCorTec('#000000');
+                    } else {
+                      alert('Erro ao atualizar o status. ' + (error.message || 'Tente novamente.'));
                     }
                   } else if (newStatusTec.trim()) {
                     // Inserir novo status
@@ -611,6 +617,8 @@ export default function StatusPage() {
                       setCustomStatusTec([...customStatusTec, data]);
                       setNewStatusTec('');
                       setNewCorTec('#000000');
+                    } else {
+                      alert('Erro ao adicionar o status. ' + (error?.message || 'Tente novamente.'));
                     }
                   }
                 }}

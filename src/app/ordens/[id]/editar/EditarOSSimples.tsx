@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
@@ -31,6 +31,8 @@ import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasP
 import { calcularVencimentoGarantia, osElegivelParaGarantia, toDateOnlyLocal } from '@/lib/garantiaOs';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { useEmpresaStatus } from '@/hooks/useEmpresaStatus';
+import { ensureStatusNaLista, findStatusByNome } from '@/lib/statusEmpresa';
 
 interface Item {
   id?: string;
@@ -144,7 +146,11 @@ export default function EditarOSSimples() {
   const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
 
   // Listas
-  const [status, setStatus] = useState<Status[]>([]);
+  const { status: statusCatalogo } = useEmpresaStatus('os', ['ENTREGUE']);
+  const status = useMemo(
+    () => ensureStatusNaLista(statusCatalogo, ordem?.status),
+    [statusCatalogo, ordem?.status]
+  );
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   
   // Produtos e Serviços
@@ -251,10 +257,6 @@ export default function EditarOSSimples() {
   }, [ordem?.status, id, router, addToast]);
 
   useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  useEffect(() => {
     if (usuarioData?.empresa_id) {
       fetchTecnicos();
     }
@@ -299,10 +301,10 @@ export default function EditarOSSimples() {
       }
     }
     if (ordem && status.length > 0) {
-      const statusEncontrado = status.find(s => s.nome === ordem.status);
+      const statusEncontrado = findStatusByNome(status, ordem.status);
       if (statusEncontrado) {
         setStatusSelecionado(statusEncontrado);
-        }
+      }
     }
   }, [ordem, status]);
 
@@ -486,22 +488,6 @@ export default function EditarOSSimples() {
       addToast('error', 'Erro ao carregar dados');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('status_fixo')
-        .select('*')
-        .eq('tipo', 'os')
-        .order('ordem');
-      
-      if (data) {
-        setStatus(data);
-      }
-    } catch (error) {
-      // Erro ao carregar status
     }
   };
 
@@ -1338,14 +1324,12 @@ export default function EditarOSSimples() {
                 {status.length === 0 && <option disabled>Carregando status...</option>}
                 {status
                   .filter((s) => {
-                    // ✅ FILTRAR: Remover status "ENTREGUE" da lista (deve ser feito apenas pelo modal de entrega)
-                    // Agora a entrega deve ser feita apenas pelo modal de entrega na página de visualização
                     const nomeNormalizado = (s.nome || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
                     return nomeNormalizado !== 'ENTREGUE';
                   })
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.nome}
+                      {s.origem === 'personalizado' ? `${s.nome} (personalizado)` : s.nome}
                     </option>
                   ))}
               </select>

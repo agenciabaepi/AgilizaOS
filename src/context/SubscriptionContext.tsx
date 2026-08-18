@@ -680,10 +680,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         isTrial: isTrialAtivo(),
         sistemaLiberado,
         planoSlug,
+        planoNome: assinatura?.plano?.nome ?? null,
       });
     },
     [
       assinatura?.plano?.recursos_disponiveis,
+      assinatura?.plano?.nome,
       empresaData?.recursos_customizados,
       isTrialAtivo,
       sistemaLiberado,

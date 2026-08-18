@@ -9,6 +9,7 @@ export interface EmpresaPlanContext {
   isTrial: boolean;
   sistemaLiberado: boolean;
   planoSlug: string | null;
+  planoNome: string | null;
   planoId: string | null;
 }
 
@@ -47,6 +48,7 @@ export async function getEmpresaPlanContext(
 
   let planoRecursos: Record<string, unknown> = {};
   let planoSlug: string | null = null;
+  let planoNome: string | null = null;
   let planoId: string | null = null;
 
   if (picked?.plano_id) {
@@ -58,6 +60,7 @@ export async function getEmpresaPlanContext(
       | undefined;
     if (plano) {
       planoSlug = (plano.slug as string) ?? null;
+      planoNome = (plano.nome as string) ?? null;
       planoRecursos = (plano.recursos_disponiveis as Record<string, unknown>) ?? {};
     }
   }
@@ -73,6 +76,7 @@ export async function getEmpresaPlanContext(
     isTrial,
     sistemaLiberado: empresa.sistema_liberado === true,
     planoSlug,
+    planoNome,
     planoId,
   };
 }

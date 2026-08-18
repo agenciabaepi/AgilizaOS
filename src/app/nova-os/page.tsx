@@ -63,6 +63,12 @@ import {
 import { formatDraftUpdatedAt, type NovaOSDraftData } from '@/lib/novaOsDraft';
 import { useNovaOSDraft } from '@/hooks/useNovaOSDraft';
 import { filterUsuariosTecnicos, isUsuarioTecnico, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { useEmpresaStatus } from '@/hooks/useEmpresaStatus';
+import {
+  descricaoStatusCriacaoOS,
+  descricaoStatusCriacaoOSResumo,
+  montarStatusCriacaoOS,
+} from '@/lib/statusEmpresa';
 
 const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
@@ -122,15 +128,6 @@ interface Usuario {
   tambem_tecnico?: boolean;
   auth_user_id: string;
   tecnico_id?: string;
-}
-
-interface Status {
-  id: string;
-  nome: string;
-  cor: string;
-  ordem: number;
-  tipo: string;
-  empresa_id?: string;
 }
 
 interface ProdutoServico {
@@ -463,7 +460,16 @@ function NovaOS2Content() {
   const [tecnicoResponsavel, setTecnicoResponsavel] = useState<string | null>(null);
   
   // Estado para etapa 4 - Status
-  const [statusOS, setStatusOS] = useState<Status[]>([]);
+  const { status: statusCatalogoOS } = useEmpresaStatus('os');
+  const statusOS = useMemo(() => montarStatusCriacaoOS(statusCatalogoOS), [statusCatalogoOS]);
+  const statusEntradaPadrao = useMemo(
+    () => statusOS.filter((s) => s.origem === 'fixo'),
+    [statusOS]
+  );
+  const statusEntradaCustom = useMemo(
+    () => statusOS.filter((s) => s.origem === 'personalizado'),
+    [statusOS]
+  );
   const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
   // Estado para retorno de garantia
   const [isRetornoGarantia, setIsRetornoGarantia] = useState(false);
@@ -752,61 +758,19 @@ function NovaOS2Content() {
     fetchUsuarios();
   }, [empresaData?.id, usuarioData]);
 
+  // Auto-selecionar status para retorno de garantia (não reexecuta ao carregar status personalizados)
   useEffect(() => {
-    async function fetchStatus() {
-      if (!empresaData?.id) return;
-      
-      // Status fixos para criação de OS
-      const statusPadrao = [
-        {
-          id: 'orcamento',
-          nome: 'ORÇAMENTO',
-          cor: '#f59e0b',
-          ordem: 1,
-          tipo: 'os'
-        },
-        {
-          id: 'aprovado',
-          nome: 'APROVADO',
-          cor: '#10b981',
-          ordem: 2,
-          tipo: 'os'
-        },
-        {
-          id: 'retorno_garantia',
-          nome: 'RETORNO GARANTIA',
-          cor: '#ef4444',
-          ordem: 3,
-          tipo: 'os'
-        }
-      ];
-      
-      setStatusOS(statusPadrao);
-      if (!draftRestoredRef.current) {
-        setStatusSelecionado('orcamento'); // Padrão: ORÇAMENTO
-      }
-    }
-    fetchStatus();
-  }, [empresaData?.id]);
-
-  // Auto-selecionar status para retorno de garantia
-  useEffect(() => {
-    if (statusOS.length === 0) return;
-
     if (tipoEntradaInicialRef.current) {
       tipoEntradaInicialRef.current = false;
       if (draftRestoredRef.current) return;
     }
 
     if (tipoEntrada === 'garantia') {
-      const statusRetornoGarantia = statusOS.find(s => s.id === 'retorno_garantia');
-      if (statusRetornoGarantia) {
-        setStatusSelecionado('retorno_garantia');
-      }
+      setStatusSelecionado('retorno_garantia');
     } else if (tipoEntrada === 'nova') {
       setStatusSelecionado('orcamento');
     }
-  }, [tipoEntrada, statusOS]);
+  }, [tipoEntrada]);
 
   useEffect(() => {
     fetchProdutosServicos();
@@ -2368,7 +2332,7 @@ function NovaOS2Content() {
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700 text-left">Como o cliente deixou o aparelho?</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {statusOS.map((status) => (
+                    {statusEntradaPadrao.map((status) => (
                       <div 
                         key={status.id}
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
@@ -2386,18 +2350,44 @@ function NovaOS2Content() {
                           <div>
                             <p className="text-sm font-medium text-gray-700">{status.nome}</p>
                             <p className="text-xs text-gray-500">
-                              {status.nome === 'ORÇAMENTO' 
-                                ? 'Cliente deixou para orçamento - será necessário fazer orçamento posteriormente'
-                                : status.nome === 'RETORNO GARANTIA'
-                                ? 'Aparelho retornou para garantia - reparo sem custo adicional'
-                                : 'Cliente já aprovou o valor - OS pode prosseguir para execução'
-                              }
+                              {descricaoStatusCriacaoOS(status.nome)}
                             </p>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
+                  {statusEntradaCustom.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide text-left">Status personalizados</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {statusEntradaCustom.map((status) => (
+                          <div
+                            key={status.id}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              statusSelecionado === status.id
+                                ? 'border-black bg-gray-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => setStatusSelecionado(status.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: status.cor || '#6b7280' }}
+                              />
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">{status.nome}</p>
+                                <p className="text-xs text-gray-500">
+                                  {descricaoStatusCriacaoOS(status.nome)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Informações do Status Selecionado */}
@@ -2416,12 +2406,7 @@ function NovaOS2Content() {
                           <div>
                             <p className="text-sm font-medium text-gray-700">{status.nome}</p>
                             <p className="text-xs text-gray-500">
-                              {status.nome === 'ORÇAMENTO' 
-                                ? 'Será necessário fazer orçamento posteriormente' 
-                                : status.nome === 'RETORNO GARANTIA'
-                                ? 'Reparo sem custo adicional - aparelho em garantia'
-                                : 'OS pode prosseguir para execução'
-                              }
+                              {descricaoStatusCriacaoOSResumo(status.nome)}
                             </p>
                           </div>
                         </div>

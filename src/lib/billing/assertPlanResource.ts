@@ -33,6 +33,7 @@ export async function empresaTemRecurso(
     isTrial: ctx.isTrial,
     sistemaLiberado: ctx.sistemaLiberado,
     planoSlug: ctx.planoSlug,
+    planoNome: ctx.planoNome,
   });
 }
 

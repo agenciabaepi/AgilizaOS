@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FiChevronDown, FiCheck, FiClock, FiPackage, FiTool, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { fetchStatusEmpresa, isStatusEntregue, type StatusEmpresa } from '@/lib/statusEmpresa';
 
 interface StatusQuickChangeProps {
   ordemId: string;
@@ -13,14 +14,6 @@ interface StatusQuickChangeProps {
   userRole: 'tecnico' | 'admin' | 'atendente';
 }
 
-interface Status {
-  id: string;
-  nome: string;
-  cor: string;
-  ordem: number;
-  tipo: string;
-}
-
 export default function StatusQuickChange({
   ordemId,
   currentStatus,
@@ -28,8 +21,8 @@ export default function StatusQuickChange({
   onStatusChange,
   userRole
 }: StatusQuickChangeProps) {
-  const [statusOS, setStatusOS] = useState<Status[]>([]);
-  const [statusTecnico, setStatusTecnico] = useState<Status[]>([]);
+  const [statusOS, setStatusOS] = useState<StatusEmpresa[]>([]);
+  const [statusTecnico, setStatusTecnico] = useState<StatusEmpresa[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const { empresaData } = useAuth();
@@ -39,41 +32,12 @@ export default function StatusQuickChange({
       if (!empresaData?.id) return;
 
       try {
-        // Buscar status fixos
-        const { data: statusFixosOS } = await supabase
-          .from('status_fixo')
-          .select('*')
-          .eq('tipo', 'os');
+        const [todosStatusOS, todosStatusTec] = await Promise.all([
+          fetchStatusEmpresa(supabase, { empresaId: empresaData.id, tipo: 'os' }),
+          fetchStatusEmpresa(supabase, { empresaId: empresaData.id, tipo: 'tecnico' }),
+        ]);
 
-        const { data: statusFixosTec } = await supabase
-          .from('status_fixo')
-          .select('*')
-          .eq('tipo', 'tecnico');
-
-        // Buscar status personalizados da empresa
-        const { data: statusEmpresaOS } = await supabase
-          .from('status')
-          .select('*')
-          .eq('tipo', 'os')
-          .eq('empresa_id', empresaData.id);
-
-        const { data: statusEmpresaTec } = await supabase
-          .from('status')
-          .select('*')
-          .eq('tipo', 'tecnico')
-          .eq('empresa_id', empresaData.id);
-
-        // Combinar status fixos e personalizados
-        const todosStatusOS = [...(statusFixosOS || []), ...(statusEmpresaOS || [])];
-        const todosStatusTec = [...(statusFixosTec || []), ...(statusEmpresaTec || [])];
-
-        // ✅ FILTRAR: Remover status "ENTREGUE" da lista (deve ser feito apenas pelo modal de entrega)
-        const statusOSFiltrados = todosStatusOS.filter((s: Status) => {
-          const nomeNormalizado = (s.nome || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-          return nomeNormalizado !== 'ENTREGUE';
-        });
-
-        setStatusOS(statusOSFiltrados);
+        setStatusOS(todosStatusOS.filter((s) => !isStatusEntregue(s.nome)));
         setStatusTecnico(todosStatusTec);
       } catch (error) {
         console.error('Erro ao buscar status:', error);

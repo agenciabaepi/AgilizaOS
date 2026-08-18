@@ -16,6 +16,29 @@ function readBool(value: unknown): boolean {
   return value === true || value === 'true' || value === 1;
 }
 
+function readPlanoRecurso(
+  planoRecursos: Record<string, unknown>,
+  key: string
+): boolean | undefined {
+  if (key in planoRecursos) {
+    return readBool(planoRecursos[key]);
+  }
+  if (key === 'ia' && 'chatgpt' in planoRecursos) {
+    return readBool(planoRecursos.chatgpt);
+  }
+  return undefined;
+}
+
+function inferPlanoSlug(slug?: string | null, nome?: string | null): string {
+  const normalized = (slug || '').trim().toLowerCase();
+  if (normalized) return normalized;
+  const planName = (nome || '').trim().toLowerCase();
+  if (planName.includes('completo')) return 'completo';
+  if (planName.includes('básico') || planName.includes('basico')) return 'basico';
+  if (planName.includes('trial')) return 'trial';
+  return '';
+}
+
 export interface TemAcessoRecursoOpts {
   planoRecursos?: Record<string, unknown> | null;
   recursosCustomizados?: Record<string, boolean> | null;
@@ -23,6 +46,8 @@ export interface TemAcessoRecursoOpts {
   sistemaLiberado?: boolean;
   /** Slug do plano (ex.: basico, completo, trial). */
   planoSlug?: string | null;
+  /** Nome do plano (fallback se slug ausente). */
+  planoNome?: string | null;
 }
 
 /**
@@ -49,11 +74,12 @@ export function temAcessoRecurso(modulo: string, opts: TemAcessoRecursoOpts): bo
   }
 
   const planoRecursos = opts.planoRecursos ?? {};
-  if (key in planoRecursos) {
-    return readBool(planoRecursos[key]);
+  const valorPlano = readPlanoRecurso(planoRecursos, key);
+  if (valorPlano !== undefined) {
+    return valorPlano;
   }
 
-  const slug = (opts.planoSlug || '').trim().toLowerCase();
+  const slug = inferPlanoSlug(opts.planoSlug, opts.planoNome);
   if (slug === 'basico') {
     return false;
   }

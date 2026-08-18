@@ -226,6 +226,8 @@ import {
   osElegivelParaGarantia,
   resolverVencimentoGarantiaOs,
 } from '@/lib/garantiaOs';
+import { useEmpresaStatus } from '@/hooks/useEmpresaStatus';
+import { nomesStatusIguais } from '@/lib/statusEmpresa';
 
 const getInitials = (nome: string) => {
   if (!nome) return 'US';
@@ -303,6 +305,7 @@ export default function ListaOrdensPage() {
   const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
   const { addToast } = useToast();
+  const { status: statusCatalogoOS } = useEmpresaStatus('os');
   
   // Debug removido temporariamente
   
@@ -1096,7 +1099,7 @@ export default function ListaOrdensPage() {
         os.servico.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (os.responsavelNome && os.responsavelNome.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesStatus = statusFilter === '' || os.statusOS.toLowerCase() === statusFilter.toLowerCase();
+      const matchesStatus = statusFilter === '' || nomesStatusIguais(os.statusOS, statusFilter);
       const matchesAparelho = aparelhoFilter === '' || os.aparelho.toLowerCase().includes(aparelhoFilter.toLowerCase());
       const matchesTecnico = tecnicoFilter === '' || os.tecnico.toLowerCase().includes(tecnicoFilter.toLowerCase());
       const matchesTipo = tipoFilter === '' || os.tipo === tipoFilter;
@@ -1180,6 +1183,22 @@ export default function ListaOrdensPage() {
     },
     [filteredOrdens.length, itemsPerPage]
   );
+
+  const statusFiltroOpcoes = useMemo(() => {
+    const opcoes: { value: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const add = (nome: string) => {
+      const n = (nome || '').trim();
+      if (!n) return;
+      const key = n.toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      if (seen.has(key)) return;
+      seen.add(key);
+      opcoes.push({ value: n, label: n });
+    };
+    for (const s of statusCatalogoOS) add(s.nome);
+    for (const os of ordens) add(os.statusOS);
+    return opcoes;
+  }, [statusCatalogoOS, ordens]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -1577,11 +1596,9 @@ export default function ListaOrdensPage() {
                   className="w-48"
                 >
                   <option value="">Todos os Status</option>
-                                     <option value="concluido">Concluído</option>
-                   <option value="pendente">Pendente</option>
-                   <option value="orcamento">Orçamento</option>
-                   <option value="analise">Análise</option>
-                   <option value="nao aprovado">Não Aprovado</option>
+                  {statusFiltroOpcoes.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
                 </Select>
 
                 <Select
