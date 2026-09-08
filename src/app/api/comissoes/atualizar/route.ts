@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -28,6 +29,9 @@ export async function PATCH(request: NextRequest) {
       if (!os) {
         return NextResponse.json({ error: 'Ordem de serviço não encontrada.' }, { status: 404 });
       }
+
+      const planGatePrevista = await assertEmpresaTemRecurso(String(os.empresa_id), 'lucro_desempenho');
+      if (!planGatePrevista.ok) return planGatePrevista.response;
       const tecnicoIdOs = os.tecnico_id;
       let tecnicoData: { id: string; tipo_comissao?: string; comissao_fixa?: number; comissao_percentual?: number } | null = null;
       const byId = await supabase.from('usuarios').select('id, tipo_comissao, comissao_fixa, comissao_percentual').eq('id', tecnicoIdOs).maybeSingle();
@@ -101,6 +105,16 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: insertErr.message || 'Erro ao registrar comissão.' }, { status: 400 });
       }
       return NextResponse.json({ data: inserted, success: true }, { status: 200 });
+    }
+
+    const { data: comissaoAtual } = await supabase
+      .from('comissoes_historico')
+      .select('empresa_id')
+      .eq('id', comissaoId)
+      .maybeSingle();
+    if (comissaoAtual?.empresa_id) {
+      const planGate = await assertEmpresaTemRecurso(String(comissaoAtual.empresa_id), 'lucro_desempenho');
+      if (!planGate.ok) return planGate.response;
     }
 
     // Preparar dados para atualização

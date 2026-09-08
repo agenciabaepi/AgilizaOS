@@ -4,6 +4,7 @@ import { sendPushToTecnico } from '@/lib/push-notification-tecnico';
 import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
 import { fetchOrdensFinalizadasRows } from '@/lib/comissoesQueryCompat';
 import { isUsuarioTecnico } from '@/lib/tecnicos';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 
 function normalizeStatus(s: string | null | undefined): string {
   if (!s) return '';
@@ -39,6 +40,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const planGate = await assertEmpresaTemRecurso(String(empresa_id), 'lucro_desempenho');
+    if (!planGate.ok) return planGate.response;
 
     const supabase = createAdminClient();
 

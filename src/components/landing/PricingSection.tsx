@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { LANDING_TRIAL } from '@/config/landing';
-import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleStatusBadge } from '@/config/planModules';
+import { PLANO_SLUGS, premiumModulesForPlanCard, premiumModuleStatusBadge } from '@/config/planModules';
 import { usePlanosPublicos, formatarPrecoBRL, type PlanoPublico } from '@/hooks/usePlanosPublicos';
 
 const RECURSOS_CORE = [
@@ -34,7 +34,7 @@ function PlanoCard({
   isDarkMode: boolean;
 }) {
   const isCompleto = plano.slug === PLANO_SLUGS.COMPLETO;
-  const premiumList = Object.values(PREMIUM_MODULES);
+  const premiumList = premiumModulesForPlanCard();
   const cadastroHref = `/cadastro?plano=${plano.slug}`;
 
   const ctaTitle = isCompleto

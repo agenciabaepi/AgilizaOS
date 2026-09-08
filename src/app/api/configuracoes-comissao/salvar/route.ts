@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,9 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    const planGate = await assertEmpresaTemRecurso(usuario.empresa_id, 'lucro_desempenho');
+    if (!planGate.ok) return planGate.response;
 
     const payload = { ...dadosCompletos };
     delete payload.id;

@@ -341,7 +341,7 @@ export default function AssinaturaPage() {
               subtitulo={
                 trialEncerrado
                   ? 'Seu período de teste encerrou. Selecione Básico ou Completo para reativar o acesso.'
-                  : 'O Básico inclui todo o sistema. O Completo adiciona Nota Fiscal, IA e CRM WhatsApp (em desenvolvimento).'
+                  : 'O Básico inclui todo o sistema. O Completo adiciona Nota Fiscal, IA e lucro e desempenho.'
               }
             />
           </div>

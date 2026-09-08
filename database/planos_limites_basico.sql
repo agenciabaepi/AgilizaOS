@@ -25,7 +25,7 @@ SET
   limite_produtos = 5000,
   limite_clientes = 20000,
   limite_fornecedores = 500,
-  descricao = 'Sistema completo + Nota Fiscal + IA + CRM WhatsApp + lucro e desempenho',
+  descricao = 'Sistema completo + Nota Fiscal + IA + lucro e desempenho',
   recursos_disponiveis = jsonb_build_object(
     'nota_fiscal', true,
     'ia', true,

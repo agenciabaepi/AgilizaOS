@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 
 export default function CriarAssinaturasPage() {
   const [loading, setLoading] = useState(false);
@@ -44,7 +45,7 @@ export default function CriarAssinaturasPage() {
           
           <div className="mb-6">
             <p className="text-gray-600 mb-4">
-              Esta operação irá criar assinaturas trial (15 dias) para todas as empresas 
+              Esta operação irá criar assinaturas trial ({DIAS_TRIAL_GRATIS} dias) para todas as empresas 
               que ainda não possuem uma assinatura no sistema.
             </p>
             
@@ -53,7 +54,7 @@ export default function CriarAssinaturasPage() {
               <ul className="text-sm text-yellow-700 space-y-1">
                 <li>• Esta operação é irreversível</li>
                 <li>• Apenas empresas sem assinatura serão afetadas</li>
-                <li>• O período trial será de 15 dias a partir de hoje</li>
+                <li>• O período trial será de {DIAS_TRIAL_GRATIS} dias a partir de hoje</li>
                 <li>• Todas as assinaturas terão valor R$ 0,00</li>
               </ul>
             </div>

@@ -678,6 +678,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         planoRecursos: assinatura?.plano?.recursos_disponiveis ?? null,
         recursosCustomizados: empresaData?.recursos_customizados ?? null,
         isTrial: isTrialAtivo(),
+        assinaturaEmDia: !isAssinaturaVencida(),
         sistemaLiberado,
         planoSlug,
         planoNome: assinatura?.plano?.nome ?? null,
@@ -688,6 +689,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       assinatura?.plano?.nome,
       empresaData?.recursos_customizados,
       isTrialAtivo,
+      isAssinaturaVencida,
       sistemaLiberado,
       planoSlug,
     ]

@@ -7,13 +7,14 @@ import {
   fetchOrdensPrevistasRows,
   osRowFromComissao,
 } from '@/lib/comissoesQueryCompat';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 /**
  * GET /api/comissoes/lista
  * Retorna TODAS as comissões da empresa (todos os técnicos), mesma lógica do detalhe.
  * Usa admin client para evitar RLS e garantir consistência com a página de detalhe do técnico.
- * Requer sessão (admin/gestor).
+ * Requer sessão (admin/gestor) e plano Completo (lucro_desempenho).
  */
 export async function GET(request: Request) {
   try {
@@ -33,6 +34,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
     const empresaId = quemPediu.empresa_id;
+
+    const planGate = await assertEmpresaTemRecurso(empresaId, 'lucro_desempenho');
+    if (!planGate.ok) return planGate.response;
 
     // Mapa tecnico_id (id ou auth_user_id) -> { id: usuarios.id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa }
     const { data: tecnicosData } = await supabase

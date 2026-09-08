@@ -43,6 +43,12 @@ export interface TemAcessoRecursoOpts {
   planoRecursos?: Record<string, unknown> | null;
   recursosCustomizados?: Record<string, boolean> | null;
   isTrial?: boolean;
+  /**
+   * Se false, bloqueia módulos premium (trial vencido / assinatura expirada),
+   * exceto overrides em `recursos_customizados`.
+   * Omitido = comportamento legado (não força bloqueio).
+   */
+  assinaturaEmDia?: boolean;
   sistemaLiberado?: boolean;
   /** Slug do plano (ex.: basico, completo, trial). */
   planoSlug?: string | null;
@@ -53,7 +59,8 @@ export interface TemAcessoRecursoOpts {
 /**
  * Verifica se a empresa tem acesso a um módulo.
  * - Módulos core (não premium): sempre liberados.
- * - Trial: todos os premium liberados.
+ * - Trial válido: todos os premium liberados.
+ * - Assinatura vencida: premium bloqueado (salvo override admin).
  * - Override admin (`recursos_customizados`) tem prioridade sobre o plano.
  * - Plano Básico (ou recursos do plano): respeita o plano — sistema_liberado NÃO libera premium do Básico.
  * - sistema_liberado: só libera premium quando o plano não restringe o módulo.
@@ -71,6 +78,11 @@ export function temAcessoRecurso(modulo: string, opts: TemAcessoRecursoOpts): bo
 
   if (opts.recursosCustomizados && key in opts.recursosCustomizados) {
     return !!opts.recursosCustomizados[key];
+  }
+
+  // Trial/plano Completo no JSON não liberam se a assinatura já venceu.
+  if (opts.assinaturaEmDia === false) {
+    return false;
   }
 
   const planoRecursos = opts.planoRecursos ?? {};

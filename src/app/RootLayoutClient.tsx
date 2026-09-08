@@ -30,6 +30,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
+import { isPublicPath } from '@/config/publicPaths';
 
 function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, empresaData } = useAuth();
@@ -59,6 +60,7 @@ function isPecasPublicRoute(pathname: string | null): boolean {
 
 export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const mostrarAlertasDoSistema = Boolean(pathname) && !isPublicPath(pathname);
 
   useEffect(() => {
     suppressLogsInProduction();
@@ -120,8 +122,12 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
               <ToastProvider>
                 <ConfirmProvider>
                   <AuthContent>
-                    <StickyOrcamentoPopup />
-                    <LaudoProntoAlert />
+                    {mostrarAlertasDoSistema && (
+                      <>
+                        <StickyOrcamentoPopup />
+                        <LaudoProntoAlert />
+                      </>
+                    )}
                     <PricingCalculatorFAB />
                     <>{children}</>
                   </AuthContent>

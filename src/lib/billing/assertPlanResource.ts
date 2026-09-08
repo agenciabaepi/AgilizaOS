@@ -5,6 +5,9 @@ import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { getEmpresaPlanContext } from '@/lib/billing/getEmpresaPlanContext';
 import { PLANO_COMPLETO_NOME } from '@/config/planModules';
 
+type AssertOk = { ok: true; empresaId: string };
+type AssertFail = { ok: false; response: NextResponse };
+
 export async function getEmpresaIdForSession(req: NextRequest): Promise<string | null> {
   const userId = await getSessionUserId(req);
   if (!userId) return null;
@@ -31,27 +34,18 @@ export async function empresaTemRecurso(
     planoRecursos: ctx.planoRecursos,
     recursosCustomizados: ctx.recursosCustomizados,
     isTrial: ctx.isTrial,
+    assinaturaEmDia: ctx.assinaturaEmDia,
     sistemaLiberado: ctx.sistemaLiberado,
     planoSlug: ctx.planoSlug,
     planoNome: ctx.planoNome,
   });
 }
 
-type AssertOk = { ok: true; empresaId: string };
-type AssertFail = { ok: false; response: NextResponse };
-
-export async function assertTemRecurso(
-  req: NextRequest,
+/** Para rotas que já resolveram `empresaId` (ex.: comissões). */
+export async function assertEmpresaTemRecurso(
+  empresaId: string,
   modulo: string
 ): Promise<AssertOk | AssertFail> {
-  const empresaId = await getEmpresaIdForSession(req);
-  if (!empresaId) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }),
-    };
-  }
-
   const allowed = await empresaTemRecurso(empresaId, modulo);
   if (!allowed) {
     return {
@@ -66,6 +60,20 @@ export async function assertTemRecurso(
       ),
     };
   }
-
   return { ok: true, empresaId };
+}
+
+export async function assertTemRecurso(
+  req: NextRequest,
+  modulo: string
+): Promise<AssertOk | AssertFail> {
+  const empresaId = await getEmpresaIdForSession(req);
+  if (!empresaId) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }),
+    };
+  }
+
+  return assertEmpresaTemRecurso(empresaId, modulo);
 }

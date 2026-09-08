@@ -8,6 +8,7 @@ import {
   PREMIUM_MODULES,
   PLANOS_VENDA,
   premiumModuleStatusBadge,
+  isListedOnPlanCard,
   type PlanoSlug,
   type PremiumModule,
 } from '@/config/planModules';
@@ -26,11 +27,13 @@ function formatarPrecoBRL(valor: number) {
 }
 
 function modulosPremiumDoPlano(plano: PlanoAdmin) {
-  return (Object.keys(PREMIUM_MODULES) as PremiumModule[]).map((key) => ({
-    key,
-    ...PREMIUM_MODULES[key],
-    incluido: plano.slug === PLANO_SLUGS.COMPLETO || !!plano.recursos_disponiveis?.[key],
-  }));
+  return (Object.keys(PREMIUM_MODULES) as PremiumModule[])
+    .filter(isListedOnPlanCard)
+    .map((key) => ({
+      key,
+      ...PREMIUM_MODULES[key],
+      incluido: plano.slug === PLANO_SLUGS.COMPLETO || !!plano.recursos_disponiveis?.[key],
+    }));
 }
 
 export type AdminAlterarPlanoModalProps = {
@@ -303,8 +306,8 @@ export default function AdminAlterarPlanoModal({
           {planoSelecionado && (
             <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-600">
               {planoSelecionado.slug === PLANO_SLUGS.BASICO
-                ? 'Gestão completa da assistência, sem módulos premium (NF, IA e CRM WhatsApp).'
-                : 'Inclui módulos premium: Nota Fiscal, IA e CRM WhatsApp (em desenvolvimento).'}
+                ? 'Gestão completa da assistência, sem módulos premium (NF e IA).'
+                : 'Inclui módulos premium: Nota Fiscal, IA e lucro e desempenho.'}
             </div>
           )}
 

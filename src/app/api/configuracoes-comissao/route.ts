@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 
 export async function GET(request: Request) {
   try {
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
     if (userError || !usuario?.empresa_id) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
+
+    const planGate = await assertEmpresaTemRecurso(usuario.empresa_id, 'lucro_desempenho');
+    if (!planGate.ok) return planGate.response;
 
     const { data, error } = await supabase
       .from('configuracoes_comissao')

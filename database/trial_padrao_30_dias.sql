@@ -1,5 +1,5 @@
--- Exige pagamento aprovado (ou concessão admin) para assinatura `active` liberar acesso.
--- Rode no Supabase SQL Editor após database/saas_billing_functions.sql
+-- Padrão de teste grátis: 30 dias (antes 7).
+-- Atualiza a função de acesso e a descrição do Plano Completo (sem CRM WhatsApp).
 
 CREATE OR REPLACE FUNCTION public.saas_empresa_pode_usar_app(p_empresa_id uuid)
 RETURNS boolean
@@ -102,4 +102,11 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.saas_empresa_pode_usar_app(uuid) IS
-  'true se empresa ativa e (sistema_liberado, trial válido ou assinatura paga com pagamento aprovado).';
+  'true se empresa ativa e (sistema_liberado, trial válido ou assinatura paga com pagamento aprovado). Trial padrão: 30 dias.';
+
+COMMENT ON COLUMN public.empresas.dias_trial IS
+  'Dias de trial para a empresa. NULL usa o padrão do sistema (30). Definido pelo admin SaaS.';
+
+UPDATE public.planos
+SET descricao = 'Sistema completo + Nota Fiscal + IA + lucro e desempenho'
+WHERE slug = 'completo';

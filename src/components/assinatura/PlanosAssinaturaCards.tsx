@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { FiCheck, FiX, FiArrowRight } from 'react-icons/fi';
 import { usePlanosPublicos, formatarPrecoBRL } from '@/hooks/usePlanosPublicos';
 import { useSubscription } from '@/hooks/useSubscription';
-import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleStatusBadge } from '@/config/planModules';
+import { PLANO_SLUGS, premiumModulesForPlanCard, premiumModuleStatusBadge } from '@/config/planModules';
 import type { PlanoPublico } from '@/hooks/usePlanosPublicos';
 
 const RECURSOS_CORE_BASICO = [
@@ -37,7 +37,7 @@ function PlanoCard({
 }) {
   const isAtual = planoAtualSlug === plano.slug;
   const isCompleto = plano.slug === PLANO_SLUGS.COMPLETO;
-  const premiumList = Object.values(PREMIUM_MODULES);
+  const premiumList = premiumModulesForPlanCard();
   const recursosCore = isCompleto ? RECURSOS_CORE_COMPLETO : RECURSOS_CORE_BASICO;
 
   // Plano atual ativo → só informa; plano atual vencido → renovar; outros → assinar/upgrade
@@ -185,7 +185,7 @@ interface PlanosAssinaturaCardsProps {
 export default function PlanosAssinaturaCards({
   id = 'planos-assinatura',
   titulo = 'Escolha seu plano',
-  subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e CRM WhatsApp (em desenvolvimento).',
+  subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e lucro e desempenho.',
 }: PlanosAssinaturaCardsProps) {
   const { basico, completo, ready, loading } = usePlanosPublicos();
   const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired } = useSubscription();

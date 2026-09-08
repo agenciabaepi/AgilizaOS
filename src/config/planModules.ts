@@ -28,8 +28,9 @@ export const PREMIUM_MODULES = {
   },
   whatsapp_crm: {
     label: 'CRM WhatsApp',
-    description: 'Inbox, automações e atendimento via WhatsApp — em desenvolvimento',
+    description: 'Inbox, automações e atendimento via WhatsApp — pausado por enquanto',
     status: 'development' as const,
+    showOnPlanCard: false as const,
   },
   lucro_desempenho: {
     label: 'Lucro e desempenho',
@@ -55,6 +56,20 @@ export function premiumModuleStatusBadge(
 export function premiumModuleLabelWithStatus(mod: (typeof PREMIUM_MODULES)[PremiumModule]): string {
   const badge = premiumModuleStatusBadge(mod.status);
   return badge ? `${mod.label} (${badge.toLowerCase()})` : mod.label;
+}
+
+type PremiumModuleEntry = (typeof PREMIUM_MODULES)[PremiumModule];
+
+export function isListedOnPlanCard(key: PremiumModule): boolean {
+  const mod = PREMIUM_MODULES[key];
+  return !('showOnPlanCard' in mod) || mod.showOnPlanCard !== false;
+}
+
+/** Módulos listados nos cards de plano (landing, assinatura e checkout). */
+export function premiumModulesForPlanCard(): PremiumModuleEntry[] {
+  return (Object.keys(PREMIUM_MODULES) as PremiumModule[])
+    .filter(isListedOnPlanCard)
+    .map((key) => PREMIUM_MODULES[key]);
 }
 
 /** Aliases legados → módulo canônico. */

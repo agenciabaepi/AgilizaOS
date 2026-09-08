@@ -1,37 +1,49 @@
-import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
+import { diffDiasCalendario, diffDiasCalendarioInTimeZone } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
 import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
+
+function diffCalendario(
+  iso: string | null | undefined,
+  timeZone?: string
+): number | null {
+  if (timeZone) return diffDiasCalendarioInTimeZone(iso, timeZone);
+  return diffDiasCalendario(iso);
+}
 
 /** Trial ainda dentro do período (último dia civil incluso). */
 export function trialRowCalendarValid(
   row: Record<string, unknown>,
   empresaCreatedAt: string | null | undefined,
-  empresaDiasTrial?: number | null
+  empresaDiasTrial?: number | null,
+  timeZone?: string
 ): boolean {
   if (String(row.status) !== 'trial') return false;
   const dtf = row.data_trial_fim as string | null | undefined;
   if (dtf) {
-    const d = diffDiasCalendario(dtf);
+    const d = diffCalendario(dtf, timeZone);
     return d !== null && d >= 0;
   }
   const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
   if (!created) return false;
   const end = dataFimTrialAPartirDe(created, empresaDiasTrial);
   if (!end) return false;
-  const d = diffDiasCalendario(end);
+  const d = diffCalendario(end, timeZone);
   return d !== null && d >= 0;
 }
 
-/** Assinatura ativa com data fim / próxima cobrança ainda ok (dias civis locais). */
-export function activeRowCalendarValid(row: Record<string, unknown>): boolean {
+/** Assinatura ativa com data fim / próxima cobrança ainda ok (dias civis). */
+export function activeRowCalendarValid(
+  row: Record<string, unknown>,
+  timeZone?: string
+): boolean {
   const status = String(row.status || '');
   if (status !== 'active' && status !== 'ativa') return false;
   if (row.data_fim) {
-    const d0 = diffDiasCalendario(row.data_fim as string);
+    const d0 = diffCalendario(row.data_fim as string, timeZone);
     if (d0 !== null && d0 < 0) return false;
   }
   if (row.proxima_cobranca) {
-    const d = diffDiasCalendario(row.proxima_cobranca as string);
+    const d = diffCalendario(row.proxima_cobranca as string, timeZone);
     if (d !== null && d < 0) return false;
   }
   return true;
@@ -52,7 +64,9 @@ export function pickAssinaturaParaContexto(
       new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()
   );
 
-  const validTrial = sorted.find((r) => trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial));
+  const validTrial = sorted.find((r) =>
+    trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial)
+  );
   if (validTrial) return validTrial;
 
   const comCobertura = sorted

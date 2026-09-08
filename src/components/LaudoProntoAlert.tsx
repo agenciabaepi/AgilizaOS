@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback, type MutableRefObject } from 'react';
 import { FiFileText, FiBell, FiEye, FiArrowRight, FiX } from 'react-icons/fi';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { isPublicPath } from '@/config/publicPaths';
 import { playOrcamentoNotificationSound, warmupOrcamentoAudio, requestAudioPermission } from '@/utils/audioPlayer';
 
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000;
@@ -144,12 +145,14 @@ export default function LaudoProntoAlert() {
   const [pendencias, setPendencias] = useState<OSPendencia[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { empresaData, usuarioData } = useAuth();
   const initialSyncDoneRef = useRef(false);
   const previousIdsRef = useRef<Set<string>>(new Set());
   const dismissedAtRef = useRef<number | null>(null);
   const laudosCountRef = useRef(0);
   const modalOpenRef = useRef(false);
+  const emRotaPublica = !pathname || isPublicPath(pathname);
 
   useEffect(() => {
     modalOpenRef.current = modalOpen;
@@ -159,17 +162,23 @@ export default function LaudoProntoAlert() {
     laudosCountRef.current = pendencias.length;
   }, [pendencias.length]);
 
+  useEffect(() => {
+    if (emRotaPublica) setModalOpen(false);
+  }, [emRotaPublica]);
+
   const podeVerNotificacao = useCallback(() => {
+    if (emRotaPublica) return false;
     if (!usuarioData?.nivel) return false;
     return usuarioData.nivel === 'admin' || usuarioData.nivel === 'atendente';
-  }, [usuarioData?.nivel]);
+  }, [emRotaPublica, usuarioData?.nivel]);
 
   const shouldShowModal = useCallback((count: number, force = false) => {
+    if (emRotaPublica) return false;
     if (count <= 0) return false;
     if (force) return true;
     if (dismissedAtRef.current === null) return true;
     return Date.now() - dismissedAtRef.current >= REMINDER_INTERVAL_MS;
-  }, []);
+  }, [emRotaPublica]);
 
   const openModalIfAllowed = useCallback((count: number, force = false) => {
     if (shouldShowModal(count, force)) {

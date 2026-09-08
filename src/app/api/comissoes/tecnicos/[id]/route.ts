@@ -7,12 +7,13 @@ import {
   fetchOrdensPrevistasRows,
   osRowFromComissao,
 } from '@/lib/comissoesQueryCompat';
+import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 
 /**
  * GET /api/comissoes/tecnicos/[id]
  * Retorna comissões reais + previstas do técnico (mesma lógica que /api/comissoes/minhas).
  * Usa admin client para evitar RLS e garantir mesma lista que a página do técnico.
- * Requer sessão (admin/gestor da mesma empresa).
+ * Requer sessão (admin/gestor da mesma empresa) e plano Completo.
  */
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,9 @@ export async function GET(
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
     const empresaId = quemPediu.empresa_id;
+
+    const planGate = await assertEmpresaTemRecurso(empresaId, 'lucro_desempenho');
+    if (!planGate.ok) return planGate.response;
 
     // Técnico deve ser da mesma empresa
     const { data: tecnico, error: tecnicoError } = await supabase

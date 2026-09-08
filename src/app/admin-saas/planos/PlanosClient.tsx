@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FiSave, FiCheck, FiAlertCircle } from 'react-icons/fi';
-import { PREMIUM_MODULES, PLANO_SLUGS, premiumModuleStatusBadge, type PremiumModule } from '@/config/planModules';
+import { PREMIUM_MODULES, PLANO_SLUGS, premiumModuleStatusBadge, isListedOnPlanCard, type PremiumModule } from '@/config/planModules';
 
 type PlanoRow = {
   id: string;
@@ -106,8 +106,8 @@ export default function PlanosClient() {
   return (
     <div className="space-y-6 max-w-3xl">
       <p className="text-sm text-gray-600">
-        Defina o preço mensal de cada plano. Os módulos premium do plano Completo são fixos (NF, IA e CRM
-        WhatsApp — em desenvolvimento).
+        Defina o preço mensal de cada plano. Os módulos premium do plano Completo são fixos (Nota Fiscal, IA e lucro e
+        desempenho).
       </p>
 
       {message && (
@@ -133,7 +133,9 @@ export default function PlanosClient() {
       {planos.map((plano) => {
         const draft = drafts[plano.id];
         if (!draft) return null;
-        const modulos = Object.entries(PREMIUM_MODULES) as [PremiumModule, (typeof PREMIUM_MODULES)[PremiumModule]][];
+        const modulos = (
+          Object.entries(PREMIUM_MODULES) as [PremiumModule, (typeof PREMIUM_MODULES)[PremiumModule]][]
+        ).filter(([key]) => isListedOnPlanCard(key));
         return (
           <form
             key={plano.id}

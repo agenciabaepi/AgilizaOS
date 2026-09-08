@@ -8,7 +8,7 @@ import PixQRCode from '@/components/PixQRCode';
 import CupomDescontoInput, { type CupomAplicado } from '@/components/billing/CupomDescontoInput';
 import { Button } from '@/components/Button';
 import { formatarValorAssinatura, usePlanosPublicos } from '@/hooks/usePlanosPublicos';
-import { PLANO_SLUGS, PREMIUM_MODULES, premiumModuleLabelWithStatus, type PlanoSlug } from '@/config/planModules';
+import { PLANO_SLUGS, premiumModulesForPlanCard, premiumModuleLabelWithStatus, type PlanoSlug } from '@/config/planModules';
 import { FiArrowLeft } from 'react-icons/fi';
 
 function PagarPlanoSkeleton() {
@@ -121,7 +121,7 @@ export default function AssinaturaPagarPlanoPage() {
                       <>
                         <li>✓ Usuários e OS sem o teto do Básico</li>
                         <li>✓ Lucro, desempenho e comissões agregadas</li>
-                        {Object.values(PREMIUM_MODULES).map((m) => (
+                        {premiumModulesForPlanCard().map((m) => (
                           <li key={m.label}>✓ {premiumModuleLabelWithStatus(m)}</li>
                         ))}
                       </>
