@@ -6,6 +6,7 @@ import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPer
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { Textarea } from '@/components/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabaseClient';
 import { parsePercentInput, MODO_EXIBICAO_CLIENTE_OPTIONS, type ModoExibicaoPrecoCliente } from '@/lib/pricingCalculator';
@@ -23,6 +24,7 @@ interface ConfigPrecificacao {
   frete_valor: number;
   modo_exibicao_cliente: ModoExibicaoPrecoCliente;
   desconto_vista_percent: number;
+  mensagem_whatsapp: string;
   configurado: boolean;
 }
 
@@ -34,6 +36,7 @@ function formFromData(d: ConfigPrecificacao) {
     frete_valor: String(d.frete_valor ?? ''),
     modo_exibicao_cliente: (d.modo_exibicao_cliente ?? 'separado') as ModoExibicaoPrecoCliente,
     desconto_vista_percent: String(d.desconto_vista_percent ?? ''),
+    mensagem_whatsapp: d.mensagem_whatsapp ?? '',
   };
 }
 
@@ -51,6 +54,7 @@ export default function PrecificacaoPage() {
     frete_valor: '',
     modo_exibicao_cliente: 'separado' as ModoExibicaoPrecoCliente,
     desconto_vista_percent: '',
+    mensagem_whatsapp: '',
   });
 
   const empresaId = usuarioData?.empresa_id;
@@ -103,6 +107,7 @@ export default function PrecificacaoPage() {
         frete_valor: parseCurrencyNumber(form.frete_valor),
         modo_exibicao_cliente: form.modo_exibicao_cliente,
         desconto_vista_percent: parsePercentInput(form.desconto_vista_percent),
+        mensagem_whatsapp: form.mensagem_whatsapp.trim(),
         configurado: true,
         updated_at: new Date().toISOString(),
       };
@@ -282,12 +287,27 @@ export default function PrecificacaoPage() {
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Mensagem do WhatsApp
+            </label>
+            <Textarea
+              rows={5}
+              placeholder="Ex: Consigo parcelar no cartão, ou 5% de desconto no PIX. Posso buscar o aparelho hoje."
+              value={form.mensagem_whatsapp}
+              onChange={(e) => setForm((f) => ({ ...f, mensagem_whatsapp: e.target.value }))}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Esse texto entra no orçamento do WhatsApp e no cupom. Os valores, parcelas e dados do cliente continuam preenchidos automaticamente. Use {'{{cliente}}'} e {'{{aparelho}}'} se quiser incluir o nome e o modelo.
+            </p>
+          </div>
+
           <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-sm text-gray-600">
             <p className="font-medium text-gray-800 mb-1">Como funciona o cálculo</p>
             <ol className="list-decimal list-inside space-y-0.5 text-xs">
               <li>Soma o custo da peça com o frete e aplica markup e imposto</li>
               <li>Adiciona o valor de mão de obra informado na calculadora</li>
-              <li>Na calculadora, você escolhe até quantas parcelas mostrar (2x a 12x) e pode escrever um texto personalizado para o cliente</li>
+              <li>Na calculadora você escolhe até quantas parcelas mostrar (2x a 12x). A mensagem do WhatsApp é a configurada nesta tela</li>
             </ol>
           </div>
 

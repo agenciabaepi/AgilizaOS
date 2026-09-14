@@ -1,5 +1,6 @@
 import {
   PARCELAS_MAX,
+  aplicarMensagemOrcamento,
   clampParcelasExibicao,
   calcularPrecoVistaExibicao,
   formatDescontoVistaTexto,
@@ -195,6 +196,10 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
   } = data;
 
   const parcelasTexto = clampParcelasExibicao(maxParcelas ?? PARCELAS_MAX);
+  const mensagemPersonalizada = aplicarMensagemOrcamento(textoPersonalizado, {
+    cliente,
+    aparelho: modeloAparelho,
+  });
 
   const dataStr = new Date().toLocaleDateString('pt-BR');
   const horaStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -425,8 +430,8 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
 
     <p class="footer-note">
       ${
-        textoPersonalizado?.trim()
-          ? `${escapeHtml(textoPersonalizado.trim()).replace(/\n/g, '<br />')}<br /><br />`
+        mensagemPersonalizada
+          ? `${escapeHtml(mensagemPersonalizada).replace(/\n/g, '<br />')}<br /><br />`
           : ''
       }
       Orçamento válido por 7 dias.<br />

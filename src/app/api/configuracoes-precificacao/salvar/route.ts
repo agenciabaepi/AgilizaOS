@@ -49,6 +49,12 @@ export async function POST(request: NextRequest) {
       imposto_percent: parseNum(dadosCompletos.imposto_percent),
       juros_parcelamento_percent: parseNum(dadosCompletos.juros_parcelamento_percent),
       frete_valor: parseNum(dadosCompletos.frete_valor),
+      modo_exibicao_cliente:
+        dadosCompletos.modo_exibicao_cliente === 'parcelado_destaque'
+          ? 'parcelado_destaque'
+          : 'separado',
+      desconto_vista_percent: parseNum(dadosCompletos.desconto_vista_percent),
+      mensagem_whatsapp: String(dadosCompletos.mensagem_whatsapp ?? '').trim(),
       configurado: true,
       updated_at: new Date().toISOString(),
     };

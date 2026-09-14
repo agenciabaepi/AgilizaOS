@@ -13,7 +13,18 @@ export interface ConfiguracaoPrecificacao {
   frete_valor: number;
   modo_exibicao_cliente: ModoExibicaoPrecoCliente;
   desconto_vista_percent: number;
+  mensagem_whatsapp: string;
   configurado: boolean;
+}
+
+export function aplicarMensagemOrcamento(
+  template: string | null | undefined,
+  vars: { cliente: string; aparelho: string }
+): string {
+  if (!template?.trim()) return '';
+  return template
+    .replace(/\{\{\s*cliente\s*\}\}/gi, vars.cliente)
+    .replace(/\{\{\s*aparelho\s*\}\}/gi, vars.aparelho);
 }
 
 export const MODO_EXIBICAO_CLIENTE_OPTIONS: {

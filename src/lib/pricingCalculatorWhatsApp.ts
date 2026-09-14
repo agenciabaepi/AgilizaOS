@@ -1,5 +1,6 @@
 import {
   PARCELAS_MAX,
+  aplicarMensagemOrcamento,
   clampParcelasExibicao,
   formatBRL,
   formatDescontoVistaTexto,
@@ -111,7 +112,10 @@ export function buildOrcamentoWhatsAppMessage(data: OrcamentoWhatsAppData): stri
     `Olá, ${cliente}! Segue o orçamento para seu aparelho:`,
   ];
 
-  const textoLivre = textoPersonalizado?.trim();
+  const textoLivre = aplicarMensagemOrcamento(textoPersonalizado, {
+    cliente,
+    aparelho: modeloAparelho,
+  });
   if (textoLivre) {
     linhas.push('', textoLivre);
   }

@@ -98,7 +98,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
       try {
         const { data, error } = await supabase
           .from('configuracoes_precificacao')
-          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, modo_exibicao_cliente, desconto_vista_percent, configurado')
+          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, modo_exibicao_cliente, desconto_vista_percent, mensagem_whatsapp, configurado')
           .eq('empresa_id', usuarioData.empresa_id)
           .maybeSingle();
 
@@ -118,6 +118,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
             modo_exibicao_cliente:
               data.modo_exibicao_cliente === 'parcelado_destaque' ? 'parcelado_destaque' : 'separado',
             desconto_vista_percent: Number(data.desconto_vista_percent ?? 0),
+            mensagem_whatsapp: String(data.mensagem_whatsapp ?? ''),
             configurado: Boolean(data.configurado),
           });
         } else {
@@ -381,6 +382,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
           maoDeObra={maoDeObra}
           modoExibicaoCliente={config?.modo_exibicao_cliente ?? 'separado'}
           descontoVistaPercent={config?.desconto_vista_percent ?? 0}
+          mensagemWhatsApp={config?.mensagem_whatsapp ?? ''}
           maxParcelas={maxParcelas}
         />
       )}

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
-import { Textarea } from '@/components/textarea';
 import { imprimirCupomOrcamento } from '@/lib/pricingCalculatorCupom';
 import {
   clampParcelasExibicao,
@@ -16,7 +15,6 @@ import {
 } from '@/lib/pricingCalculator';
 import {
   abrirOrcamentoWhatsApp,
-  buildOrcamentoWhatsAppMessage,
   handlePhoneInputChange,
   isTelefoneWhatsAppValido,
 } from '@/lib/pricingCalculatorWhatsApp';
@@ -44,6 +42,7 @@ interface PricingCalculatorPrintDialogProps {
   modoExibicaoCliente: ModoExibicaoPrecoCliente;
   descontoVistaPercent: number;
   maxParcelas?: number;
+  mensagemWhatsApp?: string;
 }
 
 async function prepararLogoCupom(logoUrl?: string): Promise<string | null> {
@@ -71,12 +70,11 @@ export default function PricingCalculatorPrintDialog({
   modoExibicaoCliente,
   descontoVistaPercent,
   maxParcelas = PARCELAS_MAX,
+  mensagemWhatsApp = '',
 }: PricingCalculatorPrintDialogProps) {
   const [cliente, setCliente] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [modeloAparelho, setModeloAparelho] = useState('');
-  const [textoPersonalizado, setTextoPersonalizado] = useState('');
-  const [mensagemWhatsApp, setMensagemWhatsApp] = useState('');
   const [parcelasExibir, setParcelasExibir] = useState(maxParcelas);
   const [exibirMaoDeObraSeparada, setExibirMaoDeObraSeparada] = useState(false);
   const [exibirParcelamento, setExibirParcelamento] = useState(true);
@@ -93,71 +91,12 @@ export default function PricingCalculatorPrintDialog({
       setCliente('');
       setWhatsapp('');
       setModeloAparelho('');
-      setTextoPersonalizado('');
-      setMensagemWhatsApp('');
       setParcelasExibir(clampParcelasExibicao(maxParcelas));
       setExibirMaoDeObraSeparada(false);
       setExibirParcelamento(false);
       setProcessando(false);
     }
   }, [isOpen, maxParcelas]);
-
-  const orcamentoParaEnvio = useMemo(
-    () => ({
-      empresa: {
-        nome: empresa.nome,
-        cnpj: empresa.cnpj,
-        endereco: empresa.endereco,
-        telefone: empresa.telefone,
-        email: empresa.email,
-        website: empresa.website,
-      },
-      cliente: cliente.trim() || 'cliente',
-      modeloAparelho: modeloAparelho.trim() || 'aparelho',
-      precoPeca: resultado.precoPeca,
-      maoDeObra,
-      precoVenda: resultado.precoVenda,
-      precoParcelado: resultado.precoParcelado,
-      opcoesParcelamento,
-      exibirMaoDeObraSeparada,
-      exibirParcelamento,
-      modoExibicaoCliente,
-      descontoVistaPercent,
-      maxParcelas: parcelasSelecionadas,
-      textoPersonalizado,
-    }),
-    [
-      empresa.nome,
-      empresa.cnpj,
-      empresa.endereco,
-      empresa.telefone,
-      empresa.email,
-      empresa.website,
-      cliente,
-      modeloAparelho,
-      resultado.precoPeca,
-      resultado.precoVenda,
-      resultado.precoParcelado,
-      maoDeObra,
-      opcoesParcelamento,
-      exibirMaoDeObraSeparada,
-      exibirParcelamento,
-      modoExibicaoCliente,
-      descontoVistaPercent,
-      parcelasSelecionadas,
-      textoPersonalizado,
-    ]
-  );
-
-  const mensagemGerada = useMemo(
-    () => buildOrcamentoWhatsAppMessage(orcamentoParaEnvio),
-    [orcamentoParaEnvio]
-  );
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setMensagemWhatsApp(mensagemGerada);
-  }, [isOpen, mensagemGerada]);
 
   if (!isOpen) return null;
 
@@ -205,7 +144,7 @@ export default function PricingCalculatorPrintDialog({
       modoExibicaoCliente,
       descontoVistaPercent,
       maxParcelas: parcelasSelecionadas,
-      textoPersonalizado,
+      textoPersonalizado: mensagemWhatsApp,
     };
 
     const logoCupomPreto = await prepararLogoCupom(empresaCompleta.logo_url);
@@ -232,7 +171,7 @@ export default function PricingCalculatorPrintDialog({
     setProcessando(true);
     try {
       const { orcamentoBase } = await prepararDadosOrcamento();
-      abrirOrcamentoWhatsApp(whatsapp, orcamentoBase, mensagemWhatsApp);
+      abrirOrcamentoWhatsApp(whatsapp, orcamentoBase);
       onClose();
     } finally {
       setProcessando(false);
@@ -244,7 +183,7 @@ export default function PricingCalculatorPrintDialog({
       <div className="px-4 pb-5 pt-1 sm:px-6 sm:pb-6 sm:pt-6 w-full sm:w-[28rem] max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-8">Enviar orçamento</h3>
         <p className="text-xs text-gray-500 mb-5">
-          Personalize o texto e as parcelas antes de imprimir o cupom ou enviar pelo WhatsApp.
+          Informe o cliente e as parcelas. A mensagem do WhatsApp é a definida nas configurações da calculadora.
         </p>
 
         <div className="space-y-4">
@@ -287,21 +226,6 @@ export default function PricingCalculatorPrintDialog({
               value={modeloAparelho}
               onChange={(e) => setModeloAparelho(e.target.value)}
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Texto personalizado
-            </label>
-            <Textarea
-              rows={3}
-              placeholder="Ex: Consigo parcelar no cartão, ou 5% de desconto no PIX. Posso buscar o aparelho hoje."
-              value={textoPersonalizado}
-              onChange={(e) => setTextoPersonalizado(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Esse texto entra no WhatsApp e no cupom, do jeito que você escrever para este cliente.
-            </p>
           </div>
 
           {maoDeObra > 0 && (
@@ -355,20 +279,18 @@ export default function PricingCalculatorPrintDialog({
             </label>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Mensagem do WhatsApp
-            </label>
-            <Textarea
-              rows={8}
-              value={mensagemWhatsApp}
-              onChange={(e) => setMensagemWhatsApp(e.target.value)}
-              className="font-mono text-xs leading-relaxed"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Você pode editar o texto inteiro antes de enviar. O cupom usa o texto personalizado e as parcelas escolhidas.
+          {mensagemWhatsApp.trim() ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                Mensagem das configurações
+              </p>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap">{mensagemWhatsApp.trim()}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Para incluir um texto extra no WhatsApp, edite a mensagem nas configurações da calculadora.
             </p>
-          </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 mt-6">
