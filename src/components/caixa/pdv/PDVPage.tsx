@@ -15,6 +15,8 @@ import type {
   VendaDetalhes,
 } from './pdvService';
 import { Button, Alert, Select, Dialog, ConfirmDialog, Input } from './ui';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import {
   Printer, Search, Package, User, CreditCard, Banknote, QrCode, CircleDollarSign,
   FileCheck, Gift, Calendar, MoreVertical, Plus, X, ShoppingCart, ArrowDownCircle, Receipt,
@@ -482,7 +484,7 @@ export function PDVPage() {
 
   const diferencaCaixa = (() => {
     const esperado = resumoFechamento?.saldo_atual ?? 0
-    const contado = Number(String(valorCaixaContado).replace(',', '.')) || 0
+    const contado = parseCurrencyNumber(valorCaixaContado)
     return contado - esperado
   })()
 
@@ -560,7 +562,7 @@ export function PDVPage() {
     if (!itemEdit) return
     const item = cart.find((c) => c.produto_id === itemEdit.produtoId)
     if (!item) return
-    const v = Number(String(itemEditValor).replace(',', '.')) || 0
+    const v = parseCurrencyNumber(itemEditValor)
     const linhaTotal = item.preco_unitario * item.quantidade
 
     if (itemEdit.tipo === 'preco') {
@@ -628,7 +630,7 @@ export function PDVPage() {
   }, [cart.length, vendedorId, valorRestante, total, focarVendedor])
 
   const insertDescontoAcrescimo = useCallback(() => {
-    const v = Number(String(valorDescAcres).replace(',', '.')) || 0
+    const v = parseCurrencyNumber(valorDescAcres)
     if (v <= 0) return
     if (tipoDescAcres.startsWith('desconto')) {
       setDescontoTotal(tipoDescAcres.includes('pct') ? Math.round(subtotal * v) / 100 : v)
@@ -663,7 +665,7 @@ export function PDVPage() {
   }
 
   const addPayment = (forma?: PaymentRow['forma']) => {
-    const v = Number(String(valorPag).replace(',', '.')) || 0
+    const v = parseCurrencyNumber(valorPag)
     const formaToUse = forma ?? formaPag
     let valorAdicionar = v
 
@@ -901,7 +903,7 @@ export function PDVPage() {
       setSangriaErro('Abra o caixa antes de registrar sangria.')
       return
     }
-    const valor = Number(String(sangriaValor).replace(',', '.')) || 0
+    const valor = parseCurrencyNumber(sangriaValor)
     if (valor <= 0) {
       setSangriaErro('Informe um valor maior que zero.')
       return
@@ -1536,18 +1538,13 @@ export function PDVPage() {
                                 {formaPag === 'DINHEIRO' ? 'Valor recebido' : 'Valor a lançar'}
                                 <span className="pdv-kbd">Ctrl+3</span>
                               </label>
-                              <input
+                              <CurrencyInput
                                 id="pdv-valor-pagamento"
                                 ref={valorPagRef}
-                                type="text"
-                                inputMode="decimal"
                                 className="input-el pdv-drawer-valor-input"
-                                value={valorPag ? `R$ ${valorPag}` : ''}
+                                value={valorPag}
                                 placeholder={placeholderValorCampo}
-                                onChange={(e) => {
-                                  const raw = e.target.value.replace(/[^\d,.-]/g, '')
-                                  setValorPag(raw)
-                                }}
+                                onChange={(e) => setValorPag(e.target.value)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') addPayment(formaPag)
                                 }}
@@ -1569,7 +1566,7 @@ export function PDVPage() {
                                     setFormaPag(f.value)
                                     addPayment(f.value)
                                   }}
-                                  disabled={Number(String(valorPag).replace(',', '.')) <= 0 && f.value !== 'A_PRAZO'}
+                                  disabled={parseCurrencyNumber(valorPag) <= 0 && f.value !== 'A_PRAZO'}
                                 >
                                   <span className="pdv-drawer-forma-card-icon">{f.icon}</span>
                                   <span className="pdv-drawer-forma-card-text">
@@ -1669,16 +1666,27 @@ export function PDVPage() {
                                 className={`pdv-drawer-desc-input ${descAcresEhPercentual ? 'pdv-drawer-desc-input--pct' : 'pdv-drawer-desc-input--money'}`}
                               >
                                 {!descAcresEhPercentual && <span className="pdv-drawer-desc-prefix">R$</span>}
-                                <input
-                                  id="pdv-valor-desc-acres"
-                                  type="text"
-                                  inputMode="decimal"
-                                  className="input-el"
-                                  placeholder={descAcresEhPercentual ? '0' : '0,00'}
-                                  value={valorDescAcres}
-                                  onChange={(e) => setValorDescAcres(e.target.value.replace(/[^\d,.-]/g, ''))}
-                                  onKeyDown={(e) => e.key === 'Enter' && insertDescontoAcrescimo()}
-                                />
+                                {descAcresEhPercentual ? (
+                                  <input
+                                    id="pdv-valor-desc-acres"
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="input-el"
+                                    placeholder="0"
+                                    value={valorDescAcres}
+                                    onChange={(e) => setValorDescAcres(e.target.value.replace(/[^\d,.-]/g, ''))}
+                                    onKeyDown={(e) => e.key === 'Enter' && insertDescontoAcrescimo()}
+                                  />
+                                ) : (
+                                  <CurrencyInput
+                                    id="pdv-valor-desc-acres"
+                                    className="input-el"
+                                    placeholder="0,00"
+                                    value={valorDescAcres}
+                                    onChange={(e) => setValorDescAcres(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && insertDescontoAcrescimo()}
+                                  />
+                                )}
                                 {descAcresEhPercentual && <span className="pdv-drawer-desc-suffix">%</span>}
                               </div>
                               <Button type="button" variant="secondary" size="sm" onClick={insertDescontoAcrescimo}>
@@ -1907,9 +1915,7 @@ export function PDVPage() {
             </h4>
             <div className="pdv-modal-field">
               <label className="pdv-field-label">Valor contado em caixa (R$)</label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <CurrencyInput
                 placeholder="0,00"
                 value={valorCaixaContado}
                 onChange={(e) => setValorCaixaContado(e.target.value)}
@@ -1944,9 +1950,7 @@ export function PDVPage() {
 
             <div className="pdv-modal-field">
               <label className="pdv-field-label">Valor a manter no caixa para a próxima abertura (R$)</label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <CurrencyInput
                 placeholder="0,00"
                 value={valorManterProximoCaixa}
                 onChange={(e) => setValorManterProximoCaixa(e.target.value)}
@@ -1985,9 +1989,8 @@ export function PDVPage() {
             return
           }
           try {
-            const contado = Number(String(valorCaixaContado).replace(',', '.')) || 0
-            const manterStr = (valorManterProximoCaixa || '').toString().replace(',', '.').trim()
-            const manterNum = Number(manterStr)
+            const contado = parseCurrencyNumber(valorCaixaContado)
+            const manterNum = parseCurrencyNumber(valorManterProximoCaixa)
             const fechado = await api.caixa.fechar(
               caixaAberto.id,
               contado,
@@ -2117,9 +2120,7 @@ export function PDVPage() {
           {erro ? <Alert variant="error">{erro}</Alert> : null}
           <div className="pdv-modal-field">
             <label className="pdv-field-label">Valor de abertura do caixa (R$)</label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <CurrencyInput
               placeholder="0,00"
               value={valorAberturaPdv}
               onChange={(e) => setValorAberturaPdv(e.target.value)}
@@ -2132,7 +2133,7 @@ export function PDVPage() {
             fullWidth
             size="lg"
             onClick={() => {
-              const v = Number(String(valorAberturaPdv).replace(',', '.'))
+              const v = parseCurrencyNumber(valorAberturaPdv)
               if (!v || v <= 0) {
                 setErro('Informe um valor maior que zero para abrir o caixa.')
                 return
@@ -2151,9 +2152,7 @@ export function PDVPage() {
         open={confirmarAberturaCaixa}
         onClose={() => setConfirmarAberturaCaixa(false)}
         title="Confirmar abertura de caixa"
-        message={`Confirmar abertura do caixa com o valor de R$ ${Number(
-          String(valorAberturaPdv).replace(',', '.')
-        ).toFixed(2)}?`}
+        message={`Confirmar abertura do caixa com o valor de R$ ${parseCurrencyNumber(valorAberturaPdv).toFixed(2)}?`}
         confirmLabel="Confirmar abertura"
         loading={abrindoCaixaPdv}
         onConfirm={async () => {
@@ -2161,7 +2160,7 @@ export function PDVPage() {
             op.error('Empresa não identificada. Aguarde o carregamento ou faça login novamente.')
             return
           }
-          const v = Number(String(valorAberturaPdv).replace(',', '.'))
+          const v = parseCurrencyNumber(valorAberturaPdv)
           if (!v || v <= 0) {
             setErro('Informe um valor maior que zero para abrir o caixa.')
             return
@@ -2260,22 +2259,33 @@ export function PDVPage() {
         {itemEdit && (
           <div className="pdv-modal-compact">
             <p className="pdv-modal-hint">{itemEdit.descricao}</p>
-            <Input
-              label={
-                itemEdit.tipo === 'preco'
-                  ? 'Novo valor unitário (R$)'
-                  : itemEdit.tipo === 'desconto_pct'
-                    ? 'Percentual de desconto'
-                    : 'Valor do desconto (R$)'
-              }
-              type="text"
-              inputMode="decimal"
-              value={itemEditValor}
-              onChange={(e) => setItemEditValor(e.currentTarget.value.replace(/[^\d,.-]/g, ''))}
-              placeholder={itemEdit.tipo === 'desconto_pct' ? 'Ex: 10' : '0,00'}
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && confirmarEditItem()}
-            />
+            {itemEdit.tipo === 'desconto_pct' ? (
+              <Input
+                label="Percentual de desconto"
+                type="text"
+                inputMode="decimal"
+                value={itemEditValor}
+                onChange={(e) => setItemEditValor(e.currentTarget.value.replace(/[^\d,.-]/g, ''))}
+                placeholder="Ex: 10"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && confirmarEditItem()}
+              />
+            ) : (
+              <div className="input-wrap">
+                <label className="input-label" htmlFor="pdv-item-edit-valor">
+                  {itemEdit.tipo === 'preco' ? 'Novo valor unitário (R$)' : 'Valor do desconto (R$)'}
+                </label>
+                <CurrencyInput
+                  id="pdv-item-edit-valor"
+                  className="input-el"
+                  value={itemEditValor}
+                  onChange={(e) => setItemEditValor(e.target.value)}
+                  placeholder="0,00"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && confirmarEditItem()}
+                />
+              </div>
+            )}
             <div className="pdv-modal-actions">
               <Button
                 type="button"
@@ -2307,15 +2317,17 @@ export function PDVPage() {
             <Alert variant="warning">Não há caixa aberto.</Alert>
           ) : (
             <>
-              <Input
-                label="Valor (R$)"
-                type="text"
-                inputMode="decimal"
-                value={sangriaValor}
-                onChange={(e) => setSangriaValor(e.currentTarget.value.replace(/[^\d,.-]/g, ''))}
-                placeholder="0,00"
-                autoFocus
-              />
+              <div className="input-wrap">
+                <label className="input-label" htmlFor="pdv-sangria-valor">Valor (R$)</label>
+                <CurrencyInput
+                  id="pdv-sangria-valor"
+                  className="input-el"
+                  value={sangriaValor}
+                  onChange={(e) => setSangriaValor(e.target.value)}
+                  placeholder="0,00"
+                  autoFocus
+                />
+              </div>
               <Input
                 label="Motivo (opcional)"
                 type="text"

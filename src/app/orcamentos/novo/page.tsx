@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/useToast';
 import { supabase } from '@/lib/supabaseClient';
 import { buildOrcamentoPdfBlob } from '@/lib/pdfOrcamento';
 import { FiArrowLeft, FiDownload, FiPlus, FiPrinter, FiSave, FiTrash2 } from 'react-icons/fi';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 const FORMAS_PAGAMENTO = [
   { value: '', label: 'A combinar' },
@@ -27,11 +29,7 @@ function novoId() {
 }
 
 function parseMoney(input: string): number {
-  const s = String(input ?? '').trim();
-  if (!s) return 0;
-  const normalized = s.replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(normalized);
-  return Number.isFinite(n) ? n : 0;
+  return parseCurrencyNumber(input);
 }
 
 function formatBRL(n: number): string {
@@ -544,11 +542,11 @@ export default function NovoOrcamentoPage() {
                 />
               )}
               {discountMode === 'fixed' && (
-                <input
+                <CurrencyInput
                   value={descontoFixed}
                   onChange={(e) => setDescontoFixed(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 px-3 py-2 text-sm"
-                  placeholder="Ex.: 50,00"
+                  placeholder="0,00"
                 />
               )}
             </div>
@@ -711,16 +709,11 @@ export default function NovoOrcamentoPage() {
                           </td>
                           <td className="col-unit border border-[#bbb] px-2 py-1.5 text-right align-middle tabular-nums">
                             <span className="hidden print:inline">{formatBRL(l.valorUnit)}</span>
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
+                            <CurrencyInput
                               className="print:hidden w-full min-w-0 border border-zinc-300 rounded px-1 py-1 text-sm text-right"
                               value={l.valorUnit}
-                              onChange={(e) =>
-                                atualizarLinha(l.id, {
-                                  valorUnit: Math.max(0, parseFloat(e.target.value) || 0),
-                                })
+                              onValueChange={(valorUnit) =>
+                                atualizarLinha(l.id, { valorUnit: Math.max(0, valorUnit) })
                               }
                             />
                           </td>
@@ -811,7 +804,7 @@ export default function NovoOrcamentoPage() {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Preço (R$)</label>
-                  <input
+                  <CurrencyInput
                     value={novoItem.preco}
                     onChange={(e) => setNovoItem((p) => ({ ...p, preco: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 px-3 py-2 text-sm dark:bg-zinc-950"

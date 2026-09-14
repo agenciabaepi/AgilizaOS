@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { FiSave, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 export default function ConfigClient() {
   const [valor, setValor] = useState<string>('119.90');
@@ -23,14 +25,9 @@ export default function ConfigClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = valor.trim().replace(/R\$\s?/gi, '');
-    const numValor = parseFloat(
-      /^\d+(\.\d+)?$/.test(trimmed)
-        ? trimmed
-        : trimmed.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')
-    );
+    const numValor = parseCurrencyNumber(valor);
     if (!Number.isFinite(numValor) || numValor <= 0) {
-      setMessage({ type: 'error', text: 'Informe um valor válido (ex: 119.90)' });
+      setMessage({ type: 'error', text: 'Informe um valor válido (ex: 119,90)' });
       return;
     }
 
@@ -101,13 +98,11 @@ export default function ConfigClient() {
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
-              <input
+              <CurrencyInput
                 id="valor"
-                type="text"
-                inputMode="decimal"
                 value={valor}
                 onChange={(e) => setValor(e.target.value)}
-                placeholder="119.90"
+                placeholder="0,00"
                 className="pl-10 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-black focus:ring-1 focus:ring-black"
               />
             </div>

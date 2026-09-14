@@ -347,7 +347,7 @@ export const useFluxoCaixa = () => {
           tipo: formData.tipo,
           categoria: formData.categoria,
           descricao: formData.descricao,
-          valor: parseFloat(formData.valor.replace(',', '.')),
+          valor: parseValorMonetario(formData.valor),
           data_movimentacao: formData.data_movimentacao,
           observacoes: formData.observacoes || null,
           comprovante_url: formData.comprovante_url || null,
@@ -383,7 +383,7 @@ export const useFluxoCaixa = () => {
       if (formData.tipo) updateData.tipo = formData.tipo;
       if (formData.categoria) updateData.categoria = formData.categoria;
       if (formData.descricao) updateData.descricao = formData.descricao;
-      if (formData.valor) updateData.valor = parseFloat(formData.valor.replace(',', '.'));
+      if (formData.valor) updateData.valor = parseValorMonetario(formData.valor);
       if (formData.data_movimentacao) updateData.data_movimentacao = formData.data_movimentacao;
       if (formData.observacoes !== undefined) updateData.observacoes = formData.observacoes;
       if (formData.comprovante_url !== undefined) updateData.comprovante_url = formData.comprovante_url;

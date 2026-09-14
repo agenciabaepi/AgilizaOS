@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiPercent, FiDollarSign, FiX } from 'react-icons/fi';
 
 interface DescontoModalProps {
@@ -28,7 +30,7 @@ export function DescontoModal({
   const calcularDesconto = () => {
     if (!valorDesconto) return 0;
     
-    const valor = parseFloat(valorDesconto.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorDesconto);
     if (isNaN(valor)) return 0;
     
     if (tipoDesconto === 'percentual') {
@@ -46,7 +48,7 @@ export function DescontoModal({
       return;
     }
     
-    const valor = parseFloat(valorDesconto.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorDesconto);
     if (isNaN(valor) || valor <= 0) {
       setErro('Valor deve ser maior que zero');
       return;
@@ -147,13 +149,22 @@ export function DescontoModal({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Valor do Desconto {tipoDesconto === 'percentual' ? '(%)' : '(R$)'}:
           </label>
-          <Input
-            type="text"
-            value={valorDesconto}
-            onChange={(e) => setValorDesconto(e.target.value)}
-            placeholder={tipoDesconto === 'percentual' ? '0' : '0,00'}
-            className="text-right text-lg"
-          />
+          {tipoDesconto === 'valor' ? (
+            <CurrencyInput
+              value={valorDesconto}
+              onChange={(e) => setValorDesconto(e.target.value)}
+              placeholder="0,00"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-right text-lg ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+          ) : (
+            <Input
+              type="text"
+              value={valorDesconto}
+              onChange={(e) => setValorDesconto(e.target.value)}
+              placeholder="0"
+              className="text-right text-lg"
+            />
+          )}
         </div>
 
         {/* Preview do desconto */}

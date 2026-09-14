@@ -4,6 +4,7 @@ import React from 'react';
 import { FiSearch, FiMoreVertical } from 'react-icons/fi';
 import { ItemCarrinho, ProdutoPDV } from './types';
 import { calcularTotalItem, formatCurrency } from './utils';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 const inputClass =
   'w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -191,23 +192,17 @@ export function PainelProdutos({
                   <td className="px-3 py-3 text-center text-zinc-600">{item.qty}</td>
                   <td className="px-3 py-3 text-right text-zinc-600">{formatCurrency(item.preco)}</td>
                   <td className="px-3 py-3 text-right">
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
+                    <CurrencyInput
                       value={item.desconto || ''}
-                      onChange={(e) => onEditarItem(item.id, 'desconto', parseFloat(e.target.value) || 0)}
+                      onValueChange={(n) => onEditarItem(item.id, 'desconto', n)}
                       className="w-full px-2 py-1 text-right bg-transparent border border-transparent hover:border-zinc-200 focus:border-brand rounded text-sm"
                       placeholder="0,00"
                     />
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
+                    <CurrencyInput
                       value={item.acrescimo || ''}
-                      onChange={(e) => onEditarItem(item.id, 'acrescimo', parseFloat(e.target.value) || 0)}
+                      onValueChange={(n) => onEditarItem(item.id, 'acrescimo', n)}
                       className="w-full px-2 py-1 text-right bg-transparent border border-transparent hover:border-zinc-200 focus:border-brand rounded text-sm"
                       placeholder="0,00"
                     />

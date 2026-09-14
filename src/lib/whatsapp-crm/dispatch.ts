@@ -4,6 +4,8 @@ import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { sendWhatsAppTextMessage } from './graph-api';
 import { getOrCreateConversa, appendMensagem, getEmpresaConfig } from './conversations';
 import { syncOsContexto } from './os-context';
+import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
+import { parseDateOnlyLocal, resolverVencimentoGarantiaOs } from '@/lib/garantiaOs';
 import { renderAutomacaoTemplate } from './template-vars';
 import type { AutomacaoTemplateVars, DispatchAutomacaoPayload, WhatsAppAutomacaoEvento } from './types';
 
@@ -26,6 +28,14 @@ function mapStatusToEvento(status: string): WhatsAppAutomacaoEvento | null {
 function formatValor(valor: number | null | undefined): string {
   if (valor == null) return '';
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatDataMsg(dateString: string | null | undefined): string {
+  if (!dateString) return '';
+  const soData = parseDateOnlyLocal(dateString);
+  if (soData) return soData.toLocaleDateString('pt-BR');
+  const parsed = new Date(dateString);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('pt-BR');
 }
 
 /**
@@ -55,6 +65,7 @@ export async function dispatchAutomacaoOs(
     .select(
       `id, numero_os, status, status_tecnico, equipamento, marca, modelo,
        valor_faturado, valor_servico, valor_peca, cliente_id, empresa_id,
+       data_entrega, vencimento_garantia, cliente_recusou,
        clientes ( id, nome, telefone, celular ),
        empresas ( nome )`
     )
@@ -101,6 +112,14 @@ export async function dispatchAutomacaoOs(
     os.valor_faturado ??
     Number(os.valor_servico || 0) + Number(os.valor_peca || 0);
 
+  const vencimentoGarantia = resolverVencimentoGarantiaOs({
+    vencimento_garantia: os.vencimento_garantia as string | null,
+    data_entrega: os.data_entrega as string | null,
+    cliente_recusou: os.cliente_recusou as boolean | null,
+    status: os.status,
+    status_tecnico: os.status_tecnico,
+  });
+
   const vars: AutomacaoTemplateVars = {
     cliente_nome: cliente?.nome ?? 'Cliente',
     numero_os: os.numero_os,
@@ -110,6 +129,9 @@ export async function dispatchAutomacaoOs(
     modelo: os.modelo ?? '',
     valor: formatValor(valor),
     empresa_nome: (os.empresas as { nome?: string } | null)?.nome ?? '',
+    data_retirada: formatDataMsg(os.data_entrega as string | null),
+    vencimento_garantia: formatDataMsg(vencimentoGarantia),
+    link_avaliacao: LINK_AVALIACAO_GOOGLE,
   };
 
   const mensagem = renderAutomacaoTemplate(automacao.mensagem_template, vars);

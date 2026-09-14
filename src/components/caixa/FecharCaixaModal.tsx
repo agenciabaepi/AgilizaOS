@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { TurnoCaixa } from '@/hooks/useCaixa';
 import { FiLock, FiAlertTriangle } from 'react-icons/fi';
 
@@ -35,7 +36,7 @@ export const FecharCaixaModal: React.FC<FecharCaixaModalProps> = ({
   };
 
   const calcularDiferenca = () => {
-    const valor = parseFloat(valorFechamento.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorFechamento);
     if (isNaN(valor)) return 0;
     return valor - saldoEsperado;
   };
@@ -51,8 +52,8 @@ export const FecharCaixaModal: React.FC<FecharCaixaModalProps> = ({
     e.preventDefault();
     setErro('');
 
-    const valor = parseFloat(valorFechamento.replace(',', '.'));
-    const troco = parseFloat(valorTroco.replace(',', '.')) || 0;
+    const valor = parseCurrencyNumber(valorFechamento);
+    const troco = parseCurrencyNumber(valorTroco);
     
     if (isNaN(valor) || valor < 0) {
       setErro('Valor de fechamento deve ser um número válido');
@@ -131,13 +132,12 @@ export const FecharCaixaModal: React.FC<FecharCaixaModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Valor em Caixa *
             </label>
-            <Input
-              type="text"
+            <CurrencyInput
               value={valorFechamento}
               onChange={(e) => setValorFechamento(e.target.value)}
               placeholder="0,00"
               required
-              className="text-right"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-right ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -149,12 +149,11 @@ export const FecharCaixaModal: React.FC<FecharCaixaModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Valor para Troco do Próximo Dia
             </label>
-            <Input
-              type="text"
+            <CurrencyInput
               value={valorTroco}
               onChange={(e) => setValorTroco(e.target.value)}
               placeholder="0,00"
-              className="text-right"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-right ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-1">

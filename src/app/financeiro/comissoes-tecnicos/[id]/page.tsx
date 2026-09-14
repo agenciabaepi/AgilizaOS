@@ -24,6 +24,8 @@ import {
   FiSave
 } from 'react-icons/fi';
 import { buildComissoesTecnicosPDFBlob } from '@/lib/pdfComissoesTecnicos';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 interface Comissao {
   id: string;
@@ -270,7 +272,7 @@ export default function TecnicoComissoesDetalhesPage() {
 
   // Processar saque parcial
   const handleSaqueParcial = async () => {
-    const valor = parseFloat(valorSaque.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorSaque);
     
     if (isNaN(valor) || valor <= 0) {
       addToast('error', 'Digite um valor válido para o saque.');
@@ -707,13 +709,9 @@ export default function TecnicoComissoesDetalhesPage() {
                           </label>
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500">R$</span>
-                            <input
-                              type="text"
+                            <CurrencyInput
                               value={valorSaque}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9,]/g, '');
-                                setValorSaque(val);
-                              }}
+                              onChange={(e) => setValorSaque(e.target.value)}
                               placeholder="0,00"
                               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
@@ -962,7 +960,7 @@ export default function TecnicoComissoesDetalhesPage() {
                     <div><label className="block text-sm text-gray-600 mb-1">Valor total da OS</label><p className="font-medium">{formatCurrency(comissaoEditando.valor_total ?? comissaoEditando.valor_servico)}</p></div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Valor da comissão *</label>
-                      <input type="number" step="0.01" min={0} value={valorEditado} onChange={e => setValorEditado(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                      <CurrencyInput value={valorEditado} onValueChange={setValorEditado} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>

@@ -9,6 +9,8 @@ import AuthGuard from '@/components/AuthGuard';
 import { useContasAPagar } from '@/hooks/useContasAPagar';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { Select } from '@/components/Select';
 import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip, FiDollarSign } from 'react-icons/fi';
 import DashboardCard from '@/components/ui/DashboardCard';
@@ -281,7 +283,7 @@ function ContasAPagarPageContent() {
         categoria_id: formData.categoria_id || null,
         tipo: formData.tipo,
         descricao: formData.descricao,
-        valor: parseFloat(formData.valor),
+        valor: parseCurrencyNumber(formData.valor),
         data_vencimento: dataFormatada,
         fornecedor: formData.fornecedor || null,
         observacoes: formData.observacoes || null,
@@ -312,7 +314,7 @@ function ContasAPagarPageContent() {
               parcela.parcela_atual || 1,
               parcela.parcelas_totais || 1
             ),
-            valor: parseFloat(formData.valor),
+            valor: parseCurrencyNumber(formData.valor),
             fornecedor: formData.fornecedor || null,
             observacoes: formData.observacoes || null,
           }));
@@ -1123,13 +1125,12 @@ function ContasAPagarPageContent() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Valor *</label>
-                        <Input
-                          type="number"
-                          step="0.01"
+                        <CurrencyInput
                           value={formData.valor || ''}
                           onChange={(e) => setFormData({...formData, valor: e.target.value})}
                           required
                           placeholder="0,00"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900"
                         />
                       </div>
                       <div>

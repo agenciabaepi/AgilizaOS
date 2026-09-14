@@ -156,6 +156,9 @@ export interface AutomacaoTemplateVars {
   valor?: string;
   empresa_nome?: string;
   link_os?: string;
+  data_retirada?: string;
+  vencimento_garantia?: string;
+  link_avaliacao?: string;
 }
 
 export interface DispatchAutomacaoPayload {

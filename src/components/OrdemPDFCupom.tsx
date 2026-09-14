@@ -220,6 +220,8 @@ export default function OrdemPDFCupom({ ordem }: { ordem: any }) {
           <Text style={styles.bold}>Prazo: {formatDate(ordem.prazo_entrega)}</Text>
           <Text style={styles.bold}>Status: {ordem.status || '---'}</Text>
         </View>
+        <Text style={styles.bold}>Retirada: {formatDate(ordem.data_entrega)}</Text>
+        <Text style={styles.bold}>Vencimento: {formatDate(ordem.vencimento_garantia)}</Text>
         <Text style={[styles.bold, { marginTop: 2 }]}>Status técnico: {statusTecnicoLabel}</Text>
         <View style={styles.line} />
 

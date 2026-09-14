@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/Button';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiCheck, FiRefreshCw } from 'react-icons/fi';
 import { PLANO_SLUGS, PLANOS_VENDA, type PlanoSlug } from '@/config/planModules';
 
@@ -28,10 +30,8 @@ function formatarPrecoBRL(valor: number) {
 }
 
 function parseValorInput(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = parseFloat(trimmed.replace(/\./g, '').replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const n = parseCurrencyNumber(raw);
+  return n > 0 ? n : null;
 }
 
 /**
@@ -214,9 +214,7 @@ export default function AdminEmpresaValorPorPlano({
                       Valor cobrado nesta empresa
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <CurrencyInput
                         value={valorStr}
                         onChange={(e) => {
                           setValorStr(e.target.value);
@@ -224,7 +222,7 @@ export default function AdminEmpresaValorPorPlano({
                           setErro(null);
                         }}
                         className="flex-1 min-w-[120px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent bg-white"
-                        placeholder={String(catalogo)}
+                        placeholder="0,00"
                       />
                       <Button
                         type="button"

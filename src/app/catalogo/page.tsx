@@ -5,6 +5,8 @@ import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 interface CatalogoItem {
   id: string;
@@ -174,7 +176,7 @@ export default function CatalogoPage() {
         const { data } = supabase.storage.from('catalogo').getPublicUrl(path);
         imagemUrl = data.publicUrl;
       }
-      const precoNumber = Number(String(form.preco).replace(',', '.')) || 0;
+      const precoNumber = parseCurrencyNumber(form.preco);
       const payload: any = {
         empresa_id: empresaId,
         titulo: form.titulo,
@@ -265,7 +267,7 @@ export default function CatalogoPage() {
           await supabase.storage.from('catalogo').remove([oldPath]);
         }
       }
-      const precoNumber = Number(String(editForm.preco).replace(',', '.')) || 0;
+      const precoNumber = parseCurrencyNumber(editForm.preco);
       const payload: any = {
         titulo: editForm.titulo,
         descricao: editForm.descricao || null,
@@ -442,11 +444,11 @@ export default function CatalogoPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Preço *</label>
                       <div className="relative">
                         <span className="absolute left-3 top-3 text-gray-500">R$</span>
-                        <input 
-                          value={form.preco} 
-                          onChange={e => setForm(prev => ({ ...prev, preco: e.target.value }))} 
-                          className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors" 
-                          placeholder="120,00" 
+                        <CurrencyInput
+                          value={form.preco}
+                          onChange={e => setForm(prev => ({ ...prev, preco: e.target.value }))}
+                          className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
+                          placeholder="0,00"
                         />
                       </div>
                     </div>
@@ -742,7 +744,7 @@ export default function CatalogoPage() {
                     </label>
                     <label className="block">
                       <div className="text-xs text-gray-600 mb-1">Preço</div>
-                      <input value={editForm.preco} onChange={e => setEditForm(prev => ({ ...prev, preco: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                      <CurrencyInput value={editForm.preco} onChange={e => setEditForm(prev => ({ ...prev, preco: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                     </label>
                     <label className="block">
                       <div className="text-xs text-gray-600 mb-1">Categoria</div>

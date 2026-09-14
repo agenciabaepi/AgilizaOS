@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { 
   FiPercent, 
   FiTrendingUp, 
@@ -111,7 +113,7 @@ export function PainelControles({
   };
 
   const processarSangria = () => {
-    const valor = parseFloat(valores.sangria.replace(',', '.'));
+    const valor = parseCurrencyNumber(valores.sangria);
     if (valor > 0 && valor <= saldoCaixa) {
       onSangria(valor, valores.observacoes);
       setValores(prev => ({ ...prev, sangria: '', observacoes: '' }));
@@ -119,7 +121,7 @@ export function PainelControles({
   };
 
   const processarSuprimento = () => {
-    const valor = parseFloat(valores.suprimento.replace(',', '.'));
+    const valor = parseCurrencyNumber(valores.suprimento);
     if (valor > 0) {
       onSuprimento(valor, valores.observacoes);
       setValores(prev => ({ ...prev, suprimento: '', observacoes: '' }));
@@ -332,12 +334,11 @@ export function PainelControles({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sangria:</label>
               <div className="flex gap-2">
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valores.sangria}
                   onChange={(e) => setValores(prev => ({ ...prev, sangria: e.target.value }))}
                   placeholder="0,00"
-                  className="flex-1 text-sm"
+                  className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <Button
                   onClick={processarSangria}
@@ -353,12 +354,11 @@ export function PainelControles({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Suprimento:</label>
               <div className="flex gap-2">
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valores.suprimento}
                   onChange={(e) => setValores(prev => ({ ...prev, suprimento: e.target.value }))}
                   placeholder="0,00"
-                  className="flex-1 text-sm"
+                  className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <Button
                   onClick={processarSuprimento}

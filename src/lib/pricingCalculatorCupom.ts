@@ -1,5 +1,6 @@
 import {
   PARCELAS_MAX,
+  clampParcelasExibicao,
   calcularPrecoVistaExibicao,
   formatDescontoVistaTexto,
   type ModoExibicaoPrecoCliente,
@@ -29,6 +30,8 @@ export interface OrcamentoCupomData {
   exibirParcelamento: boolean;
   modoExibicaoCliente: ModoExibicaoPrecoCliente;
   descontoVistaPercent: number;
+  maxParcelas?: number;
+  textoPersonalizado?: string;
 }
 
 function escapeHtml(text: string): string {
@@ -137,7 +140,8 @@ function buildResumoCupom(
   precoVenda: number,
   precoParcelado: number,
   exibirParcelamento: boolean,
-  descontoVistaPercent: number
+  descontoVistaPercent: number,
+  maxParcelas: number
 ): string {
   if (modo === 'parcelado_destaque') {
     const precoVistaCliente = calcularPrecoVistaExibicao(
@@ -146,7 +150,7 @@ function buildResumoCupom(
       descontoVistaPercent
     );
     const linhas = [linhaResumo('Valor parcelado:', formatCupomValor(precoParcelado))];
-    linhas.push(`<p class="resumo-note">Parcelado em até ${PARCELAS_MAX}x</p>`);
+    linhas.push(`<p class="resumo-note">Parcelado em até ${maxParcelas}x</p>`);
     const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
     if (desconto) {
       linhas.push(`<p class="resumo-note">${escapeHtml(desconto)}</p>`);
@@ -186,7 +190,11 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     exibirParcelamento,
     modoExibicaoCliente,
     descontoVistaPercent,
+    maxParcelas,
+    textoPersonalizado,
   } = data;
+
+  const parcelasTexto = clampParcelasExibicao(maxParcelas ?? PARCELAS_MAX);
 
   const dataStr = new Date().toLocaleDateString('pt-BR');
   const horaStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -218,7 +226,8 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     precoVenda,
     precoParcelado,
     exibirParcelamento,
-    descontoVistaPercent
+    descontoVistaPercent,
+    parcelasTexto
   );
 
   const html = `<!DOCTYPE html>
@@ -415,6 +424,11 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     <div class="resumo">${resumoLinhas}</div>
 
     <p class="footer-note">
+      ${
+        textoPersonalizado?.trim()
+          ? `${escapeHtml(textoPersonalizado.trim()).replace(/\n/g, '<br />')}<br /><br />`
+          : ''
+      }
       Orçamento válido por 7 dias.<br />
       Sujeito à disponibilidade de peças.
     </p>

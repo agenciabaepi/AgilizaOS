@@ -8,9 +8,12 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import {
   calcularPrecificacao,
+  clampParcelasExibicao,
+  filtrarOpcoesParcelamento,
   formatBRL,
   handleMoneyInputChange,
   isConfiguracaoValida,
+  listaParcelasExibicao,
   parseMoneyInput,
   PARCELAS_MAX,
   MODO_EXIBICAO_CLIENTE_OPTIONS,
@@ -78,6 +81,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   const [config, setConfig] = useState<ConfiguracaoPrecificacao | null>(null);
   const [custoInput, setCustoInput] = useState('');
   const [maoDeObraInput, setMaoDeObraInput] = useState('');
+  const [parcelasExibir, setParcelasExibir] = useState(PARCELAS_MAX);
   const [printOpen, setPrintOpen] = useState(false);
 
   useEffect(() => {
@@ -87,6 +91,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
     setLoading(true);
     setCustoInput('');
     setMaoDeObraInput('');
+    setParcelasExibir(PARCELAS_MAX);
     setPrintOpen(false);
 
     (async () => {
@@ -139,6 +144,12 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
     if (!config || !isConfiguracaoValida(config) || !temValorInformado) return null;
     return calcularPrecificacao(custo, config, maoDeObra);
   }, [config, custo, maoDeObra, temValorInformado]);
+
+  const maxParcelas = clampParcelasExibicao(parcelasExibir);
+  const opcoesExibidas = useMemo(
+    () => (resultado ? filtrarOpcoesParcelamento(resultado.opcoesParcelamento, maxParcelas) : []),
+    [resultado, maxParcelas]
+  );
 
   if (!isOpen) return null;
 
@@ -271,18 +282,34 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                     </div>
                   </div>
 
-                  {resultado.opcoesParcelamento.length > 0 && (
+                  {opcoesExibidas.length > 0 && (
                     <div className="rounded-xl border border-gray-200 bg-white p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                        Parcelamento até {PARCELAS_MAX}x
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Parcelamento até {maxParcelas}x
+                        </p>
+                        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                          Exibir
+                          <select
+                            value={maxParcelas}
+                            onChange={(e) => setParcelasExibir(Number(e.target.value))}
+                            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                          >
+                            {listaParcelasExibicao().map((n) => (
+                              <option key={n} value={n}>
+                                {n}x
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
                       <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                        {resultado.opcoesParcelamento.map((opcao) => (
+                        {opcoesExibidas.map((opcao) => (
                           <div
                             key={opcao.parcelas}
                             className={cn(
                               'flex justify-between items-center gap-2 text-sm tabular-nums',
-                              opcao.parcelas === PARCELAS_MAX
+                              opcao.parcelas === maxParcelas
                                 ? 'font-semibold text-gray-900'
                                 : 'text-gray-700'
                             )}
@@ -354,6 +381,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
           maoDeObra={maoDeObra}
           modoExibicaoCliente={config?.modo_exibicao_cliente ?? 'separado'}
           descontoVistaPercent={config?.desconto_vista_percent ?? 0}
+          maxParcelas={maxParcelas}
         />
       )}
     </>

@@ -9,6 +9,8 @@ import { Input } from '@/components/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabaseClient';
 import { parsePercentInput, MODO_EXIBICAO_CLIENTE_OPTIONS, type ModoExibicaoPrecoCliente } from '@/lib/pricingCalculator';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiPercent, FiDollarSign, FiSave } from 'react-icons/fi';
 import { Calculator } from 'lucide-react';
 
@@ -98,7 +100,7 @@ export default function PrecificacaoPage() {
         markup_percent: parsePercentInput(form.markup_percent),
         imposto_percent: parsePercentInput(form.imposto_percent),
         juros_parcelamento_percent: parsePercentInput(form.juros_parcelamento_percent),
-        frete_valor: parsePercentInput(form.frete_valor),
+        frete_valor: parseCurrencyNumber(form.frete_valor),
         modo_exibicao_cliente: form.modo_exibicao_cliente,
         desconto_vista_percent: parsePercentInput(form.desconto_vista_percent),
         configurado: true,
@@ -207,7 +209,7 @@ export default function PrecificacaoPage() {
                 />
                 <FiPercent className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Percentual de juros sobre o valor à vista (aplicado no total parcelado, exibido de 2x até 12x).</p>
+              <p className="text-xs text-gray-500 mt-1">Percentual de juros sobre o valor à vista (aplicado no total parcelado). Na calculadora você escolhe até quantas vezes exibir, de 2x a 12x.</p>
             </div>
 
             <div>
@@ -215,10 +217,8 @@ export default function PrecificacaoPage() {
                 Frete (R$)
               </label>
               <div className="relative">
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Ex: 15,00"
+                <CurrencyInput
+                  placeholder="0,00"
                   value={form.frete_valor}
                   onChange={(e) => setForm((f) => ({ ...f, frete_valor: e.target.value }))}
                   className="pl-10"
@@ -287,7 +287,7 @@ export default function PrecificacaoPage() {
             <ol className="list-decimal list-inside space-y-0.5 text-xs">
               <li>Soma o custo da peça com o frete e aplica markup e imposto</li>
               <li>Adiciona o valor de mão de obra informado na calculadora</li>
-              <li>Calcula o parcelado com os juros configurados (até 12x)</li>
+              <li>Na calculadora, você escolhe até quantas parcelas mostrar (2x a 12x) e pode escrever um texto personalizado para o cliente</li>
             </ol>
           </div>
 

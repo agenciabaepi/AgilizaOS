@@ -10,6 +10,8 @@ import {
   FiDollarSign,
 } from 'react-icons/fi';
 import { formatarDataAdmin } from '@/lib/user-verification-tracking';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 type SmsEnvio = {
   id: string;
@@ -100,7 +102,7 @@ export default function AdminSmsPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ saldo: saldoInput }),
+        body: JSON.stringify({ saldo: parseCurrencyNumber(saldoInput) }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -207,10 +209,8 @@ export default function AdminSmsPage() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Atualizar saldo (R$)
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Ex: 10,50"
+                  <CurrencyInput
+                    placeholder="0,00"
                     value={saldoInput}
                     onChange={(e) => setSaldoInput(e.target.value)}
                     className="w-full sm:w-40 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"

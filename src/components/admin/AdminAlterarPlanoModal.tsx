@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/Button';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiCheck, FiX as FiXIcon } from 'react-icons/fi';
 import {
   PLANO_SLUGS,
@@ -171,7 +173,7 @@ export default function AdminAlterarPlanoModal({
       const trimmed = valorMensalStr.trim();
       let valor_mensal: number | undefined;
       if (trimmed) {
-        const n = parseFloat(trimmed.replace(/\./g, '').replace(',', '.'));
+        const n = parseCurrencyNumber(trimmed);
         if (Number.isFinite(n) && n > 0) valor_mensal = n;
       }
 
@@ -315,15 +317,13 @@ export default function AdminAlterarPlanoModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Valor mensal para o plano {planoSelecionado?.nome || 'selecionado'} (R$)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <CurrencyInput
               value={valorMensalStr}
               onChange={(e) => setValorMensalStr(e.target.value)}
               placeholder={
                 planoSelecionado
                   ? `Catálogo: ${formatarPrecoBRL(Number(planoSelecionado.preco))}`
-                  : 'Ex: 149,90'
+                  : '0,00'
               }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             />

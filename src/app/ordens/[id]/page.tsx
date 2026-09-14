@@ -26,13 +26,18 @@ import {
   type TermoGarantia,
 } from '@/lib/termoGarantiaPadrao';
 import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
+import { CurrencyInput } from '@/components/CurrencyInput';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 import {
   calcularVencimentoGarantia,
   osElegivelParaGarantia,
+  parseDateOnlyLocal,
   resolverVencimentoGarantiaOs,
   toDateOnlyLocal,
 } from '@/lib/garantiaOs';
+import { isStatusEntregue } from '@/lib/statusEmpresa';
+import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -50,13 +55,8 @@ function novoIdLinhaPagamento() {
     : `pg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Parse valor em pt-BR ou simples (ex.: "1.234,56" ou "100.50") */
 function parseValorMontario(input: string): number {
-  const s = String(input ?? '').trim();
-  if (!s) return 0;
-  const normalized = s.replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(normalized);
-  return Number.isFinite(n) ? n : 0;
+  return parseCurrencyNumber(input);
 }
 
 const VisualizarOrdemServicoPage = () => {
@@ -680,6 +680,13 @@ const VisualizarOrdemServicoPage = () => {
     window.open(`https://wa.me/${numero}`, '_blank');
   };
 
+  const formatarDataMensagem = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    const soData = parseDateOnlyLocal(dateString);
+    if (soData) return soData.toLocaleDateString('pt-BR');
+    return formatDate(dateString);
+  };
+
   const enviarOSPorWhatsApp = () => {
     const raw = (ordem?.cliente?.telefone || '').replace(/\D/g, '');
     if (raw.length < 10) {
@@ -692,21 +699,56 @@ const VisualizarOrdemServicoPage = () => {
     const senha = ordem?.senha_acesso ? String(ordem.senha_acesso).trim() : '';
     const clienteNome = ordem?.cliente?.nome || 'Cliente';
     const equipamento = [ordem?.equipamento, ordem?.marca, ordem?.modelo].filter(Boolean).join(' ') || '—';
-    const statusLabel = statusExibicao?.label || getStatusTecnicoLabel(ordem?.status, ordem?.status_tecnico) || ordem?.status || '—';
-    const texto = [
-      `*Resumo da OS #${ordem?.numero_os ?? ordem?.id}*`,
-      '',
-      `Olá, ${clienteNome}!`,
-      '',
-      `*Equipamento:* ${equipamento}`,
-      ordem?.problema_relatado ? `*Problema relatado:* ${String(ordem.problema_relatado).slice(0, 200)}${String(ordem.problema_relatado).length > 200 ? '...' : ''}` : '',
-      `*Status:* ${statusLabel}`,
-      ordem?.prazo_entrega ? `*Previsão de entrega:* ${formatDate(ordem.prazo_entrega)}` : '',
-      '',
-      '*Acompanhe sua OS pelo link abaixo (use a senha do recibo para acessar):*',
-      linkAcompanhar,
-      senha ? `*Senha de acesso:* ${senha}` : '',
-    ].filter(Boolean).join('\n');
+    const numeroOs = ordem?.numero_os ?? ordem?.id;
+    let texto: string;
+
+    if (isStatusEntregue(ordem?.status)) {
+      const valorFaturado = Number(ordem?.valor_faturado || 0);
+      const valor = valorFaturado > 0 ? valorFaturado : calcularValores().valorFinal;
+      const dataRetirada = formatarDataMensagem(ordem?.data_entrega);
+      const vencimentoGarantia = resolverVencimentoGarantiaOs({
+        vencimento_garantia: ordem?.vencimento_garantia,
+        data_entrega: ordem?.data_entrega,
+        cliente_recusou: ordem?.cliente_recusou,
+        aparelho_sem_conserto: ordem?.aparelho_sem_conserto,
+        status: ordem?.status,
+        status_tecnico: ordem?.status_tecnico,
+      });
+      const dataGarantia = formatarDataMensagem(vencimentoGarantia);
+
+      texto = [
+        `Olá, ${clienteNome}!`,
+        '',
+        `Sua OS *#${numeroOs}* foi *entregue*. ✅`,
+        '',
+        `*Equipamento:* ${equipamento}`,
+        `*Valor:* ${formatCurrency(valor)}`,
+        dataRetirada ? `*Data da retirada:* ${dataRetirada}` : '',
+        dataGarantia ? `*Vencimento da garantia:* ${dataGarantia}` : '',
+        '',
+        'Obrigado pela confiança! 🙏',
+        '',
+        'Se puder, avalie nosso atendimento no Google:',
+        LINK_AVALIACAO_GOOGLE,
+      ].filter(Boolean).join('\n');
+    } else {
+      const statusLabel = statusExibicao?.label || getStatusTecnicoLabel(ordem?.status, ordem?.status_tecnico) || ordem?.status || '—';
+      texto = [
+        `*Resumo da OS #${numeroOs}*`,
+        '',
+        `Olá, ${clienteNome}!`,
+        '',
+        `*Equipamento:* ${equipamento}`,
+        ordem?.problema_relatado ? `*Problema relatado:* ${String(ordem.problema_relatado).slice(0, 200)}${String(ordem.problema_relatado).length > 200 ? '...' : ''}` : '',
+        `*Status:* ${statusLabel}`,
+        ordem?.prazo_entrega ? `*Previsão de entrega:* ${formatDate(ordem.prazo_entrega)}` : '',
+        '',
+        '*Acompanhe sua OS pelo link abaixo (use a senha do recibo para acessar):*',
+        linkAcompanhar,
+        senha ? `*Senha de acesso:* ${senha}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
@@ -921,7 +963,11 @@ const VisualizarOrdemServicoPage = () => {
                         setImprimirSubOpen(false);
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-green-50 dark:hover:bg-green-900/25"
-                      title="Enviar resumo da OS + link e senha para o cliente no WhatsApp"
+                      title={
+                        isStatusEntregue(ordem.status)
+                          ? 'Enviar comprovante de entrega, garantia e avaliação no WhatsApp'
+                          : 'Enviar resumo da OS + link e senha para o cliente no WhatsApp'
+                      }
                     >
                       <FaWhatsapp className="w-4 h-4 shrink-0 text-green-700 dark:text-green-500" />
                       Enviar OS
@@ -1714,9 +1760,7 @@ const VisualizarOrdemServicoPage = () => {
                         <p className="text-xs text-gray-500 dark:text-zinc-400">
                           Opcional: desconto adicional (R$) sobre o total já calculado na OS. Será lançado na venda.
                         </p>
-                        <input
-                          type="text"
-                          inputMode="decimal"
+                        <CurrencyInput
                           value={descontoEntregaStr}
                           onChange={(e) => setDescontoEntregaStr(e.target.value)}
                           placeholder="0,00"
@@ -1772,12 +1816,10 @@ const VisualizarOrdemServicoPage = () => {
                                   </select>
                                 </div>
                                 <div className="flex gap-2 flex-1 min-w-0">
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
+                                  <CurrencyInput
                                     value={linha.valor}
                                     onChange={(e) => atualizarLinhaPagamento(linha.id, { valor: e.target.value })}
-                                    placeholder="Valor R$"
+                                    placeholder="0,00"
                                     className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
                                   />
                                   <button

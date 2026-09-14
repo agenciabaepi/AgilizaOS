@@ -8,6 +8,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Tab } from '@headlessui/react';
 import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { Label } from '@/components/label';
 import { Textarea } from '@/components/textarea';
 import MenuLayout from '@/components/MenuLayout';
@@ -563,8 +565,8 @@ export default function NovoProdutoPage() {
       categoria_id: formData.categoria || null,
       subcategoria_id: formData.subcategoria || null,
       fornecedor_id: formData.fornecedor_id || null,
-      custo: formData.custo ? parseFloat(formData.custo) : 0,
-      preco: formData.preco ? parseFloat(formData.preco) : 0,
+      custo: formData.custo ? parseCurrencyNumber(formData.custo) : 0,
+      preco: formData.preco ? parseCurrencyNumber(formData.preco) : 0,
       unidade: formData.unidade || '',
       marca: formData.marca || '',
       estoque_min: formData.estoque_min ? parseFloat(formData.estoque_min) : 0,
@@ -834,23 +836,23 @@ export default function NovoProdutoPage() {
                     {/* Preço de Custo */}
                     <div>
                       <Label htmlFor="custo">Preço de Custo</Label>
-                      <Input
+                      <CurrencyInput
                         id="custo"
-                        type="number"
                         value={formData.custo}
                         onChange={(e) => setFormData({ ...formData, custo: e.target.value })}
-                        placeholder="R$ 0,00"
+                        placeholder="0,00"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900"
                       />
                     </div>
                     {/* Preço de Venda */}
                     <div>
                       <Label htmlFor="preco">Preço de Venda</Label>
-                      <Input
+                      <CurrencyInput
                         id="preco"
-                        type="number"
                         value={formData.preco}
                         onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
-                        placeholder="R$ 0,00"
+                        placeholder="0,00"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900"
                       />
                     </div>
                     {/* Situação */}

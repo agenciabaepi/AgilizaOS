@@ -1,3 +1,9 @@
+import {
+  formatCurrencyNumber,
+  maskCurrencyInput,
+  parseCurrencyNumber,
+} from '@/lib/currencyMask';
+
 export type ModoExibicaoPrecoCliente = 'separado' | 'parcelado_destaque';
 
 export interface ConfiguracaoPrecificacao {
@@ -57,19 +63,15 @@ export function parsePercentInput(input: string): number {
 }
 
 export function parseMoneyInput(input: string): number {
-  const digits = input.replace(/\D/g, '');
-  if (!digits) return 0;
-  return parseInt(digits, 10) / 100;
+  return parseCurrencyNumber(input);
 }
 
 export function formatMoneyInput(value: number): string {
-  return formatBRL(value);
+  return formatCurrencyNumber(value, { withSymbol: true });
 }
 
 export function handleMoneyInputChange(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  return formatMoneyInput(parseInt(digits, 10) / 100);
+  return maskCurrencyInput(value, { withSymbol: true });
 }
 
 export function isConfiguracaoValida(config: ConfiguracaoPrecificacao | null): boolean {
@@ -117,6 +119,25 @@ export function calcularPrecificacao(
 
 export const PARCELAS_MIN = 2;
 export const PARCELAS_MAX = 12;
+
+export function clampParcelasExibicao(value: number): number {
+  if (!Number.isFinite(value)) return PARCELAS_MAX;
+  return Math.min(PARCELAS_MAX, Math.max(PARCELAS_MIN, Math.round(value)));
+}
+
+export function listaParcelasExibicao(): number[] {
+  const itens: number[] = [];
+  for (let n = PARCELAS_MIN; n <= PARCELAS_MAX; n++) itens.push(n);
+  return itens;
+}
+
+export function filtrarOpcoesParcelamento(
+  opcoes: OpcaoParcelamento[],
+  maxParcelas: number
+): OpcaoParcelamento[] {
+  const max = clampParcelasExibicao(maxParcelas);
+  return opcoes.filter((opcao) => opcao.parcelas <= max);
+}
 
 export function calcularPrecoParcelado(precoVenda: number, jurosPercent: number): number {
   const juros = Math.max(0, jurosPercent) / 100;

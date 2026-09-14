@@ -58,7 +58,7 @@ export const AUTOMACOES_PADRAO = [
     evento: 'os_entregue' as const,
     status_trigger: 'ENTREGUE',
     mensagem_template:
-      'Olá {{cliente_nome}}!\n\nSua OS *#{{numero_os}}* foi *entregue*. Obrigado pela confiança! 🙏',
+      'Olá {{cliente_nome}}!\n\nSua OS *#{{numero_os}}* foi *entregue*. ✅\n\n*Valor:* {{valor}}\n*Data da retirada:* {{data_retirada}}\n*Vencimento da garantia:* {{vencimento_garantia}}\n\nObrigado pela confiança! 🙏\n\nSe puder, avalie nosso atendimento no Google:\n{{link_avaliacao}}',
     ordem: 6,
   },
 ];

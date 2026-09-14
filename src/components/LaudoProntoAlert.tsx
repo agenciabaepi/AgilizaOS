@@ -91,6 +91,7 @@ function processarPendencias(
     initialSyncDoneRef: MutableRefObject<boolean>;
     previousIdsRef: MutableRefObject<Set<string>>;
     dismissedAtRef: MutableRefObject<number | null>;
+    naPaginaOrdensRef?: MutableRefObject<boolean>;
   },
   setPendencias: (items: OSPendencia[]) => void,
   setModalOpen: (open: boolean) => void
@@ -108,8 +109,12 @@ function processarPendencias(
   } else {
     const novas = itens.filter((os) => !refs.previousIdsRef.current.has(os.id));
     if (novas.length > 0) {
-      void playOrcamentoNotificationSound();
-      openModalIfAllowed(itens.length, true);
+      if (refs.naPaginaOrdensRef?.current) {
+        void playOrcamentoNotificationSound();
+        openModalIfAllowed(itens.length, true);
+      } else {
+        refs.dismissedAtRef.current = null;
+      }
     } else {
       openModalIfAllowed(itens.length);
     }
@@ -153,6 +158,9 @@ export default function LaudoProntoAlert() {
   const laudosCountRef = useRef(0);
   const modalOpenRef = useRef(false);
   const emRotaPublica = !pathname || isPublicPath(pathname);
+  const naPaginaOrdens = pathname === '/ordens';
+  const naPaginaOrdensRef = useRef(naPaginaOrdens);
+  naPaginaOrdensRef.current = naPaginaOrdens;
 
   useEffect(() => {
     modalOpenRef.current = modalOpen;
@@ -163,8 +171,8 @@ export default function LaudoProntoAlert() {
   }, [pendencias.length]);
 
   useEffect(() => {
-    if (emRotaPublica) setModalOpen(false);
-  }, [emRotaPublica]);
+    if (emRotaPublica || !naPaginaOrdens) setModalOpen(false);
+  }, [emRotaPublica, naPaginaOrdens]);
 
   const podeVerNotificacao = useCallback(() => {
     if (emRotaPublica) return false;
@@ -173,7 +181,7 @@ export default function LaudoProntoAlert() {
   }, [emRotaPublica, usuarioData?.nivel]);
 
   const shouldShowModal = useCallback((count: number, force = false) => {
-    if (emRotaPublica) return false;
+    if (emRotaPublica || !naPaginaOrdensRef.current) return false;
     if (count <= 0) return false;
     if (force) return true;
     if (dismissedAtRef.current === null) return true;
@@ -194,7 +202,7 @@ export default function LaudoProntoAlert() {
   const fetchLaudosProntos = useCallback(async () => {
     if (!empresaData?.id) return;
 
-    const refs = { initialSyncDoneRef, previousIdsRef, dismissedAtRef };
+    const refs = { initialSyncDoneRef, previousIdsRef, dismissedAtRef, naPaginaOrdensRef };
 
     const runQuery = (selectFields: string) =>
       supabase
@@ -284,7 +292,12 @@ export default function LaudoProntoAlert() {
   }, [modalOpen, pendencias.length]);
 
   useEffect(() => {
-    if (!podeVerNotificacao()) return;
+    if (!naPaginaOrdens) return;
+    openModalIfAllowed(laudosCountRef.current);
+  }, [naPaginaOrdens, openModalIfAllowed]);
+
+  useEffect(() => {
+    if (!podeVerNotificacao() || !naPaginaOrdens) return;
 
     const reminderTimer = window.setInterval(() => {
       if (modalOpenRef.current) return;
@@ -297,9 +310,9 @@ export default function LaudoProntoAlert() {
     }, 60_000);
 
     return () => window.clearInterval(reminderTimer);
-  }, [podeVerNotificacao]);
+  }, [podeVerNotificacao, naPaginaOrdens]);
 
-  if (!podeVerNotificacao() || !modalOpen || pendencias.length === 0) {
+  if (!podeVerNotificacao() || !naPaginaOrdens || !modalOpen || pendencias.length === 0) {
     return null;
   }
 

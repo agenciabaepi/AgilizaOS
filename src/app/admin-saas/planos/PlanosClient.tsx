@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiSave, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { PREMIUM_MODULES, PLANO_SLUGS, premiumModuleStatusBadge, isListedOnPlanCard, type PremiumModule } from '@/config/planModules';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 type PlanoRow = {
   id: string;
@@ -56,7 +58,7 @@ export default function PlanosClient() {
     const draft = drafts[plano.id];
     if (!draft) return;
 
-    const preco = parseFloat(draft.preco.replace(',', '.'));
+    const preco = parseCurrencyNumber(draft.preco);
     if (!Number.isFinite(preco) || preco < 0) {
       setMessage({ type: 'error', text: 'Informe um preço válido' });
       return;
@@ -176,15 +178,13 @@ export default function PlanosClient() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Preço mensal (R$)</label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <CurrencyInput
                 value={draft.preco}
                 onChange={(e) =>
                   setDrafts((d) => ({ ...d, [plano.id]: { ...draft, preco: e.target.value } }))
                 }
                 className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                placeholder="89.90"
+                placeholder="0,00"
               />
             </div>
 

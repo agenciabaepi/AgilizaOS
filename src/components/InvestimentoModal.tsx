@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiX, FiDollarSign, FiAlertTriangle } from 'react-icons/fi';
 
 interface InvestimentoModalProps {
@@ -27,10 +28,7 @@ export function InvestimentoModal({
       return;
     }
     
-    // Converter formato brasileiro para número
-    // Remove pontos (separadores de milhar) e substitui vírgula por ponto
-    const valorLimpo = valor.replace(/\./g, '').replace(',', '.');
-    const valorNumerico = parseFloat(valorLimpo);
+    const valorNumerico = parseCurrencyNumber(valor);
     
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       setErro('Valor deve ser maior que zero');
@@ -51,54 +49,6 @@ export function InvestimentoModal({
     setObservacoes('');
     setErro('');
     onClose();
-  };
-
-  const formatarMoeda = (valor: string) => {
-    // Remove tudo que não é número, exceto vírgula
-    let apenasNumeros = valor.replace(/[^\d,]/g, '');
-    
-    // Se estiver vazio, retorna vazio
-    if (apenasNumeros === '') return '';
-    
-    // Garante que só há uma vírgula
-    const partes = apenasNumeros.split(',');
-    if (partes.length > 2) {
-      apenasNumeros = partes[0] + ',' + partes.slice(1).join('');
-    }
-    
-    // Remove pontos e formata
-    const semPontos = apenasNumeros.replace(/\./g, '');
-    const temVirgula = semPontos.includes(',');
-    
-    if (!temVirgula) {
-      // Sem vírgula, apenas números
-      const numero = parseInt(semPontos) || 0;
-      if (numero === 0) return '';
-      return numero.toLocaleString('pt-BR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      });
-    } else {
-      // Com vírgula (decimais)
-      const [inteiro, decimal] = semPontos.split(',');
-      const numeroInteiro = parseInt(inteiro) || 0;
-      const numeroDecimal = decimal ? decimal.substring(0, 2) : '';
-      
-      if (numeroInteiro === 0 && !numeroDecimal) return '';
-      
-      // Formata parte inteira com separadores de milhar
-      const formatado = numeroInteiro.toLocaleString('pt-BR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      });
-      
-      return numeroDecimal ? `${formatado},${numeroDecimal}` : formatado;
-    }
-  };
-
-  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valorFormatado = formatarMoeda(e.target.value);
-    setValor(valorFormatado);
   };
 
   if (!isOpen) return null;
@@ -130,12 +80,11 @@ export function InvestimentoModal({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Valor do Investimento (R$):
           </label>
-          <Input
-            type="text"
+          <CurrencyInput
             value={valor}
-            onChange={handleValorChange}
+            onChange={(e) => setValor(e.target.value)}
             placeholder="0,00"
-            className="text-right text-lg"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-right text-lg ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           />
         </div>
 

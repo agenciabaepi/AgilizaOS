@@ -12,6 +12,7 @@ import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { cn } from '@/lib/utils';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Tecnico {
   id: string;
@@ -489,14 +490,10 @@ export default function ComissoesPage() {
                 {tempConfig.tipo_comissao === 'fixo' ? (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">Valor fixo padrão (R$)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <CurrencyInput
                       value={tempConfig.comissao_fixa_padrao ?? ''}
-                      onChange={(e) => {
-                        const valor = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                        setTempConfig((prev) => ({ ...prev, comissao_fixa_padrao: isNaN(valor) ? 0 : valor }));
+                      onValueChange={(valor) => {
+                        setTempConfig((prev) => ({ ...prev, comissao_fixa_padrao: valor }));
                       }}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                       placeholder="0,00"
@@ -709,12 +706,9 @@ export default function ComissoesPage() {
                             <option value="fixo">R$ fixo</option>
                           </select>
                           {tempTecnico.tipo_comissao === 'fixo' ? (
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
+                            <CurrencyInput
                               value={tempTecnico.comissao_fixa ?? ''}
-                              onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_fixa: parseFloat(e.target.value) }))}
+                              onValueChange={(comissao_fixa) => setTempTecnico((prev) => ({ ...prev, comissao_fixa }))}
                               className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                               placeholder="0,00"
                             />

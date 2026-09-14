@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiMinus, FiPlus, FiDollarSign, FiX, FiAlertTriangle } from 'react-icons/fi';
 
 interface SangriaSuprimentoModalProps {
@@ -31,7 +32,7 @@ export function SangriaSuprimentoModal({
       return;
     }
     
-    const valorNumerico = parseFloat(valor.replace(',', '.'));
+    const valorNumerico = parseCurrencyNumber(valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       setErro('Valor deve ser maior que zero');
       return;
@@ -59,8 +60,8 @@ export function SangriaSuprimentoModal({
   };
 
   const novoSaldo = tipo === 'sangria' 
-    ? saldoAtual - (parseFloat(valor.replace(',', '.')) || 0)
-    : saldoAtual + (parseFloat(valor.replace(',', '.')) || 0);
+    ? saldoAtual - parseCurrencyNumber(valor)
+    : saldoAtual + parseCurrencyNumber(valor);
 
   if (!isOpen) return null;
 
@@ -91,17 +92,16 @@ export function SangriaSuprimentoModal({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Valor {tipo === 'sangria' ? 'da Sangria' : 'do Suprimento'} (R$):
           </label>
-          <Input
-            type="text"
+          <CurrencyInput
             value={valor}
             onChange={(e) => setValor(e.target.value)}
             placeholder="0,00"
-            className="text-right text-lg"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-right text-lg ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           />
         </div>
 
         {/* Preview do novo saldo */}
-        {valor && parseFloat(valor.replace(',', '.')) > 0 && (
+        {valor && parseCurrencyNumber(valor) > 0 && (
           <div className="mb-4 p-3 bg-blue-50 rounded-lg">
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
@@ -111,7 +111,7 @@ export function SangriaSuprimentoModal({
               <div className="flex justify-between">
                 <span>{tipo === 'sangria' ? 'Sangria:' : 'Suprimento:'}</span>
                 <span className={tipo === 'sangria' ? 'text-red-600' : 'text-green-600'}>
-                  {tipo === 'sangria' ? '-' : '+'} R$ {(parseFloat(valor.replace(',', '.')) || 0).toFixed(2).replace('.', ',')}
+                  {tipo === 'sangria' ? '-' : '+'} R$ {parseCurrencyNumber(valor).toFixed(2).replace('.', ',')}
                 </span>
               </div>
               <div className="flex justify-between font-bold text-lg border-t border-gray-300 pt-1">

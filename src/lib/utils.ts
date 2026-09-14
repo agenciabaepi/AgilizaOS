@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { parseCurrencyNumber } from '@/lib/currencyMask'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -31,12 +32,7 @@ export function getPeriodoMesFromString(mesString: string): { dataInicio: string
 }
 
 export function parseValorMonetario(valor: unknown): number {
-  if (typeof valor === 'number' && !Number.isNaN(valor)) return valor;
-  if (typeof valor === 'string') {
-    const n = parseFloat(valor.replace(',', '.'));
-    return Number.isNaN(n) ? 0 : n;
-  }
-  return 0;
+  return parseCurrencyNumber(valor as string | number | null | undefined);
 }
 
 export function formatPhoneNumber(phone: string): string | null {
@@ -81,3 +77,4 @@ export function stripHTML(html: string): string {
     .replace(/\s+/g, ' ') // Remove espaços múltiplos
     .trim();
 }
+

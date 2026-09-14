@@ -7,6 +7,8 @@ export const CONTATO = {
   marca: 'Gestão Consert',
 } as const;
 
+export const LINK_AVALIACAO_GOOGLE = 'https://g.page/r/CSNNfPXqBp-BEBM/review';
+
 export const MENSAGEM_WHATSAPP_PADRAO =
   'Olá! Gostaria de saber mais sobre o Gestão Consert para minha assistência técnica.';
 

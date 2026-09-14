@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fi';
 import { ClientePDV, FORMAS_PAGAMENTO, PagamentoAplicado } from './types';
 import { formatCPF, formatCurrency } from './utils';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 const inputClass =
   'w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand';
@@ -224,8 +225,7 @@ export function PainelFinalizacao({
               <option value="desconto">Desconto</option>
               <option value="acrescimo">Acréscimo</option>
             </select>
-            <input
-              type="text"
+            <CurrencyInput
               value={valorAjuste}
               onChange={(e) => onValorAjusteChange(e.target.value)}
               placeholder="0,00"
@@ -278,11 +278,10 @@ export function PainelFinalizacao({
                 Adicionar <span className="text-white/50 text-xs">(Alt+5)</span>
               </button>
             </div>
-            <input
-              type="text"
+            <CurrencyInput
               value={valorPagamentoInput}
               onChange={(e) => onValorPagamentoInputChange(e.target.value)}
-              placeholder="Valor do pagamento"
+              placeholder="0,00"
               className={`${inputClass} mt-2 text-right`}
             />
           </div>

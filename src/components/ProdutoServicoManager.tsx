@@ -6,6 +6,8 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { FiPlus, FiX, FiTrash2, FiPackage, FiTool, FiSearch } from 'react-icons/fi';
 import { Button } from './Button';
+import { CurrencyInput } from './CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { cn } from '@/lib/utils';
 
 interface Item {
@@ -277,18 +279,6 @@ export default function ProdutoServicoManager({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(safe);
   };
 
-  const formatarPrecoInput = (value: number): string => {
-    if (!value || value === 0) return '';
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const parsePrecoInput = (valor: string, fallback = 0) => {
-    if (valor === '' || valor.trim() === '') return fallback;
-    if (valor.includes(',')) return parseFloat(valor.replace(',', '.')) || fallback;
-    if (valor.length > 2) return parseFloat(`${valor.slice(0, -2) || '0'}.${valor.slice(-2)}`) || fallback;
-    if (valor.length > 0) return parseFloat(`0.${valor.padStart(2, '0')}`) || fallback;
-    return fallback;
-  };
 
   const abrirFormularioNovo = () => {
     setShowAddForm(true);
@@ -443,14 +433,13 @@ export default function ProdutoServicoManager({
               <label className="block text-xs font-medium text-gray-600 mb-1">Valor unit.</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
-                <input
-                  type="text"
+                <CurrencyInput
                   placeholder="0,00"
                   value={precoDisplay}
                   onChange={(e) => {
                     const value = e.target.value;
                     setPrecoDisplay(value);
-                    const numericValue = parseFloat(value.replace(',', '.')) || 0;
+                    const numericValue = parseCurrencyNumber(value);
                     setNovoItem((prev) => ({
                       ...prev,
                       preco: numericValue,
@@ -560,18 +549,9 @@ export default function ProdutoServicoManager({
                       {readonly ? (
                         <p className="text-sm text-gray-600 sm:text-right tabular-nums">{formatCurrency(item.preco || 0)}</p>
                       ) : (
-                        <input
-                          type="text"
-                          value={formatarPrecoInput(item.preco || 0)}
-                          onChange={(e) => {
-                            let valor = e.target.value.replace(/[^\d,]/g, '');
-                            const partes = valor.split(',');
-                            if (partes.length > 2) valor = partes[0] + ',' + partes.slice(1).join('');
-                            if (partes.length === 2 && partes[1].length > 2) valor = partes[0] + ',' + partes[1].substring(0, 2);
-                            const numValor = parsePrecoInput(valor, item.preco || 0);
-                            if (!isNaN(numValor) && numValor >= 0) editarItem(index, 'preco', numValor);
-                          }}
-                          onBlur={(e) => editarItem(index, 'preco', parsePrecoInput(e.target.value, item.preco || 0))}
+                        <CurrencyInput
+                          value={item.preco || 0}
+                          onValueChange={(n) => editarItem(index, 'preco', n)}
                           placeholder="0,00"
                           className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                         />

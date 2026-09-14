@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { FiCreditCard, FiDollarSign, FiSmartphone, FiCheck } from 'react-icons/fi';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 interface PagamentoModalProps {
   isOpen: boolean;
@@ -24,7 +26,7 @@ export function PagamentoModal({ isOpen, onClose, onConfirm, onParcelar, total }
 
   const handleValorPagoChange = (valor: string) => {
     setValorPago(valor);
-    const valorNumerico = parseFloat(valor.replace(',', '.')) || 0;
+    const valorNumerico = parseCurrencyNumber(valor);
     setTroco(Math.max(0, valorNumerico - total));
   };
 
@@ -32,7 +34,7 @@ export function PagamentoModal({ isOpen, onClose, onConfirm, onParcelar, total }
     if (!formaSelecionada) return;
     
     const valorPagoNumerico = formaSelecionada === 'dinheiro' && valorPago 
-      ? parseFloat(valorPago.replace(',', '.')) 
+      ? parseCurrencyNumber(valorPago) 
       : total;
     
     onConfirm(formaSelecionada, valorPagoNumerico);
@@ -94,8 +96,7 @@ export function PagamentoModal({ isOpen, onClose, onConfirm, onParcelar, total }
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Valor pago pelo cliente:
             </label>
-            <input
-              type="text"
+            <CurrencyInput
               value={valorPago}
               onChange={(e) => handleValorPagoChange(e.target.value)}
               placeholder="0,00"

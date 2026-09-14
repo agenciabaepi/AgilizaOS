@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiPercent, FiDollarSign, FiX, FiTrendingUp } from 'react-icons/fi';
 
 interface AcrescimoModalProps {
@@ -28,8 +30,8 @@ export function AcrescimoModal({
   const calcularAcrescimo = () => {
     if (!valorAcrescimo) return 0;
     
-    const valor = parseFloat(valorAcrescimo.replace(',', '.'));
-    if (isNaN(valor)) return 0;
+    const valor = parseCurrencyNumber(valorAcrescimo);
+    if (!valor) return 0;
     
     if (tipoAcrescimo === 'percentual') {
       return (total * valor) / 100;
@@ -46,7 +48,7 @@ export function AcrescimoModal({
       return;
     }
     
-    const valor = parseFloat(valorAcrescimo.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorAcrescimo);
     if (isNaN(valor) || valor <= 0) {
       setErro('Valor deve ser maior que zero');
       return;
@@ -137,13 +139,22 @@ export function AcrescimoModal({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Valor do Acréscimo {tipoAcrescimo === 'percentual' ? '(%)' : '(R$)'}:
           </label>
-          <Input
-            type="text"
-            value={valorAcrescimo}
-            onChange={(e) => setValorAcrescimo(e.target.value)}
-            placeholder={tipoAcrescimo === 'percentual' ? '0' : '0,00'}
-            className="text-right text-lg"
-          />
+          {tipoAcrescimo === 'valor' ? (
+            <CurrencyInput
+              value={valorAcrescimo}
+              onChange={(e) => setValorAcrescimo(e.target.value)}
+              placeholder="0,00"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-right text-lg ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+          ) : (
+            <Input
+              type="text"
+              value={valorAcrescimo}
+              onChange={(e) => setValorAcrescimo(e.target.value)}
+              placeholder="0"
+              className="text-right text-lg"
+            />
+          )}
         </div>
 
         {/* Preview do acréscimo */}

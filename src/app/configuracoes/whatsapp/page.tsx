@@ -364,7 +364,10 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
               Variáveis: <code className="text-xs bg-white px-1">{'{{cliente_nome}}'}</code>,{' '}
               <code className="text-xs bg-white px-1">{'{{numero_os}}'}</code>,{' '}
               <code className="text-xs bg-white px-1">{'{{status}}'}</code>,{' '}
-              <code className="text-xs bg-white px-1">{'{{valor}}'}</code>
+              <code className="text-xs bg-white px-1">{'{{valor}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{data_retirada}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{vencimento_garantia}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{link_avaliacao}}'}</code>
             </p>
           </div>
           <ul className="divide-y divide-gray-100">

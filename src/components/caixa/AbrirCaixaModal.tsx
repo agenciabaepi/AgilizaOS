@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiDollarSign, FiInfo } from 'react-icons/fi';
 
 interface AbrirCaixaModalProps {
@@ -35,7 +36,7 @@ export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
     e.preventDefault();
     setErro('');
 
-    const valor = parseFloat(valorAbertura.replace(',', '.'));
+    const valor = parseCurrencyNumber(valorAbertura);
     
     if (isNaN(valor) || valor < 0) {
       setErro('Valor de abertura deve ser um número válido');
@@ -90,13 +91,12 @@ export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Valor de Abertura *
             </label>
-            <Input
-              type="text"
+            <CurrencyInput
               value={valorAbertura}
               onChange={(e) => setValorAbertura(e.target.value)}
               placeholder="0,00"
               required
-              className="text-right"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-right ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
           </div>

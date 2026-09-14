@@ -11,6 +11,8 @@ import type {
   PecaFornecedorCatalogo,
 } from '@/types/pecas';
 import ToggleSwitch from '@/components/ToggleSwitch';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 function formatMoney(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -241,8 +243,8 @@ export default function PecasCatalogoClient() {
         nome: form.nome.trim(),
         descricao: form.descricao.trim() || null,
         modelo_compativel: form.modelo_compativel.trim() || null,
-        preco: Number(form.preco) || 0,
-        custo: form.custo !== '' ? Number(form.custo) : null,
+        preco: parseCurrencyNumber(form.preco),
+        custo: form.custo !== '' ? parseCurrencyNumber(form.custo) : null,
         estoque: Number(form.estoque) || 0,
         estoque_min: Number(form.estoque_min) || 0,
         unidade: form.unidade.trim() || 'UN',
@@ -629,25 +631,21 @@ export default function PecasCatalogoClient() {
 
                 <label className="block">
                   <span className="text-xs font-medium text-gray-600">Preço</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <CurrencyInput
                     value={form.preco}
                     onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="0,00"
                   />
                 </label>
 
                 <label className="block">
                   <span className="text-xs font-medium text-gray-600">Custo</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <CurrencyInput
                     value={form.custo}
                     onChange={(e) => setForm((f) => ({ ...f, custo: e.target.value }))}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="0,00"
                   />
                 </label>
 

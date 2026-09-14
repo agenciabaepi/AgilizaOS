@@ -3,6 +3,7 @@
 import MenuLayout from "@/components/MenuLayout";
 
 import { Button } from '@/components/Button';
+import { CurrencyInput } from '@/components/CurrencyInput';
 import ReactSelect from 'react-select';
 import { useState, useEffect, startTransition, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -2929,13 +2930,11 @@ function NovaOS2Content() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Venda</label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <CurrencyInput
                       placeholder="0,00"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                       value={novoProduto.preco}
-                      onChange={(e) => setNovoProduto(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
+                      onValueChange={(preco) => setNovoProduto(prev => ({ ...prev, preco }))}
                     />
                   </div>
                   
@@ -3004,13 +3003,11 @@ function NovaOS2Content() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Venda</label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <CurrencyInput
                       placeholder="0,00"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                       value={novoProduto.preco}
-                      onChange={(e) => setNovoProduto(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
+                      onValueChange={(preco) => setNovoProduto(prev => ({ ...prev, preco }))}
                     />
                   </div>
                 </div>

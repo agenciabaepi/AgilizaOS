@@ -10,6 +10,7 @@ import { useToast } from '@/components/Toast';
 import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiFileText, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiCheckCircle, FiRotateCcw } from 'react-icons/fi';
 import { buildComissoesTecnicosPDFBlob } from '@/lib/pdfComissoesTecnicos';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface ComissaoDetalhada {
   id: string;
@@ -1354,12 +1355,10 @@ export default function ComissoesTecnicosPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Valor da Comissão *
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <CurrencyInput
+                    min={0}
                     value={valorEditado}
-                    onChange={(e) => setValorEditado(parseFloat(e.target.value) || 0)}
+                    onValueChange={setValorEditado}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

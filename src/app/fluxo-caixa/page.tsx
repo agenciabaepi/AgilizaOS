@@ -9,6 +9,8 @@ import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 import { toMesISO, getPeriodoMesFromString } from '@/lib/utils';
+import { CurrencyInput } from '@/components/CurrencyInput';
+import { parseCurrencyNumber } from '@/lib/currencyMask';
 
 export default function FluxoCaixaPage() {
   const { usuarioData } = useAuth();
@@ -188,7 +190,7 @@ export default function FluxoCaixaPage() {
       return;
     }
 
-    if (!formData.valor || parseFloat(formData.valor.replace(',', '.')) <= 0) {
+    if (!formData.valor || parseCurrencyNumber(formData.valor) <= 0) {
       addToast('Valor deve ser maior que zero', 'error');
       return;
     }
@@ -614,8 +616,7 @@ export default function FluxoCaixaPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Valor *
                   </label>
-                  <input
-                    type="text"
+                  <CurrencyInput
                     value={formData.valor}
                     onChange={(e) => setFormData(prev => ({ ...prev, valor: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
