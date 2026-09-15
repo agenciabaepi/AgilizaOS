@@ -41,6 +41,7 @@ import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
 import AppStoreBanner from '@/components/AppStoreBanner';
+import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getDashboardPathForNivel, isUserHomePath } from '@/lib/dashboardRouting';
@@ -761,9 +762,12 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
       )}
       {/* Main area - largura limitada para não cortar à direita (sidebar 16rem = 256px) */}
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-950 ${isFullScreenPage ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
+        {/* Banner + header juntos no sticky para o aviso não ficar atrás da sidebar */}
+        <div className="sticky top-0 z-30 no-print">
+          <SubscriptionExpiryBanner />
         {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
         {!isFullScreenPage && (
-        <header className="w-full h-16 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-600 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
+        <header className="w-full h-16 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-600 flex items-center justify-between px-4 md:px-6">
           {/* Esquerda: botão menu mobile + logo da empresa */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 dark:text-zinc-100 p-2 -ml-2">
@@ -905,6 +909,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         )}
+        </div>
         {/* Banner de Avisos - oculto na tela cheia de Nova OS para mais espaço */}
         {!isFullScreenPage && (
           <div className="w-full sticky top-16 z-20 space-y-1.5 no-print">

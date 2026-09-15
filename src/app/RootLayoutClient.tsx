@@ -29,7 +29,6 @@ import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
 import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
-import SubscriptionExpiryBanner from '@/components/SubscriptionExpiryBanner';
 import { isPublicPath } from '@/config/publicPaths';
 
 function AuthContent({ children }: { children: React.ReactNode }) {
@@ -43,7 +42,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   ) : (
     <>
       <ImpersonationBanner />
-      <SubscriptionExpiryBanner />
       {children}
     </>
   );

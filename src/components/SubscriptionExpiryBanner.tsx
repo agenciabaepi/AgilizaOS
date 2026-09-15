@@ -68,14 +68,15 @@ export default function SubscriptionExpiryBanner() {
 
   return (
     <div
-      className={`sticky top-0 z-[60] border-b px-4 py-2.5 text-center text-sm ${
+      role="status"
+      className={`w-full shrink-0 border-b px-4 py-3 text-center text-sm leading-snug ${
         urgente
           ? 'bg-amber-100 border-amber-300 text-amber-950'
           : 'bg-sky-50 border-sky-200 text-sky-950'
       }`}
     >
       <span>{texto} </span>
-      <Link href={renewHref} className="font-semibold underline underline-offset-2">
+      <Link href={renewHref} className="font-semibold underline underline-offset-2 whitespace-nowrap">
         Renovar assinatura
       </Link>
     </div>
