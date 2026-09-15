@@ -329,6 +329,44 @@ export default function AssinaturaPage() {
             </a>
           </div>
 
+          {/* Aviso de renovação antes dos cards de plano */}
+          {!statusCanceladoOuInativo && !emTesteGratis && diasRest != null && diasRest <= 7 && (
+              <div
+                className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
+                  diasRest < 0
+                    ? 'border-red-200 bg-red-50 text-red-950'
+                    : 'border-sky-200 bg-sky-50 text-sky-950'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p>
+                    {diasRest < 0
+                      ? `Sua assinatura venceu há ${Math.abs(diasRest)} dia${Math.abs(diasRest) === 1 ? '' : 's'}. Renove para continuar usando o sistema.`
+                      : diasRest === 0
+                        ? 'Sua assinatura vence hoje.'
+                        : diasRest === 1
+                          ? 'Sua assinatura vence amanhã.'
+                          : `Sua assinatura vence em ${diasRest} dias.`}{' '}
+                    {diasRest >= 0 && (
+                      <>
+                        Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
+                        a partir do vencimento atual, não da data do pagamento.
+                      </>
+                    )}
+                  </p>
+                  {(assinatura?.plano?.slug === 'basico' ||
+                    assinatura?.plano?.slug === 'completo') && (
+                    <a
+                      href={`/assinatura/pagar/${assinatura.plano.slug}`}
+                      className="inline-flex shrink-0 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                    >
+                      Pagar renovação
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
           <div className="mb-8">
             <PlanosAssinaturaCards
               titulo={
@@ -349,31 +387,6 @@ export default function AssinaturaPage() {
           <div className="mb-6">
             <RenovarSistemaShowcase />
           </div>
-
-          {/* Resumo da assinatura (vencimento e dias restantes) */}
-          {!statusCanceladoOuInativo && !emTesteGratis && diasRest != null && diasRest <= 7 && (
-              <div
-                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
-                  diasRest < 0
-                    ? 'border-red-200 bg-red-50 text-red-950'
-                    : 'border-sky-200 bg-sky-50 text-sky-950'
-                }`}
-              >
-                {diasRest < 0
-                  ? `Sua assinatura venceu há ${Math.abs(diasRest)} dia${Math.abs(diasRest) === 1 ? '' : 's'}. Renove para continuar usando o sistema.`
-                  : diasRest === 0
-                    ? 'Sua assinatura vence hoje.'
-                    : diasRest === 1
-                      ? 'Sua assinatura vence amanhã.'
-                      : `Sua assinatura vence em ${diasRest} dias.`}{' '}
-                {diasRest >= 0 && (
-                  <>
-                    Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
-                    a partir do vencimento atual, não da data do pagamento.
-                  </>
-                )}
-              </div>
-            )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">

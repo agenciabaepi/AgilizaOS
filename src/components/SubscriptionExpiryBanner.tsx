@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/context/AuthContext';
+import { PLANO_SLUGS } from '@/config/planModules';
 
 const DIAS_LEMBRETE = 7;
 
@@ -18,13 +19,21 @@ function formatarData(iso: string | null | undefined) {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR');
 }
 
+function hrefRenovar(planoSlug: string | null | undefined): string {
+  const slug = String(planoSlug || '').trim().toLowerCase();
+  if (slug === PLANO_SLUGS.BASICO || slug === PLANO_SLUGS.COMPLETO) {
+    return `/assinatura/pagar/${slug}`;
+  }
+  return '/assinatura#planos-assinatura';
+}
+
 /**
  * Lembra o usuário 1 semana antes do vencimento (e no último dia).
  * Pagamento antecipado não muda o texto — só mostra dias restantes reais.
  */
 export default function SubscriptionExpiryBanner() {
   const { session, empresaData } = useAuth();
-  const { assinatura, loading, isAssinaturaVencida } = useSubscription();
+  const { assinatura, loading, isAssinaturaVencida, planoSlug } = useSubscription();
 
   if (!session || !empresaData?.id || loading) return null;
   if (empresaData.sistema_liberado === true) return null;
@@ -55,6 +64,8 @@ export default function SubscriptionExpiryBanner() {
         ? `Seu acesso vence amanhã (${dataFmt}). Garanta a renovação para não interromper o uso.`
         : `Seu acesso vence em ${diasRest} dias (${dataFmt}). Você pode pagar agora — os dias restantes serão preservados.`;
 
+  const renewHref = hrefRenovar(planoSlug || assinatura.plano?.slug);
+
   return (
     <div
       className={`sticky top-0 z-[60] border-b px-4 py-2.5 text-center text-sm ${
@@ -64,7 +75,7 @@ export default function SubscriptionExpiryBanner() {
       }`}
     >
       <span>{texto} </span>
-      <Link href="/assinatura" className="font-semibold underline underline-offset-2">
+      <Link href={renewHref} className="font-semibold underline underline-offset-2">
         Renovar assinatura
       </Link>
     </div>

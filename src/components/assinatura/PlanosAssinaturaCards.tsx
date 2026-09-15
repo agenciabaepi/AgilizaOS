@@ -7,6 +7,9 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { PLANO_SLUGS, premiumModulesForPlanCard, premiumModuleStatusBadge } from '@/config/planModules';
 import type { PlanoPublico } from '@/hooks/usePlanosPublicos';
 
+/** Mesma janela do banner de vencimento: permite pagar o plano atual antes de expirar. */
+const DIAS_RENOVACAO_ANTECIPADA = 7;
+
 const RECURSOS_CORE_BASICO = [
   'Até 3 usuários',
   'Até 50 OS por mês',
@@ -188,11 +191,18 @@ export default function PlanosAssinaturaCards({
   subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e lucro e desempenho.',
 }: PlanosAssinaturaCardsProps) {
   const { basico, completo, ready, loading } = usePlanosPublicos();
-  const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired } = useSubscription();
+  const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired, resumoAssinatura } =
+    useSubscription();
 
   const planoAtualSlug =
     planoSlug && planoSlug !== PLANO_SLUGS.TRIAL ? planoSlug : null;
-  const precisaRenovar = isAssinaturaVencida() || isTrialExpired();
+  const diasRestantes = resumoAssinatura?.dias_restantes;
+  const pertoDoVencimento =
+    typeof diasRestantes === 'number' &&
+    diasRestantes >= 0 &&
+    diasRestantes <= DIAS_RENOVACAO_ANTECIPADA;
+  const precisaRenovar =
+    isAssinaturaVencida() || isTrialExpired() || pertoDoVencimento;
 
   return (
     <section id={id} className="scroll-mt-6">
@@ -205,7 +215,9 @@ export default function PlanosAssinaturaCards({
             <span className="font-semibold">{assinatura.plano.nome}</span>
             {precisaRenovar && (
               <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">
-                — vencido, renove para continuar
+                {isAssinaturaVencida() || isTrialExpired()
+                  ? '— vencido, renove para continuar'
+                  : '— pode renovar agora (dias restantes preservados)'}
               </span>
             )}
           </p>
