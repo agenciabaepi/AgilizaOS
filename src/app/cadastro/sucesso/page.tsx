@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logobranco.png';
-import { FiCheckCircle, FiSmartphone, FiLock, FiArrowRight } from 'react-icons/fi';
+import { FiCheckCircle, FiLock, FiArrowRight } from 'react-icons/fi';
 import { LANDING_TRIAL } from '@/config/landing';
 
 export default function CadastroSucessoPage() {
@@ -56,21 +56,11 @@ export default function CadastroSucessoPage() {
             <h2 className="text-lg font-medium text-white mb-4">Próximos passos</h2>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <FiSmartphone className="w-5 h-5 text-[#D1FE6E] mt-1 flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-white">1. Confirme o SMS</h3>
-                  <p className="text-sm text-white/70">
-                    Enviamos um código por SMS para o WhatsApp cadastrado. Use-o no primeiro login.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
                 <FiLock className="w-5 h-5 text-[#D1FE6E] mt-1 flex-shrink-0" />
                 <div>
-                  <h3 className="font-medium text-white">2. Faça login</h3>
+                  <h3 className="font-medium text-white">1. Faça login</h3>
                   <p className="text-sm text-white/70">
-                    Use o e-mail e senha que você cadastrou e informe o código do SMS.
+                    Use o e-mail e senha que você cadastrou. A conta já está pronta para uso.
                   </p>
                 </div>
               </div>
@@ -78,7 +68,7 @@ export default function CadastroSucessoPage() {
               <div className="flex items-start gap-3">
                 <FiArrowRight className="w-5 h-5 text-[#D1FE6E] mt-1 flex-shrink-0" />
                 <div>
-                  <h3 className="font-medium text.white">3. Comece a usar</h3>
+                  <h3 className="font-medium text-white">2. Comece a usar</h3>
                   <p className="text-sm text-white/70">
                     Explore todas as funcionalidades disponíveis no seu plano.
                   </p>

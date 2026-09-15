@@ -6,6 +6,7 @@ import { FiSmartphone, FiArrowRight, FiCheckCircle } from 'react-icons/fi'
 import { useToast } from '@/hooks/useToast'
 import Image from 'next/image'
 import logo from '@/assets/imagens/logopreto.png'
+import { SMS_VERIFICATION_ENABLED } from '@/config/sms-verification'
 
 function InstrucoesVerificacaoContent() {
   const [email, setEmail] = useState('')
@@ -16,6 +17,11 @@ function InstrucoesVerificacaoContent() {
   const { addToast } = useToast()
 
   useEffect(() => {
+    if (!SMS_VERIFICATION_ENABLED) {
+      router.replace('/login')
+      return
+    }
+
     const emailParam = searchParams.get('email')
     if (emailParam) {
       setEmail(emailParam)
@@ -23,6 +29,10 @@ function InstrucoesVerificacaoContent() {
       router.push('/login')
     }
   }, [searchParams, router])
+
+  if (!SMS_VERIFICATION_ENABLED) {
+    return null
+  }
 
   const handleIrParaLogin = () => {
     router.push(`/login?email=${encodeURIComponent(email)}&verificacao=pending`)
