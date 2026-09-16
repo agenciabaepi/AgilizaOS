@@ -85,13 +85,20 @@ async function applyActivation(
     : '';
 
   let observacoesPrevias = '';
+  /** Catálogo do plano; se a empresa já tem valor personalizado no mesmo plano, preservar. */
+  let valorCobranca = typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
   if (assinaturaId) {
     const { data: atual } = await supabase
       .from('assinaturas')
-      .select('observacoes')
+      .select('observacoes, valor, plano_id')
       .eq('id', assinaturaId)
       .maybeSingle();
     observacoesPrevias = String(atual?.observacoes || '');
+    const valorAtual = Number(atual?.valor);
+    const mesmoPlano = String(atual?.plano_id || '') === String(planoId);
+    if (mesmoPlano && Number.isFinite(valorAtual) && valorAtual > 0) {
+      valorCobranca = valorAtual;
+    }
   }
   const markersPrevios = [...observacoesPrevias.matchAll(/\[pay:[^\]]+\]/g)].map((m) => m[0]);
   const markers = [...new Set([...markersPrevios, payMarker].filter(Boolean))].slice(-8);
@@ -108,7 +115,7 @@ async function applyActivation(
     data_fim: dataFimIso,
     data_trial_fim: null,
     proxima_cobranca: dataFimIso,
-    valor: typeof valor === 'number' ? valor : 0,
+    valor: valorCobranca,
     updated_at: now,
     observacoes,
   };
