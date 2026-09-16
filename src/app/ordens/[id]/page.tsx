@@ -59,6 +59,19 @@ function parseValorMontario(input: string): number {
   return parseCurrencyNumber(input);
 }
 
+/** Percentual informado na entrega (ex.: "10" ou "10,5"). */
+function parsePercentualDesconto(input: string): number {
+  const n = parseCurrencyNumber(input);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Converte % do total da OS em valor em R$ (2 casas). */
+function descontoReaisDePercentual(valorBruto: number, percentStr: string): number {
+  const pct = parsePercentualDesconto(percentStr);
+  if (pct <= 0 || valorBruto <= 0) return 0;
+  return Math.round(((valorBruto * pct) / 100) * 100) / 100;
+}
+
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
@@ -437,11 +450,12 @@ const VisualizarOrdemServicoPage = () => {
 
     if (!clienteRecusou && !aparelhoSemConserto) {
       const valorOS = calcularValores().valorFinal;
-      const descontoExtra = parseValorMontario(descontoEntregaStr);
-      if (descontoExtra > valorOS + 0.001) {
-        addToast('O desconto na entrega não pode ser maior que o total da O.S.', 'error');
+      const pctDesconto = parsePercentualDesconto(descontoEntregaStr);
+      if (pctDesconto > 100) {
+        addToast('O desconto na entrega não pode ser maior que 100%.', 'error');
         return;
       }
+      const descontoExtra = descontoReaisDePercentual(valorOS, descontoEntregaStr);
       const totalLiquido = Math.max(0, valorOS - descontoExtra);
 
       if (totalLiquido > 0) {
@@ -517,7 +531,7 @@ const VisualizarOrdemServicoPage = () => {
       // 2. Se houver valor líquido E cliente não recusou E aparelho teve conserto, criar venda
       if (!clienteRecusou && !aparelhoSemConserto) {
         const valorOS = calcularValores().valorFinal;
-        const descExtra = parseValorMontario(descontoEntregaStr);
+        const descExtra = descontoReaisDePercentual(valorOS, descontoEntregaStr);
         const totalVendaLiquido = Math.max(0, valorOS - descExtra);
         if (valorOS > 0 && totalVendaLiquido > 0) {
           const numeroVenda = await criarVenda();
@@ -555,7 +569,7 @@ const VisualizarOrdemServicoPage = () => {
   const criarVenda = async () => {
     try {
       const valores = calcularValores();
-      const descontoExtra = parseValorMontario(descontoEntregaStr);
+      const descontoExtra = descontoReaisDePercentual(valores.valorFinal, descontoEntregaStr);
       const totalVenda = Math.max(0, valores.valorFinal - descontoExtra);
       const labelForma = (v: string) =>
         FORMAS_PAGAMENTO_OS.find((f) => f.value === v)?.label ?? v;
@@ -753,7 +767,8 @@ const VisualizarOrdemServicoPage = () => {
   };
 
   const entregaValorBruto = calcularValores().valorFinal;
-  const entregaDescontoExtra = parseValorMontario(descontoEntregaStr);
+  const entregaDescontoPct = parsePercentualDesconto(descontoEntregaStr);
+  const entregaDescontoExtra = descontoReaisDePercentual(entregaValorBruto, descontoEntregaStr);
   const entregaTotalLiquido = Math.max(0, entregaValorBruto - entregaDescontoExtra);
   const entregaSomaPagamentos = linhasPagamento
     .filter((l) => l.forma && parseValorMontario(l.valor) > 0)
@@ -770,7 +785,7 @@ const VisualizarOrdemServicoPage = () => {
     (entregaLinhasValidas &&
       entregaSomaPagamentos + 0.009 >= entregaTotalLiquido &&
       entregaSomaPagamentos > 0);
-  const entregaDescontoInvalido = entregaDescontoExtra > entregaValorBruto + 0.001;
+  const entregaDescontoInvalido = entregaDescontoPct > 100;
   const entregaExigeTermo = !clienteRecusou && !aparelhoSemConserto;
 
   if (loading) {
@@ -1651,7 +1666,7 @@ const VisualizarOrdemServicoPage = () => {
                 <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4 space-y-4">
                   {entregaDescontoInvalido && (
                     <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2.5 text-sm text-red-800 dark:text-red-200">
-                      O desconto não pode ser maior que o total da O.S. ({formatCurrency(entregaValorBruto)}).
+                      O desconto na entrega não pode ser maior que 100%.
                     </div>
                   )}
 
@@ -1758,14 +1773,37 @@ const VisualizarOrdemServicoPage = () => {
                           <span className="text-sm font-semibold">Desconto na entrega</span>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-zinc-400">
-                          Opcional: desconto adicional (R$) sobre o total já calculado na OS. Será lançado na venda.
+                          Opcional: desconto percentual (%) sobre o total já calculado na OS. Será lançado na venda.
                         </p>
-                        <CurrencyInput
-                          value={descontoEntregaStr}
-                          onChange={(e) => setDescontoEntregaStr(e.target.value)}
-                          placeholder="0,00"
-                          className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={descontoEntregaStr}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^\d,.]/g, '');
+                              // Uma só vírgula/ponto decimal
+                              const normalized = raw.replace(/\./g, ',');
+                              const parts = normalized.split(',');
+                              const next =
+                                parts.length <= 1
+                                  ? normalized
+                                  : `${parts[0]},${parts.slice(1).join('').slice(0, 2)}`;
+                              setDescontoEntregaStr(next);
+                            }}
+                            placeholder="0"
+                            className="w-full px-3 py-2.5 pr-10 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+                            aria-label="Desconto percentual na entrega"
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-zinc-400">
+                            %
+                          </span>
+                        </div>
+                        {entregaDescontoExtra > 0 && !entregaDescontoInvalido && (
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            Equivale a {formatCurrency(entregaDescontoExtra)} de desconto.
+                          </p>
+                        )}
                       </div>
 
                       {entregaTotalLiquido <= 0 && entregaValorBruto > 0 && (
@@ -1889,7 +1927,9 @@ const VisualizarOrdemServicoPage = () => {
                           </div>
                           {entregaDescontoExtra > 0 && (
                             <div className="flex justify-between text-emerald-800 dark:text-emerald-300">
-                              <span>Desconto na entrega</span>
+                              <span>
+                                Desconto na entrega ({entregaDescontoPct.toLocaleString('pt-BR')}%)
+                              </span>
                               <span className="tabular-nums">− {formatCurrency(entregaDescontoExtra)}</span>
                             </div>
                           )}
