@@ -47,30 +47,47 @@ function isStatusSemReparo(status: string): boolean {
 
 /** Mapeia status do técnico para status da O.S. (espelhamento técnico → atendente) */
 function mapTecnicoParaOS(statusTec: string): string {
-  const n = (normalizeStatus(statusTec) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ');
-  if (/AGUARDANDO\s*INICIO/.test(n)) return 'ORÇAMENTO';
-  if (/EM\s*ANALISE|EM_ANALISE/.test(n)) return 'EM_ANALISE';
-  if (/ORCAMENTO\s*CONCLUIDO/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
-  if (/AGUARDANDO\s*PECA|AGUARDANDO_PECA/.test(n)) return 'AGUARDANDO PEÇA';
-  if (/EM\s*EXECUCAO|EM_EXECUCAO/.test(n)) return 'APROVADO';
-  if (/REPARO\s*CONCLUIDO|CONCLUIDO/.test(n)) return 'CONCLUIDO';
-  if (/SEM\s*REPARO|SEM_REPARO/.test(n)) return 'SEM REPARO';
-  if (/APROVADO|AGUARDANDO\s*APROVACAO|AGUARDANDO\s*RETIRADA|CLIENTE\s*RECUSOU/.test(n)) return (statusTec || '').trim();
+  const n = (normalizeStatus(statusTec) || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (/^AGUARDANDO\s*INICIO$/.test(n)) return 'ORÇAMENTO';
+  if (/^EM\s*ANALISE$/.test(n)) return 'EM_ANALISE';
+  if (/^ORCAMENTO\s*CONCLUIDO$/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
+  if (/^AGUARDANDO\s*PECA$/.test(n)) return 'AGUARDANDO PEÇA';
+  if (/^EM\s*EXECUCAO$/.test(n)) return 'APROVADO';
+  if (/^REPARO\s*CONCLUIDO$/.test(n) || /^CONCLUIDO$/.test(n)) return 'CONCLUIDO';
+  if (/^SEM\s*REPARO$/.test(n)) return 'SEM REPARO';
+  if (/^APROVADO$/.test(n)) return 'APROVADO';
+  if (/^AGUARDANDO\s*APROVACAO$/.test(n) || /^AGUARDANDO\s*RETIRADA$/.test(n) || /^CLIENTE\s*RECUSOU$/.test(n)) {
+    return (statusTec || '').trim();
+  }
+  // Status personalizado: espelha o mesmo nome na O.S.
   return (statusTec || '').trim() || '';
 }
 
 /** Mapeia status da O.S. para status do técnico (espelhamento atendente → técnico) */
 function mapOSTecnico(statusOS: string): string {
-  const n = (normalizeStatus(statusOS) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ');
-  if (/(^| )ORCAMENTO($| )/.test(n) && !/CONCLUIDO/.test(n)) return 'AGUARDANDO INÍCIO';
-  if (/EM\s*ANALISE|EM_ANALISE/.test(n)) return 'EM ANÁLISE';
-  if (/ORCAMENTO\s*CONCLUIDO/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
-  if (/AGUARDANDO\s*PECA|AGUARDANDO_PECA/.test(n)) return 'AGUARDANDO PEÇA';
-  if (/APROVADO|EM\s*EXECUCAO/.test(n)) return 'APROVADO';
-  if (/CONCLUIDO|REPARO/.test(n) && !/SEM/.test(n)) return 'REPARO CONCLUÍDO';
-  if (/SEM\s*REPARO|SEM_REPARO/.test(n)) return 'SEM REPARO';
-  if (/ENTREGUE/.test(n)) return 'REPARO CONCLUÍDO';
-  if (/AGUARDANDO\s*APROVACAO|AGUARDANDO\s*RETIRADA|CLIENTE\s*RECUSOU/.test(n)) return (statusOS || '').trim();
+  const n = (normalizeStatus(statusOS) || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (/^ORCAMENTO$/.test(n)) return 'AGUARDANDO INÍCIO';
+  if (/^EM\s*ANALISE$/.test(n)) return 'EM ANÁLISE';
+  if (/^ORCAMENTO\s*CONCLUIDO$/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
+  if (/^AGUARDANDO\s*PECA$/.test(n)) return 'AGUARDANDO PEÇA';
+  if (/^APROVADO$/.test(n) || /^EM\s*EXECUCAO$/.test(n)) return 'APROVADO';
+  if (/^REPARO\s*CONCLUIDO$/.test(n) || /^CONCLUIDO$/.test(n)) return 'REPARO CONCLUÍDO';
+  if (/^SEM\s*REPARO$/.test(n)) return 'SEM REPARO';
+  if (/^ENTREGUE$/.test(n)) return 'REPARO CONCLUÍDO';
+  if (/^AGUARDANDO\s*APROVACAO$/.test(n) || /^AGUARDANDO\s*RETIRADA$/.test(n) || /^CLIENTE\s*RECUSOU$/.test(n)) {
+    return (statusOS || '').trim();
+  }
+  // Status personalizado: espelha o mesmo nome no técnico
   return (statusOS || '').trim() || '';
 }
 
@@ -266,7 +283,6 @@ export async function POST(request: NextRequest) {
     const novoStatusRaw = body.newStatus !== undefined ? String(body.newStatus).trim() : (newStatus ? String(newStatus).trim() : '');
     const novoStatusTecnicoRaw = body.newStatusTecnico !== undefined ? String(body.newStatusTecnico).trim() : (newStatusTecnico ? String(newStatusTecnico).trim() : '');
 
-    // Laudo preenchido pelo técnico (app ou bancada): espelha regra da bancada web
     const laudoTexto =
       typeof updateData.laudo === 'string' ? updateData.laudo.trim() : '';
     const laudoAnterior =
@@ -275,7 +291,42 @@ export async function POST(request: NextRequest) {
         : '';
     const laudoNovoPreenchido = laudoTexto.length > 0 && laudoTexto !== laudoAnterior;
 
-    if (laudoNovoPreenchido) {
+    const nomesStatusIguaisLocal = (a: string, b: string) => {
+      const na = normalizeStatus(a).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+      const nb = normalizeStatus(b).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+      return !!na && na === nb;
+    };
+
+    const tecnicoAlterou =
+      !!novoStatusTecnicoRaw && !nomesStatusIguaisLocal(novoStatusTecnicoRaw, osAnteriorStatusTecnico);
+    const atendenteAlterou =
+      !!novoStatusRaw && !nomesStatusIguaisLocal(novoStatusRaw, osAnteriorStatus);
+
+    // Evita que clientes enviem status/status_tecnico “iguais aos atuais” e a API
+    // sobrescreva o outro campo via espelhamento (bug: status não “mudava” na O.S.).
+    delete dadosAtualizacao.status;
+    delete dadosAtualizacao.status_tecnico;
+
+    if (tecnicoAlterou && atendenteAlterou) {
+      // Ambos mudaram de verdade (ex.: entrega com flags) → respeitar os dois
+      dadosAtualizacao.status = novoStatusRaw;
+      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+    } else if (tecnicoAlterou) {
+      // Técnico alterou → espelhar para O.S.
+      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || osAnteriorStatus;
+    } else if (atendenteAlterou) {
+      // Atendente alterou → espelhar para técnico (ignora status_tecnico repetido no body)
+      dadosAtualizacao.status = novoStatusRaw;
+      if (isStatusSemReparo(osAnteriorStatusTecnico) && normalizeStatus(novoStatusRaw) !== 'ENTREGUE') {
+        dadosAtualizacao.status_tecnico = 'SEM REPARO';
+      } else {
+        dadosAtualizacao.status_tecnico = mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico;
+      }
+    }
+
+    // Laudo preenchido pelo técnico (app ou bancada): só aplica se ninguém mudou status explicitamente
+    if (laudoNovoPreenchido && !tecnicoAlterou && !atendenteAlterou) {
       const stLaudoAnt = normalizeStatus(osAnteriorStatusTecnico)
         .normalize('NFD')
         .replace(/\p{Diacritic}/gu, '')
@@ -287,67 +338,27 @@ export async function POST(request: NextRequest) {
 
       if (!jaOrcamentoEnviado && !tecnicoSemReparo && !tecnicoReparoConcluido) {
         const statusOrcamento = 'ORÇAMENTO CONCLUÍDO';
-        if (!novoStatusTecnicoRaw) {
-          dadosAtualizacao.status_tecnico = statusOrcamento;
-        }
-        if (!novoStatusRaw) {
-          dadosAtualizacao.status = mapTecnicoParaOS(statusOrcamento) || dadosAtualizacao.status;
-        }
+        dadosAtualizacao.status_tecnico = statusOrcamento;
+        dadosAtualizacao.status = mapTecnicoParaOS(statusOrcamento) || osAnteriorStatus;
       }
     }
+    // Se nenhum status mudou e não há laudo novo, não toca em status/status_tecnico.
 
-    const tecnicoAlterou = !!novoStatusTecnicoRaw && novoStatusTecnicoRaw !== osAnteriorStatusTecnico;
-    const atendenteAlterou = !!novoStatusRaw && novoStatusRaw !== osAnteriorStatus;
-
-    // Técnico alterou → espelhar para O.S.
-    if (tecnicoAlterou) {
-      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
-      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || novoStatusRaw || osAnteriorStatus;
-    }
-    // Atendente alterou → espelhar para técnico
-    else if (atendenteAlterou) {
-      dadosAtualizacao.status = novoStatusRaw;
-      const entregaSemConsertoExplicita =
-        aparelho_sem_conserto === true ||
-        cliente_recusou === true ||
-        isStatusSemReparo(novoStatusTecnicoRaw);
-      const entregaComConsertoExplicita =
-        normalizeStatus(novoStatusRaw) === 'ENTREGUE' &&
-        !!novoStatusTecnicoRaw &&
-        !isStatusSemReparo(novoStatusTecnicoRaw) &&
-        !entregaSemConsertoExplicita;
-
-      if (entregaComConsertoExplicita) {
-        dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
-      } else if (isStatusSemReparo(osAnteriorStatusTecnico) && !entregaComConsertoExplicita) {
-        dadosAtualizacao.status_tecnico = 'SEM REPARO';
-      } else {
-        dadosAtualizacao.status_tecnico =
-          novoStatusTecnicoRaw || mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico;
-      }
-    }
-    // Apenas updateData (ex.: bancada com outros campos) – aplicar espelhamento do que veio
-    else if (novoStatusTecnicoRaw) {
-      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
-      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || dadosAtualizacao.status || osAnteriorStatus;
-    } else if (novoStatusRaw) {
-      dadosAtualizacao.status = novoStatusRaw;
-      dadosAtualizacao.status_tecnico = isStatusSemReparo(osAnteriorStatusTecnico) ? 'SEM REPARO' : (mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico);
-    }
-
-    // Entrega explícita: respeitar a intenção do atendente via flags
+    // Entrega explícita: só força quando o status da O.S. está mudando para ENTREGUE
     const semConsertoEntrega =
       aparelho_sem_conserto === true ||
       cliente_recusou === true ||
       isStatusSemReparo(novoStatusTecnicoRaw);
 
-    if (normalizeStatus(novoStatusRaw) === 'ENTREGUE') {
+    if (normalizeStatus(novoStatusRaw) === 'ENTREGUE' && atendenteAlterou) {
       dadosAtualizacao.status = 'ENTREGUE';
       if (semConsertoEntrega) {
         dadosAtualizacao.status_tecnico = 'SEM REPARO';
+      } else if (tecnicoAlterou && novoStatusTecnicoRaw) {
+        dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
       } else {
         dadosAtualizacao.status_tecnico =
-          novoStatusTecnicoRaw || mapOSTecnico('ENTREGUE') || osAnteriorStatusTecnico;
+          mapOSTecnico('ENTREGUE') || osAnteriorStatusTecnico;
       }
     }
     // Persistir flags para que comissões e listagens respeitem depois
@@ -391,18 +402,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Garantia: se status_tecnico é SEM REPARO e status não é ENTREGUE, espelhar SEM REPARO na OS
-    const statusTecnicoPersistido = extractStatusText(ordemAtualizada?.status_tecnico);
-    const statusOSPersistido = (normalizeStatus(extractStatusText(ordemAtualizada?.status)) || '').replace(/_/g, ' ').trim();
-    if (isStatusSemReparo(statusTecnicoPersistido) && statusOSPersistido !== 'SEM REPARO' && statusOSPersistido !== 'ENTREGUE') {
-      const { data: corrigida } = await supabase
-        .from('ordens_servico')
-        .update({ status: 'SEM REPARO', updated_at: new Date().toISOString() })
-        .eq('id', osAnterior.id)
-        .select()
-        .single();
-      if (corrigida) ordemAtualizada = corrigida;
-    }
+    // Não forçar status da O.S. = SEM REPARO só porque o técnico está em SEM REPARO.
+    // Ex.: O.S. em "AGUARDANDO RETIRADA" com técnico "SEM REPARO" é válido e deve persistir.
 
     // Notificar atendentes (app mobile, bancada web, etc.) via tabela notificacoes
     try {

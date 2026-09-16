@@ -591,16 +591,51 @@ export default function EditarOSSimples() {
 
       const totais = calcularTotais();
       
-      // Determinar status técnico automático
+      // Determinar status técnico automático (só quando o status da OS mudou de fato)
       let novoStatusTecnico = ordem?.status_tecnico || '';
       const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
       const sel = normalize(statusSelecionado?.nome || '');
-      if (sel === 'APROVADO') {
-        novoStatusTecnico = 'APROVADO';
-      } else if (sel === 'ENTREGUE') {
-        novoStatusTecnico = 'REPARO CONCLUÍDO';
-      } else if (sel === 'AGUARDANDO APROVACAO') {
-        novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
+      const statusOsMudou = normalize(statusSelecionado?.nome || '') !== normalize(ordem?.status || '');
+      let tecnicoFoiMapeado = false;
+      const tecnicoAtualEhSemReparo = /SEM\s*REPARO/.test(normalize(ordem?.status_tecnico || ''));
+      if (statusOsMudou) {
+        // Se o técnico já está em SEM REPARO, preservar (exceto entrega)
+        if (tecnicoAtualEhSemReparo && sel !== 'ENTREGUE') {
+          novoStatusTecnico = 'SEM REPARO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'APROVADO') {
+          novoStatusTecnico = 'APROVADO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'ENTREGUE') {
+          novoStatusTecnico = tecnicoAtualEhSemReparo ? 'SEM REPARO' : 'REPARO CONCLUÍDO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'AGUARDANDO APROVACAO') {
+          novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'AGUARDANDO RETIRADA') {
+          // O.S. aguardando retirada: não sobrescrever o status técnico (ex.: SEM REPARO)
+          novoStatusTecnico = ordem?.status_tecnico || 'AGUARDANDO RETIRADA';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'EM ANALISE') {
+          novoStatusTecnico = 'EM ANÁLISE';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'ORCAMENTO') {
+          novoStatusTecnico = 'AGUARDANDO INÍCIO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'AGUARDANDO PECA') {
+          novoStatusTecnico = 'AGUARDANDO PEÇA';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'CONCLUIDO' || sel === 'REPARO CONCLUIDO') {
+          novoStatusTecnico = 'REPARO CONCLUÍDO';
+          tecnicoFoiMapeado = true;
+        } else if (sel === 'SEM REPARO') {
+          novoStatusTecnico = 'SEM REPARO';
+          tecnicoFoiMapeado = true;
+        } else if (statusSelecionado?.nome) {
+          // Status personalizado: se técnico já é SEM REPARO, mantém; senão espelha
+          novoStatusTecnico = tecnicoAtualEhSemReparo ? 'SEM REPARO' : statusSelecionado.nome;
+          tecnicoFoiMapeado = true;
+        }
       }
 
       // ✅ HISTÓRICO DE RECUSAS: Registrar automaticamente quando cliente recusa
@@ -749,8 +784,11 @@ export default function EditarOSSimples() {
           empresa_id: usuarioData?.empresa_id, // Incluir empresa_id para filtrar corretamente
           usuario_id: usuarioData?.id,
           usuario_nome: usuarioData?.nome,
-          newStatus: statusSelecionado?.nome,
-          newStatusTecnico: novoStatusTecnico,
+          // Só envia status se mudou — evita a API “espelhar” o status_tecnico antigo por cima
+          ...(statusOsMudou ? { newStatus: statusSelecionado?.nome } : {}),
+          ...(tecnicoFoiMapeado || novoStatusTecnico !== ordem?.status_tecnico
+            ? { newStatusTecnico: novoStatusTecnico }
+            : {}),
           ...updateData // Incluir todos os dados de atualização
         }),
       });

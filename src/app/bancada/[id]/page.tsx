@@ -477,6 +477,9 @@ export default function DetalheBancadaPage() {
       } else if (/EM\s*EXECU[ÇC][ÃA]O|EM_EXECUCAO/.test(stUpper)) {
         // Em execução não deve cair em status de concluído na OS.
         novoStatus = 'APROVADO';
+      } else if (statusTecnicoParaSalvar) {
+        // Status personalizado (ou não mapeado): espelha o mesmo nome na O.S.
+        novoStatus = statusTecnicoParaSalvar;
       }
 
       // Regra de espelhamento: SEM REPARO do técnico deve espelhar na O.S.
