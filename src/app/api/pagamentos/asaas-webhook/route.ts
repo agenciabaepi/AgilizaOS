@@ -50,10 +50,12 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       console.error('asaas-webhook: falha ao ativar', paymentId, result);
+      // 5xx faz o Asaas reenviar; sem isso, pagamento confirmado sem empresa fica perdido.
       const retryable =
         result.code === 'asaas_error' ||
         result.code === 'ativacao_falhou' ||
-        result.code === 'db_error';
+        result.code === 'db_error' ||
+        result.code === 'pagamento_nao_vinculado';
       return NextResponse.json(
         {
           ok: false,

@@ -68,18 +68,12 @@ export function computeAssinaturaVencidaPorBilling(
   }
 
   if (assinatura.status === 'active' || assinatura.status === 'ativa') {
-    // Active sem nenhuma data de cobertura = vencida (não liberar indefinidamente)
+    // Mesma regra dos status expired*: basta UMA data de cobertura ainda válida.
+    // (Antes: AND — data_fim ok + proxima_cobranca velha bloqueava quem já pagou.)
     if (!assinatura.data_fim && !assinatura.proxima_cobranca) {
       return true;
     }
-    if (assinatura.data_fim) {
-      const d0 = diff(assinatura.data_fim);
-      if (d0 !== null && d0 < 0) return true;
-    }
-    if (assinatura.proxima_cobranca) {
-      const d = diff(assinatura.proxima_cobranca);
-      if (d !== null && d < 0) return true;
-    }
+    return !temCoberturaVigente;
   }
 
   if (assinatura.status === 'trial') {

@@ -48,11 +48,16 @@ export async function expirarTrialsVencidosEmpresa(
       continue;
     }
 
+    // data_fim no passado (ontem) evita reabrir acesso no mesmo dia civil via regra de cobertura.
+    const ontem = new Date();
+    ontem.setUTCDate(ontem.getUTCDate() - 1);
+    const dataFimPassada = ontem.toISOString();
+
     await supabase
       .from('assinaturas')
       .update({
         status: 'expired',
-        data_fim: agora,
+        data_fim: dataFimPassada,
         proxima_cobranca: null,
         updated_at: agora,
       })
