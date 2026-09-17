@@ -5,6 +5,42 @@ import {
   resolveAssinaturaIdParaAlteracao,
 } from '@/lib/billing/adminEmpresaAssinatura';
 
+async function resolverSlugPlanoCobranca(
+  supabase: SupabaseClient,
+  empresaId: string,
+  planoSlug?: string | null
+): Promise<string> {
+  if (planoSlug === PLANO_SLUGS.BASICO || planoSlug === PLANO_SLUGS.COMPLETO) {
+    return planoSlug;
+  }
+
+  // Renovação/cron sem slug: manter o plano atual (não forçar Completo).
+  const { data: rows } = await supabase
+    .from('assinaturas')
+    .select('plano_id, status, created_at')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false })
+    .limit(15);
+
+  for (const row of rows || []) {
+    const status = String(row.status || '').toLowerCase();
+    if (status === 'cancelled' || status === 'trial' || !row.plano_id) continue;
+    const { data: plano } = await supabase
+      .from('planos')
+      .select('slug')
+      .eq('id', row.plano_id)
+      .maybeSingle();
+    const slug = String(plano?.slug || '')
+      .trim()
+      .toLowerCase();
+    if (slug === PLANO_SLUGS.BASICO || slug === PLANO_SLUGS.COMPLETO) {
+      return slug;
+    }
+  }
+
+  return PLANO_SLUGS.COMPLETO;
+}
+
 /**
  * Ativa ou renova assinatura após pagamento confirmado.
  * ⚠️ Não chamar diretamente — use `processarPagamentoConfirmado` em ativarAssinaturaSegura.ts.
@@ -17,10 +53,7 @@ export async function ativarAssinaturaPorPagamento(
   planoSlug?: string | null,
   opts?: { observacaoExtra?: string | null; gatewayPaymentId?: string | null }
 ): Promise<boolean> {
-  const slug =
-    planoSlug === PLANO_SLUGS.BASICO || planoSlug === PLANO_SLUGS.COMPLETO
-      ? planoSlug
-      : PLANO_SLUGS.COMPLETO;
+  const slug = await resolverSlugPlanoCobranca(supabase, empresaId, planoSlug);
 
   const { data: plano } = await supabase
     .from('planos')

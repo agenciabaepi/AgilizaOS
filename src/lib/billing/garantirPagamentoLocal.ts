@@ -50,6 +50,7 @@ export async function garantirPagamentoLocal(
     valor?: number | null;
     paidAtIso: string;
     status?: string;
+    planoSlug?: string | null;
   }
 ): Promise<{ pagamento: PagamentoLocalRow | null; error?: string }> {
   const asaasPaymentId = String(params.asaasPaymentId || '').trim();
@@ -68,13 +69,16 @@ export async function garantirPagamentoLocal(
     return { pagamento: existing };
   }
 
-  const insertPayload = {
+  const insertPayload: Record<string, unknown> = {
     empresa_id: empresaId,
     mercadopago_payment_id: asaasPaymentId,
     status: params.status || 'approved',
     valor: Number(params.valor) || 0,
     paid_at: params.paidAtIso,
   };
+  if (params.planoSlug) {
+    insertPayload.plano_slug = params.planoSlug;
+  }
 
   const { error } = await supabase.from('pagamentos').insert(insertPayload);
 

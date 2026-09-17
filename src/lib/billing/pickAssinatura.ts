@@ -51,7 +51,8 @@ export function activeRowCalendarValid(
 
 /**
  * Escolhe a linha de `assinaturas` que deve governar o app (plano / trial na UI e limites).
- * Evita que uma linha mais recente (ex.: cancelada) esconda um trial ainda válido.
+ * Prioridade: cobertura paga vigente > trial válido > active válido > mais recente.
+ * (Antes o trial ganhava de assinatura paga e podia esconder o plano correto.)
  */
 export function pickAssinaturaParaContexto(
   rows: Record<string, unknown>[],
@@ -64,22 +65,30 @@ export function pickAssinaturaParaContexto(
       new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()
   );
 
-  const validTrial = sorted.find((r) =>
-    trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial)
-  );
-  if (validTrial) return validTrial;
-
   const comCobertura = sorted
     .filter((r) => String(r.status || '').toLowerCase() !== 'cancelled')
     .map((r) => ({ r, cob: getCoberturaAteYmd(r) }))
     .filter((x): x is { r: Record<string, unknown>; cob: string } => !!x.cob)
     .sort((a, b) => b.cob.localeCompare(a.cob));
 
-  const vigente = comCobertura.find((x) => {
+  const vigentePaga = comCobertura.find((x) => {
+    const status = String(x.r.status || '').toLowerCase();
+    if (status === 'trial') return false;
     const d = diffDiasCalendario(x.cob);
     return d !== null && d >= 0;
   });
-  if (vigente) return vigente.r;
+  if (vigentePaga) return vigentePaga.r;
+
+  const validTrial = sorted.find((r) =>
+    trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial)
+  );
+  if (validTrial) return validTrial;
+
+  const vigenteQualquer = comCobertura.find((x) => {
+    const d = diffDiasCalendario(x.cob);
+    return d !== null && d >= 0;
+  });
+  if (vigenteQualquer) return vigenteQualquer.r;
 
   const validActive = sorted.find((r) => activeRowCalendarValid(r));
   if (validActive) return validActive;
