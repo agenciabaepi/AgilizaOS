@@ -29,14 +29,14 @@ export default async function AdminSaaSLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950">
       {/* Sidebar fixo */}
-      <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 shadow-sm z-30">
+      <aside className="fixed left-0 top-0 h-screen w-64 bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-700 shadow-sm z-30">
         <NavAdminSaaS />
       </aside>
       
       {/* Conteúdo principal com margin para compensar sidebar */}
-      <main className="ml-64 flex flex-col min-h-screen bg-gray-50">
+      <main className="ml-64 flex flex-col min-h-screen bg-gray-50 dark:bg-zinc-950">
         <HeaderAdminSaaS />
         <div className="flex-1 overflow-auto">
           <div className="px-4 lg:px-5 py-5 lg:py-6 w-full max-w-none">

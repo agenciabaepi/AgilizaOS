@@ -63,18 +63,18 @@ export const useConfirm = () => {
     }
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-zinc-900 dark:border dark:border-zinc-600 rounded-lg p-6 w-full max-w-md">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-50 mb-2">
             {confirmState.options.title}
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-zinc-300 mb-6">
             {confirmState.options.message}
           </p>
           <div className="flex justify-end gap-3">
             <button
               onClick={handleCancel}
-              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:text-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
             >
               {confirmState.options.cancelText || 'Cancelar'}
             </button>

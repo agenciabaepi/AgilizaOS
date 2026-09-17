@@ -170,11 +170,11 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'text-green-600 bg-green-50 border-green-200';
+        return 'text-green-600 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950 dark:border-green-800';
       case 'warning':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-amber-300 dark:bg-amber-950 dark:border-amber-800';
       default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
+        return 'text-gray-600 bg-gray-50 border-gray-200 dark:text-zinc-300 dark:bg-zinc-800 dark:border-zinc-600';
     }
   };
 
@@ -192,31 +192,31 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-transparent dark:border-zinc-600">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Bem-vindo ao Sistema!</h2>
-            <p className="text-gray-600 mt-1">Complete as configurações iniciais para começar</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-zinc-50">Bem-vindo ao Sistema!</h2>
+            <p className="text-gray-600 dark:text-zinc-400 mt-1">Complete as configurações iniciais para começar</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
           >
             <FiX className="w-6 h-6" />
           </button>
         </div>
 
         {/* Progress Bar */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">
               Progresso: {completedRequiredItems}/{totalRequiredItems} itens obrigatórios
             </span>
-            <span className="text-sm text-gray-500">{Math.round(progress)}%</span>
+            <span className="text-sm text-gray-500 dark:text-zinc-400">{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-2">
             <div 
               className="bg-green-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
@@ -229,7 +229,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Verificando configurações...</p>
+              <p className="text-gray-500 dark:text-zinc-400 mt-2">Verificando configurações...</p>
             </div>
           ) : (
             onboardingItems.map((item) => (
@@ -255,7 +255,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                       size="sm"
                       className={`${
                         item.status === 'completed' 
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800' 
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
@@ -266,10 +266,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 </div>
                 
                 {item.required && item.status !== 'completed' && (
-                  <div className="mt-2 text-xs text-red-600 font-medium">
+                  <div className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
                     ⚠️ Este item é obrigatório para criar Ordens de Serviço
                     {item.missingFields && item.missingFields.length > 0 && (
-                      <div className="mt-1 text-red-500">
+                      <div className="mt-1 text-red-500 dark:text-red-400">
                         Campos faltando: {item.missingFields.join(', ')}
                       </div>
                     )}
@@ -281,11 +281,11 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800/80">
           <Button
             onClick={handleSkip}
             variant="outline"
-            className="text-gray-600 hover:text-gray-800"
+            className="text-gray-600 hover:text-gray-800 dark:text-zinc-300 dark:hover:text-zinc-50"
           >
             Pular por agora
           </Button>
@@ -304,13 +304,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
 
       {/* Modal de Cadastro de Técnico */}
       {showTecnicoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 dark:border dark:border-zinc-600 rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-50 mb-4">
                 Cadastrar Técnico
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 dark:text-zinc-300 mb-6">
                 Para criar Ordens de Serviço, você precisa cadastrar pelo menos um técnico.
               </p>
               

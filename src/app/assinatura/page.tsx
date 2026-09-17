@@ -334,8 +334,8 @@ export default function AssinaturaPage() {
               <div
                 className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
                   diasRest < 0
-                    ? 'border-red-200 bg-red-50 text-red-950'
-                    : 'border-sky-200 bg-sky-50 text-sky-950'
+                    ? 'border-red-200 bg-red-50 text-red-950 dark:border-red-500 dark:bg-red-950 dark:text-red-100'
+                    : 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500 dark:bg-sky-950 dark:text-sky-100'
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

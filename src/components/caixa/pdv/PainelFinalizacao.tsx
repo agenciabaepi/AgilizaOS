@@ -111,7 +111,7 @@ export function PainelFinalizacao({
   inputClienteRef,
 }: PainelFinalizacaoProps) {
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-zinc-200/80 overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-700 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-brand-surface rounded-lg border border-brand-muted">

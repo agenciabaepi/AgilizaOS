@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
+import { useTheme } from '@/context/ThemeContext';
 import PatternLock from '@/components/PatternLock';
 import {
   FiSmartphone,
@@ -112,14 +113,69 @@ function CampoResumoCliente({ label, valor }: { label: string; valor: string }) 
   const v = valor?.trim();
   return (
     <div className="grid grid-cols-1 gap-0.5 py-2.5 text-sm sm:grid-cols-[9rem_1fr] sm:gap-x-4 sm:gap-y-0">
-      <div className="text-gray-500">{label}</div>
-      <div className={`min-w-0 break-words ${v ? 'text-gray-900' : 'text-gray-400'}`}>{v || '—'}</div>
+      <div className="text-gray-500 dark:text-zinc-400">{label}</div>
+      <div className={`min-w-0 break-words ${v ? 'text-gray-900 dark:text-zinc-50' : 'text-gray-400 dark:text-zinc-500'}`}>{v || '—'}</div>
     </div>
   );
 }
 
 const inputEdicaoRapidaClass =
-  'w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900';
+  'w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-zinc-300 dark:focus:ring-zinc-300';
+
+function novaOSSelectStyles(isDark: boolean) {
+  const bg = isDark ? '#27272a' : '#ffffff';
+  const border = isDark ? '#52525b' : '#e5e7eb';
+  const borderFocus = isDark ? '#fafafa' : '#111827';
+  const text = isDark ? '#fafafa' : '#111827';
+  const muted = isDark ? '#a1a1aa' : '#9ca3af';
+  const menuBg = isDark ? '#18181b' : '#ffffff';
+  const optionHover = isDark ? '#3f3f46' : '#f9fafb';
+  const optionSelected = isDark ? '#f4f4f5' : '#111827';
+  const optionSelectedText = isDark ? '#09090b' : '#ffffff';
+  return {
+    control: (provided: Record<string, unknown>, state: { isFocused?: boolean }) => ({
+      ...provided,
+      borderRadius: '0.5rem',
+      backgroundColor: bg,
+      borderColor: state.isFocused ? borderFocus : border,
+      minHeight: '44px',
+      fontSize: '1rem',
+      boxShadow: 'none',
+      color: text,
+      ':hover': { borderColor: isDark ? '#a1a1aa' : '#d1d5db' },
+    }),
+    menuPortal: (p: Record<string, unknown>) => ({ ...p, zIndex: 9999 }),
+    menu: (p: Record<string, unknown>) => ({
+      ...p,
+      zIndex: 9999,
+      borderRadius: '0.5rem',
+      backgroundColor: menuBg,
+      boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.08)',
+      border: `1px solid ${border}`,
+    }),
+    menuList: (p: Record<string, unknown>) => ({ ...p, backgroundColor: menuBg }),
+    option: (provided: Record<string, unknown>, state: { isSelected?: boolean; isFocused?: boolean }) => ({
+      ...provided,
+      backgroundColor: state.isSelected ? optionSelected : state.isFocused ? optionHover : menuBg,
+      color: state.isSelected ? optionSelectedText : text,
+      fontSize: '0.875rem',
+      cursor: 'pointer',
+    }),
+    singleValue: (provided: Record<string, unknown>) => ({ ...provided, color: text }),
+    multiValue: (provided: Record<string, unknown>) => ({
+      ...provided,
+      backgroundColor: isDark ? '#3f3f46' : '#e5e7eb',
+    }),
+    multiValueLabel: (provided: Record<string, unknown>) => ({ ...provided, color: text }),
+    input: (provided: Record<string, unknown>) => ({ ...provided, color: text }),
+    placeholder: (provided: Record<string, unknown>) => ({ ...provided, color: muted }),
+    indicatorSeparator: (provided: Record<string, unknown>) => ({
+      ...provided,
+      backgroundColor: border,
+    }),
+    dropdownIndicator: (provided: Record<string, unknown>) => ({ ...provided, color: muted }),
+  };
+}
 
 interface Usuario {
   id: string;
@@ -154,6 +210,8 @@ interface Termo {
 
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [tipoEntrada, setTipoEntrada] = useState<'nova' | 'garantia'>('nova');
   const [osGarantiaBusca, setOsGarantiaBusca] = useState('');
@@ -1399,14 +1457,14 @@ function NovaOS2Content() {
   return (
     <MenuLayout>
       <TrialLimitGuard tipo="ordens">
-      <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80 pb-6">
+      <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80 dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-950 pb-6">
         {/* Barra fixa só com Voltar - no lugar do header */}
-        <div className="sticky top-0 z-20 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 md:px-6 py-3">
+        <div className="sticky top-0 z-20 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-gray-200 dark:border-zinc-800 px-4 md:px-6 py-3">
           <div className={`relative mx-auto flex ${pageMaxWidthClass} items-center justify-between`}>
             <button
               type="button"
               onClick={() => router.push('/ordens')}
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors z-10"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-zinc-300 dark:hover:text-zinc-50 font-medium transition-colors z-10"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1420,7 +1478,7 @@ function NovaOS2Content() {
               aria-label="Gestão Consert"
             >
               <Image
-                src="/assets/imagens/logopreto.png"
+                src={isDark ? '/assets/imagens/logobranco.png' : '/assets/imagens/logopreto.png'}
                 alt="Gestão Consert"
                 width={140}
                 height={40}
@@ -1434,10 +1492,10 @@ function NovaOS2Content() {
 
         <div className={`mx-auto w-full ${pageMaxWidthClass} px-4 py-6 sm:px-6 sm:py-8`}>
           <header className="mb-8 text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-50">
               Nova Ordem de Serviço
             </h1>
-            <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+            <p className="mt-2 text-sm text-gray-500 dark:text-zinc-400 max-w-md mx-auto">
               Preencha cada etapa com calma. Você pode voltar às anteriores a qualquer momento.
             </p>
           </header>
@@ -1445,14 +1503,14 @@ function NovaOS2Content() {
           {(draftRestored || draftUpdatedAt) && (
             <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200">
                   <FiFileText className="h-4 w-4" aria-hidden />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-amber-950">
+                  <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
                     {draftRestored ? 'Rascunho restaurado' : 'Rascunho salvo automaticamente'}
                   </p>
-                  <p className="mt-0.5 text-xs text-amber-800">
+                  <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-200">
                     {draftRestored
                       ? 'Seus dados foram recuperados. As fotos precisam ser anexadas novamente.'
                       : 'O preenchimento é salvo enquanto você edita.'}
@@ -1493,10 +1551,10 @@ function NovaOS2Content() {
               <div className="w-full flex flex-col gap-6">
                 {/* Tipo de entrada: Nova ou Retorno Garantia */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Tipo de Entrada</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2 text-left">Tipo de Entrada</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
-                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'nova' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'nova' ? 'border-black bg-gray-50 dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-50' : 'border-gray-200 hover:border-gray-300 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-400'}`}
                       onClick={() => {
                         setTipoEntrada('nova');
                         setOsGarantiaBusca('');
@@ -1507,7 +1565,7 @@ function NovaOS2Content() {
                       <span className="font-bold text-lg">Nova OS</span>
                     </div>
                     <div
-                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'garantia' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'garantia' ? 'border-black bg-gray-50 dark:border-zinc-100 dark:bg-zinc-800 dark:text-zinc-50' : 'border-gray-200 hover:border-gray-300 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-400'}`}
                       onClick={() => setTipoEntrada('garantia')}
                     >
                       <span className="font-bold text-lg">Retorno para Garantia</span>
@@ -1654,7 +1712,7 @@ function NovaOS2Content() {
                     )}
                   </div>
                 )}
-                <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Selecione o cliente</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2 text-left">Selecione o cliente</label>
                 {isMounted ? (
                 <ReactSelect
                   options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
@@ -1715,36 +1773,7 @@ function NovaOS2Content() {
                       .toLowerCase();
                     return haystack.includes(q) || !!matchDoc;
                   }}
-                  styles={{
-                    control: (provided, state) => ({
-                      ...provided,
-                      borderRadius: '0.5rem',
-                      borderColor: state.isFocused ? '#111827' : '#e5e7eb',
-                      minHeight: '44px',
-                      fontSize: '1rem',
-                      boxShadow: 'none',
-                      ':hover': { borderColor: '#d1d5db' },
-                    }),
-                    menuPortal: (p) => ({ ...p, zIndex: 9999 }),
-                    menu: (p) => ({
-                      ...p,
-                      zIndex: 9999,
-                      borderRadius: '0.5rem',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                      border: '1px solid #e5e7eb',
-                    }),
-                    option: (provided, state) => ({
-                      ...provided,
-                      backgroundColor: state.isSelected ? '#111827' : state.isFocused ? '#f9fafb' : 'white',
-                      color: state.isSelected ? '#fff' : '#111827',
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                    }),
-                    singleValue: (provided, state) => ({
-                      ...provided,
-                      color: state.isDisabled ? provided.color : '#111827',
-                    }),
-                  }}
+                  styles={novaOSSelectStyles(isDark) as any}
                   isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                 />
                 ) : (
@@ -2269,27 +2298,7 @@ function NovaOS2Content() {
                     onChange={(option) => setTecnicoResponsavel(option?.value || null)}
                     isLoading={loadingUsuarios}
                     placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
-                    styles={{
-                      control: (provided) => ({
-                        ...provided,
-                        borderRadius: '0.5rem',
-                        borderColor: '#e5e7eb',
-                        minHeight: '44px',
-                        fontSize: '1rem',
-                        boxShadow: 'none',
-                        ':hover': { borderColor: '#3b82f6' }
-                      }),
-                      option: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: state.isSelected
-                          ? '#111827'
-                          : state.isFocused
-                          ? '#e0e7ef'
-                          : 'white',
-                        color: state.isSelected ? 'white' : '#111827',
-                        fontSize: '1rem',
-                      }),
-                    }}
+                    styles={novaOSSelectStyles(isDark) as any}
                   />
                   ) : (
                     <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
@@ -2642,27 +2651,7 @@ function NovaOS2Content() {
                           }}
                           isLoading={loadingProdutos}
                           placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
-                          styles={{
-                            control: (provided) => ({
-                              ...provided,
-                              borderRadius: '0.5rem',
-                              borderColor: '#e5e7eb',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              boxShadow: 'none',
-                              ':hover': { borderColor: '#3b82f6' }
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: state.isSelected
-                                ? '#111827'
-                                : state.isFocused
-                                ? '#e0e7ef'
-                                : 'white',
-                              color: state.isSelected ? 'white' : '#111827',
-                              fontSize: '1rem',
-                            }),
-                          }}
+                          styles={novaOSSelectStyles(isDark) as any}
                         />
                         ) : (
                           <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
@@ -2714,27 +2703,7 @@ function NovaOS2Content() {
                           }}
                           isLoading={loadingProdutos}
                           placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
-                          styles={{
-                            control: (provided) => ({
-                              ...provided,
-                              borderRadius: '0.5rem',
-                              borderColor: '#e5e7eb',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              boxShadow: 'none',
-                              ':hover': { borderColor: '#3b82f6' }
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: state.isSelected
-                                ? '#111827'
-                                : state.isFocused
-                                ? '#e0e7ef'
-                                : 'white',
-                              color: state.isSelected ? 'white' : '#111827',
-                              fontSize: '1rem',
-                            }),
-                          }}
+                          styles={novaOSSelectStyles(isDark) as any}
                         />
                         ) : (
                           <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">

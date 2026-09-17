@@ -1770,10 +1770,10 @@ const VisualizarOrdemServicoPage = () => {
                       <div className="rounded-xl border border-gray-200 dark:border-zinc-600 p-4 space-y-3">
                         <div className="flex items-center gap-2 text-gray-800 dark:text-zinc-200">
                           <FiPercent className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-sm font-semibold">Desconto na entrega</span>
+                          <span className="text-sm font-semibold">Desconto na entrega (%)</span>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-zinc-400">
-                          Opcional: desconto percentual (%) sobre o total já calculado na OS. Será lançado na venda.
+                          Informe o percentual de desconto (ex.: 10 = 10%). O valor em reais é calculado automaticamente.
                         </p>
                         <div className="relative">
                           <input
@@ -1782,7 +1782,6 @@ const VisualizarOrdemServicoPage = () => {
                             value={descontoEntregaStr}
                             onChange={(e) => {
                               const raw = e.target.value.replace(/[^\d,.]/g, '');
-                              // Uma só vírgula/ponto decimal
                               const normalized = raw.replace(/\./g, ',');
                               const parts = normalized.split(',');
                               const next =
@@ -1791,17 +1790,17 @@ const VisualizarOrdemServicoPage = () => {
                                   : `${parts[0]},${parts.slice(1).join('').slice(0, 2)}`;
                               setDescontoEntregaStr(next);
                             }}
-                            placeholder="0"
-                            className="w-full px-3 py-2.5 pr-10 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+                            placeholder="Ex: 10"
+                            className="w-full px-3 py-2.5 pr-12 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
                             aria-label="Desconto percentual na entrega"
                           />
-                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-zinc-400">
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
                             %
                           </span>
                         </div>
                         {entregaDescontoExtra > 0 && !entregaDescontoInvalido && (
                           <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                            Equivale a {formatCurrency(entregaDescontoExtra)} de desconto.
+                            {entregaDescontoPct.toLocaleString('pt-BR')}% = {formatCurrency(entregaDescontoExtra)} de desconto.
                           </p>
                         )}
                       </div>

@@ -57,7 +57,7 @@ function WizardStepper({
                 {idx > 0 && (
                   <div
                     className={`h-0.5 flex-1 transition-colors duration-300 ${
-                      isDone || isActive ? 'bg-gray-900' : 'bg-gray-200'
+                      isDone || isActive ? 'bg-gray-900 dark:bg-zinc-100' : 'bg-gray-200 dark:bg-zinc-700'
                     }`}
                   />
                 )}
@@ -67,12 +67,12 @@ function WizardStepper({
                   onClick={() => canClick && onEtapaClick?.(num)}
                   className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 ${
                     isActive
-                      ? 'scale-110 bg-gray-900 text-white ring-4 ring-gray-900/10'
+                      ? 'scale-110 bg-gray-900 text-white ring-4 ring-gray-900/10 dark:bg-zinc-100 dark:text-zinc-900 dark:ring-white/15'
                       : isDone
-                        ? 'bg-gray-900 text-white hover:bg-gray-800'
+                        ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
                         : canClick
-                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          : 'bg-gray-100 text-gray-400'
+                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
+                          : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'
                   } ${canClick && !isActive ? 'cursor-pointer' : 'cursor-default'}`}
                   title={canClick ? `Ir para etapa ${num}: ${label}` : undefined}
                   aria-current={isActive ? 'step' : undefined}
@@ -82,14 +82,14 @@ function WizardStepper({
                 {idx < etapas.length - 1 && (
                   <div
                     className={`h-0.5 flex-1 transition-colors duration-300 ${
-                      isDone ? 'bg-gray-900' : 'bg-gray-200'
+                      isDone ? 'bg-gray-900 dark:bg-zinc-100' : 'bg-gray-200 dark:bg-zinc-700'
                     }`}
                   />
                 )}
               </div>
               <span
                 className={`mt-2 hidden w-full truncate px-0.5 text-center text-[11px] font-medium sm:block ${
-                  isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'
+                  isActive ? 'text-gray-900 dark:text-zinc-50' : isDone ? 'text-gray-600 dark:text-zinc-300' : 'text-gray-400 dark:text-zinc-500'
                 }`}
               >
                 {label}
@@ -127,7 +127,7 @@ function WizardNavButtons({
 }) {
   return (
     <div
-      className={`flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3 ${className}`}
+      className={`flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3 ${className}`}
     >
       <Button
         variant="secondary"
@@ -139,10 +139,10 @@ function WizardNavButtons({
         <span>Anterior</span>
       </Button>
       <div className="flex shrink-0 flex-col items-center px-1 text-center sm:px-3">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-[11px]">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500 sm:text-[11px]">
           Etapa {etapaAtual}/{etapas.length}
         </span>
-        <span className="max-w-[88px] truncate text-xs font-semibold text-gray-800 sm:max-w-none sm:text-sm">
+        <span className="max-w-[88px] truncate text-xs font-semibold text-gray-800 dark:text-zinc-100 sm:max-w-none sm:text-sm">
           {etapas[etapaAtual - 1]}
         </span>
       </div>
@@ -222,15 +222,15 @@ export default function NovaOSWizardLayout({
     <div className={`relative mx-auto w-full ${widthClass} ${showFloatingNav ? 'pb-28' : 'pb-6'}`}>
       {/* Mobile: passo atual + números clicáveis */}
       <div className="mb-4 md:hidden">
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-zinc-500">
               Passo {etapaAtual} de {etapas.length}
             </p>
-            <p className="text-base font-semibold text-gray-900">{etapas[etapaAtual - 1]}</p>
+            <p className="text-base font-semibold text-gray-900 dark:text-zinc-50">{etapas[etapaAtual - 1]}</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-gray-900">{progress}%</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-zinc-50">{progress}%</p>
           </div>
         </div>
         <WizardStepper
@@ -250,9 +250,9 @@ export default function NovaOSWizardLayout({
         className="mb-6 hidden md:block"
       />
 
-      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-zinc-800">
         <div
-          className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out"
+          className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out dark:bg-zinc-100"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -262,10 +262,10 @@ export default function NovaOSWizardLayout({
           {contextChips.map((chip) => (
             <span
               key={`${chip.label}-${chip.value}`}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs shadow-sm"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs shadow-sm dark:border-zinc-600 dark:bg-zinc-800"
             >
-              <span className="font-medium text-gray-500">{chip.label}:</span>
-              <span className="truncate font-semibold text-gray-800">{chip.value}</span>
+              <span className="font-medium text-gray-500 dark:text-zinc-400">{chip.label}:</span>
+              <span className="truncate font-semibold text-gray-800 dark:text-zinc-100">{chip.value}</span>
             </span>
           ))}
         </div>
@@ -273,7 +273,7 @@ export default function NovaOSWizardLayout({
 
       <div
         key={etapaAtual}
-        className="mb-6 animate-nova-os-fade-slide rounded-2xl border border-gray-100 bg-white p-5 shadow-md sm:p-7 md:p-8"
+        className="mb-6 animate-nova-os-fade-slide rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-zinc-700 dark:bg-zinc-900 sm:p-7 md:p-8"
       >
         {children}
       </div>
@@ -295,7 +295,7 @@ export default function NovaOSWizardLayout({
         <div className={`pointer-events-auto mx-auto w-full px-4 sm:px-6 ${widthClass}`}>
           <WizardNavButtons
             {...navProps}
-            className="mb-3 border-gray-200/90 bg-white/95 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-md"
+            className="mb-3 border-gray-200/90 bg-white/95 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95"
           />
         </div>
       </div>

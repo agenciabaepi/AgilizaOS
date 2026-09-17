@@ -32,12 +32,12 @@ export default function ToggleSwitch({
       aria-label={label || (checked ? 'Ativo' : 'Inativo')}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex ${track} shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-zinc-400 disabled:opacity-50 ${
-        checked ? 'bg-emerald-500' : 'bg-zinc-300'
+      className={`relative inline-flex ${track} shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-zinc-400 dark:focus-visible:ring-offset-zinc-900 disabled:opacity-50 ${
+        checked ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'
       }`}
     >
       <span
-        className={`inline-block ${thumb} transform rounded-full bg-white shadow transition-transform ${
+        className={`inline-block ${thumb} transform rounded-full bg-white dark:bg-white shadow transition-transform ${
           checked ? translate : 'translate-x-0.5'
         }`}
       />

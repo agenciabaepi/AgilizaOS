@@ -28,7 +28,7 @@ export const Dialog: React.FC<DialogProps> = ({
     >
       <div
         className={cn(
-          'bg-white shadow-lg relative',
+          'bg-white dark:bg-zinc-900 dark:text-zinc-100 shadow-lg relative border border-transparent dark:border-zinc-600',
           mobileBottomSheet
             ? 'w-full max-h-[92dvh] overflow-y-auto rounded-t-2xl pb-[env(safe-area-inset-bottom)] sm:w-auto sm:max-w-md sm:max-h-[90vh] sm:rounded-xl sm:pb-0'
             : 'rounded-xl w-auto max-w-full',
@@ -38,11 +38,11 @@ export const Dialog: React.FC<DialogProps> = ({
       >
         {mobileBottomSheet && (
           <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <span className="h-1 w-10 rounded-full bg-gray-300" aria-hidden />
+            <span className="h-1 w-10 rounded-full bg-gray-300 dark:bg-zinc-600" aria-hidden />
           </div>
         )}
         <button
-          className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           onClick={onClose}
           aria-label="Fechar"
         >

@@ -61,15 +61,15 @@ export default function NovaOSPendenciasFinalizar({
                   <button
                     type="button"
                     onClick={() => onIrParaEtapa(item.etapa)}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200/80 bg-white px-3 py-2.5 text-left text-sm text-amber-950 shadow-sm transition-colors hover:border-amber-300 hover:bg-amber-50/50"
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200/80 bg-white px-3 py-2.5 text-left text-sm text-amber-950 shadow-sm transition-colors hover:border-amber-300 hover:bg-amber-50/50 dark:border-amber-700 dark:bg-zinc-800 dark:text-amber-100 dark:hover:border-amber-500 dark:hover:bg-zinc-700"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium capitalize">{item.label}</span>
-                      <span className="mt-0.5 block text-xs text-amber-700">
+                      <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-200">
                         Ir para etapa {item.etapa} — {item.etapaNome}
                       </span>
                     </span>
-                    <FiChevronRight className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+                    <FiChevronRight className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden />
                   </button>
                 </li>
               ))}

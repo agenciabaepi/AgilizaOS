@@ -77,7 +77,7 @@ export function SessionNotification({ showDetails = false }: SessionNotification
       {/* Notificação de sessão única ativa */}
       {currentSession && isPrimarySession && showDetails && (
         <div className="fixed top-4 right-4 z-50">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg max-w-sm">
+          <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 shadow-lg max-w-sm">
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -85,13 +85,13 @@ export function SessionNotification({ showDetails = false }: SessionNotification
                 </svg>
               </div>
               <div className="ml-3 flex-1">
-                <h3 className="text-sm font-medium text-green-800">
+                <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
                   Sessão Segura Ativa
                 </h3>
-                <p className="mt-1 text-sm text-green-700">
+                <p className="mt-1 text-sm text-green-700 dark:text-green-300">
                   Sistema de sessão única habilitado
                 </p>
-                <div className="mt-2 text-xs text-green-600">
+                <div className="mt-2 text-xs text-green-600 dark:text-green-400">
                   <p>Dispositivo: {formatDeviceName(currentSession.device)}</p>
                   <p>Ativo: {formatTime(currentSession.lastActivity)}</p>
                 </div>

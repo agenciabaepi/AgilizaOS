@@ -69,7 +69,7 @@ export function PainelProdutos({
   const exibirDropdown = showSugestoes && buscaProduto.trim().length > 0;
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-zinc-200/80">
+    <div className="flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-700">
       <div className="p-4 border-b border-zinc-100 relative z-30" ref={buscaContainerRef}>
         <div className="grid grid-cols-12 gap-3 items-end">
           <div className="col-span-5 relative">

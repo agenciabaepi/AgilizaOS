@@ -144,11 +144,11 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-transparent dark:border-zinc-600">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-50">
               #{ordem.numero_os || ordem.id} - {ordem.cliente?.nome || 'Cliente não informado'}
             </h2>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ordem.status)}`}>
@@ -157,7 +157,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
           >
             <FiX size={24} />
           </button>

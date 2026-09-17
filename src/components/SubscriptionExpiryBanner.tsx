@@ -71,12 +71,12 @@ export default function SubscriptionExpiryBanner() {
       role="status"
       className={`w-full shrink-0 border-b px-4 py-3 text-center text-sm leading-snug ${
         urgente
-          ? 'bg-amber-100 border-amber-300 text-amber-950'
-          : 'bg-sky-50 border-sky-200 text-sky-950'
+          ? 'bg-amber-100 border-amber-300 text-amber-950 dark:bg-amber-950 dark:border-amber-500 dark:text-amber-100'
+          : 'bg-sky-50 border-sky-200 text-sky-950 dark:bg-sky-950 dark:border-sky-500 dark:text-sky-100'
       }`}
     >
       <span>{texto} </span>
-      <Link href={renewHref} className="font-semibold underline underline-offset-2 whitespace-nowrap">
+      <Link href={renewHref} className="font-semibold underline underline-offset-2 whitespace-nowrap dark:text-inherit">
         Renovar assinatura
       </Link>
     </div>

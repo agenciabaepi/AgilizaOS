@@ -112,15 +112,18 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {toasts.map(({ id, type, content }) => (
           <div
             key={id}
-            className={`flex items-center max-w-xs w-full p-4 rounded-lg shadow-lg transition-all ${
-              type === 'success' ? 'bg-green-100 text-green-800' :
-              type === 'error' ? 'bg-red-100 text-red-800' :
-              type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-blue-100 text-blue-800'
+            className={`flex items-center max-w-xs w-full p-4 rounded-lg shadow-lg border transition-all ${
+              type === 'success' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-800' :
+              type === 'error' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800' :
+              type === 'warning' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800' :
+              'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800'
             }`}
           >
             <span className="flex-1 text-sm">{content}</span>
-            <button onClick={() => setToasts(prev => prev.filter(t => t.id !== id))}>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== id))}
+              className="ml-2 shrink-0 rounded p-0.5 opacity-70 hover:opacity-100"
+            >
               <XMarkIcon className="h-4 w-4" />
             </button>
           </div>
@@ -128,16 +131,16 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className={`relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border-2 ${
-            modal.type === 'warning' ? 'border-yellow-400' :
-            modal.type === 'error' ? 'border-red-400' :
-            modal.type === 'success' ? 'border-green-400' :
-            'border-gray-200'
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-sm">
+          <div className={`relative bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-lg p-6 border-2 ${
+            modal.type === 'warning' ? 'border-yellow-400 dark:border-amber-500' :
+            modal.type === 'error' ? 'border-red-400 dark:border-red-500' :
+            modal.type === 'success' ? 'border-green-400 dark:border-green-500' :
+            'border-gray-200 dark:border-zinc-600'
           }`}>
             <button
               aria-label="Fechar"
-              className="absolute right-3 top-3 p-1 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className="absolute right-3 top-3 p-1 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800"
               onClick={() => {
                 const oc = modal.onClose;
                 setModal(null);
@@ -149,31 +152,31 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             
             {/* Ícone de alerta para warnings */}
             {modal.type === 'warning' && (
-              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-yellow-100">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-amber-950">
+                <svg className="w-6 h-6 text-yellow-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
             )}
             
             <div className={`text-lg font-semibold mb-2 text-center ${
-              modal.type === 'warning' ? 'text-yellow-800' :
-              modal.type === 'error' ? 'text-red-800' :
-              modal.type === 'success' ? 'text-green-800' :
-              'text-gray-800'
+              modal.type === 'warning' ? 'text-yellow-800 dark:text-amber-200' :
+              modal.type === 'error' ? 'text-red-800 dark:text-red-200' :
+              modal.type === 'success' ? 'text-green-800 dark:text-green-200' :
+              'text-gray-800 dark:text-zinc-100'
             }`}>
               {modal.title}
             </div>
-            <div className="text-sm text-gray-700 mb-6 whitespace-pre-wrap text-center leading-relaxed">
+            <div className="text-sm text-gray-700 dark:text-zinc-300 mb-6 whitespace-pre-wrap text-center leading-relaxed">
               {modal.messageNode ? modal.messageNode : modal.message}
             </div>
             <div className="flex justify-center">
               <button
                 className={`px-6 py-2 rounded-md text-white hover:opacity-90 transition-opacity ${
-                  modal.type === 'warning' ? 'bg-yellow-500 hover:bg-yellow-600' :
-                  modal.type === 'error' ? 'bg-red-500 hover:bg-red-600' :
-                  modal.type === 'success' ? 'bg-green-500 hover:bg-green-600' :
-                  'bg-black hover:bg-gray-900'
+                  modal.type === 'warning' ? 'bg-yellow-500 hover:bg-yellow-600 dark:bg-amber-600 dark:hover:bg-amber-500' :
+                  modal.type === 'error' ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500' :
+                  modal.type === 'success' ? 'bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500' :
+                  'bg-black hover:bg-gray-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
                 }`}
                 onClick={() => {
                   const cb = modal.onConfirm;

@@ -34,10 +34,10 @@ export default function UpgradeRequiredModal({ resource, onClose }: UpgradeRequi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+      <div className="bg-white dark:bg-zinc-900 dark:border dark:border-zinc-600 rounded-xl shadow-2xl max-w-md w-full p-6 relative">
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
           type="button"
         >
           <FiX size={24} />
@@ -78,7 +78,7 @@ export default function UpgradeRequiredModal({ resource, onClose }: UpgradeRequi
           <button
             type="button"
             onClick={handleUpgrade}
-            className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
           >
             Fazer upgrade para {PLANO_COMPLETO_NOME}
             <FiArrowRight size={20} />
@@ -86,7 +86,7 @@ export default function UpgradeRequiredModal({ resource, onClose }: UpgradeRequi
           <button
             type="button"
             onClick={handleClose}
-            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors"
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200"
           >
             Voltar ao Dashboard
           </button>

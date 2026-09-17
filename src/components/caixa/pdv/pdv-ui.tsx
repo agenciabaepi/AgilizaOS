@@ -2,27 +2,27 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 export const pdv = {
-  page: 'min-h-screen h-screen bg-[#e8eaef] flex flex-col overflow-hidden',
+  page: 'min-h-screen h-screen bg-[#e8eaef] dark:bg-zinc-950 flex flex-col overflow-hidden',
   shell: 'flex-1 flex flex-col h-full p-4 gap-4 min-h-0 max-w-[1920px] mx-auto w-full overflow-hidden',
   grid: 'flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 min-h-0 overflow-hidden',
-  card: 'flex flex-col h-full bg-white rounded-2xl shadow-[0_4px_24px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.04] overflow-hidden',
+  card: 'flex flex-col h-full bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_4px_24px_rgba(15,23,42,0.06)] dark:shadow-none ring-1 ring-black/[0.04] dark:ring-white/10 overflow-hidden',
   label: 'block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-2',
-  kbd: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-400 border border-zinc-200/80',
+  kbd: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-400 border border-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-600',
   input:
-    'w-full h-11 px-3.5 bg-[#f4f5f7] border border-transparent rounded-xl text-sm text-zinc-900 placeholder:text-zinc-400 transition-all focus:outline-none focus:bg-white focus:border-brand focus:ring-2 focus:ring-brand/25',
+    'w-full h-11 px-3.5 bg-[#f4f5f7] dark:bg-zinc-800 border border-transparent rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all focus:outline-none focus:bg-white dark:focus:bg-zinc-700 focus:border-brand focus:ring-2 focus:ring-brand/25',
   inputReadonly:
-    'w-full h-11 px-3.5 bg-zinc-100/80 border border-zinc-200/60 rounded-xl text-sm text-zinc-600',
+    'w-full h-11 px-3.5 bg-zinc-100/80 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-600 rounded-xl text-sm text-zinc-600 dark:text-zinc-300',
   btnPrimary:
-    'inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-semibold rounded-xl transition-all shadow-sm active:scale-[0.98]',
+    'inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-semibold rounded-xl transition-all shadow-sm active:scale-[0.98] dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white',
   btnBrand:
     'inline-flex items-center justify-center h-11 px-5 bg-brand hover:bg-brand-hover text-black text-sm font-bold rounded-xl transition-all shadow-sm border border-black/5 active:scale-[0.98]',
   btnGhost:
-    'inline-flex items-center justify-center h-9 px-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-medium rounded-lg transition-colors',
-  section: 'rounded-xl bg-[#f8f9fb] border border-zinc-100/80 p-4',
+    'inline-flex items-center justify-center h-9 px-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-medium rounded-lg transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200',
+  section: 'rounded-xl bg-[#f8f9fb] dark:bg-zinc-800/80 border border-zinc-100/80 dark:border-zinc-700 p-4',
   statBox:
-    'flex flex-col items-center justify-center rounded-xl bg-[#f4f5f7] border border-zinc-100 px-3 py-3 min-h-[72px]',
+    'flex flex-col items-center justify-center rounded-xl bg-[#f4f5f7] dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-3 py-3 min-h-[72px]',
   dropdown:
-    'absolute z-50 mt-2 w-full bg-white border border-zinc-100 rounded-xl shadow-[0_12px_40px_rgba(15,23,42,0.12)] max-h-64 overflow-y-auto py-1',
+    'absolute z-50 mt-2 w-full bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-600 rounded-xl shadow-[0_12px_40px_rgba(15,23,42,0.12)] max-h-64 overflow-y-auto py-1',
 } as const;
 
 export function PDVSection({

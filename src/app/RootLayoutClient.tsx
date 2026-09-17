@@ -1,6 +1,7 @@
 'use client'
 
 import './globals.css';
+import '../styles/dark-mode.css';
 import '../styles/print.css';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -36,7 +37,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   useRealtimeNotificacoes(empresaData?.id);
 
   return isLoggingOut ? (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-100">
       <span style={{ fontSize: 24 }}>Saindo...</span>
     </div>
   ) : (
@@ -111,8 +112,8 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
           <SubscriptionProvider>
           <RedirectToLoginIfUnauth>
             <Suspense fallback={
-              <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
+              <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 dark:border-zinc-100 border-t-transparent" />
               </div>
             }>
               <RoutePermissionGuard>

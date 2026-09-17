@@ -34,14 +34,14 @@ export const ConfirmProvider: React.FC<{ children: ReactNode }> = ({ children })
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
       {options && (
-        <div className="fixed inset-0 bg-white/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
-            {options.title && <h3 className="text-lg font-semibold mb-2">{options.title}</h3>}
-            <p className="mb-4">{options.message}</p>
+        <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border dark:border-zinc-600 rounded-lg p-6 shadow-lg max-w-sm w-full">
+            {options.title && <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-zinc-50">{options.title}</h3>}
+            <p className="mb-4 text-gray-700 dark:text-zinc-300">{options.message}</p>
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => handleClose(false)}
-                className="px-4 py-2 rounded bg-gray-200 text-gray-700"
+                className="px-4 py-2 rounded bg-gray-200 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
               >
                 {options.cancelText || 'Cancelar'}
               </button>

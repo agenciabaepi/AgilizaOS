@@ -103,11 +103,11 @@ const SubscriptionStatusContent = () => {
       <button
         type="button"
         onClick={handleRenovarClick}
-        className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1 cursor-pointer hover:bg-red-100 hover:border-red-300 transition-colors"
+        className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1 cursor-pointer hover:bg-red-100 hover:border-red-300 transition-colors dark:bg-red-950 dark:border-red-800 dark:hover:bg-red-900"
         title="Clique para renovar sua assinatura"
       >
         <FiAlertTriangle className="w-4 h-4 text-red-500" />
-        <span className="text-xs text-red-700 font-medium">
+        <span className="text-xs text-red-700 dark:text-red-300 font-medium">
           {testeGratisExpirado ? 'Teste Grátis Expirado' : 'Assinatura Expirada'}
         </span>
       </button>
@@ -142,8 +142,8 @@ const SubscriptionStatusContent = () => {
         onClick={handleTrialClick}
         className={`flex items-center gap-2 border rounded-lg px-3 py-1 transition-all duration-300 cursor-pointer hover:scale-105 ${
           isProximoDoFim 
-            ? 'bg-red-50 border-red-200 animate-pulse' 
-            : 'bg-orange-50 border-orange-200'
+            ? 'bg-red-50 border-red-200 animate-pulse dark:bg-red-950 dark:border-red-800' 
+            : 'bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800'
         }`}
         title={titleTrial}
       >
@@ -151,7 +151,7 @@ const SubscriptionStatusContent = () => {
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'
         }`} />
         <span className={`text-[10px] sm:text-xs font-medium leading-tight ${
-          isProximoDoFim ? 'text-red-700' : 'text-orange-700'
+          isProximoDoFim ? 'text-red-700 dark:text-red-300' : 'text-orange-700 dark:text-orange-300'
         }`}>
           {labelVisivel}
         </span>
@@ -161,9 +161,9 @@ const SubscriptionStatusContent = () => {
 
   // Se está ativo
   return (
-    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-1">
+    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-1 dark:bg-green-950 dark:border-green-800">
       <FiStar className="w-4 h-4 text-green-500" />
-      <span className="text-xs text-green-700 font-medium">
+      <span className="text-xs text-green-700 dark:text-green-300 font-medium">
         Assinatura
       </span>
     </div>

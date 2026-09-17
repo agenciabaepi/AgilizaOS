@@ -857,14 +857,14 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   <div className="bg-white dark:bg-zinc-800 text-black dark:text-zinc-100 rounded-xl shadow-xl p-4 border border-black/10 dark:border-zinc-600">
                     <h4 className="font-semibold text-sm mb-3">Notificações</h4>
                     {notificacoesTickets.length === 0 ? (
-                      <p className="text-sm text-gray-500 py-4 text-center">Nenhuma notificação</p>
+                      <p className="text-sm text-gray-500 dark:text-zinc-400 py-4 text-center">Nenhuma notificação</p>
                     ) : (
                       <ul className="space-y-2 text-sm">
                         {notificacoesTickets.map((notif) => (
                           <li 
                             key={notif.id} 
-                            className={`border-b border-gray-200 pb-2 last:border-0 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors ${
-                              !notif.lida ? 'bg-red-50 border-l-4 border-l-red-500' : ''
+                            className={`border-b border-gray-200 dark:border-zinc-700 pb-2 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-700/60 p-2 rounded transition-colors ${
+                              !notif.lida ? 'bg-red-50 dark:bg-red-950/60 border-l-4 border-l-red-500' : ''
                             }`}
                             onClick={() => {
                               // Marcar como lida ao clicar
@@ -882,10 +882,10 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                                  notif.tipo === 'ticket_comentario' ? '💬' : '📋'}
                               </span>
                               <div className="flex-1 min-w-0">
-                                <p className={`${!notif.lida ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                                <p className={`${!notif.lida ? 'font-semibold text-gray-900 dark:text-zinc-50' : 'text-gray-700 dark:text-zinc-300'}`}>
                                   {notif.mensagem}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                                   {new Date(notif.created_at).toLocaleString('pt-BR', {
                                     day: '2-digit',
                                     month: '2-digit',

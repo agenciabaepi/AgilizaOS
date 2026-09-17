@@ -78,7 +78,7 @@ export default function LogoutScreen() {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[9999] flex items-center justify-center animate-fade-in">
       <div className="text-center">
         {/* Logo da empresa */}
         <div className="mb-8">
@@ -96,16 +96,16 @@ export default function LogoutScreen() {
         <div className="animate-spin rounded-full h-20 w-20 border-4 border-gray-200 border-t-green-600 mx-auto mb-8"></div>
         
         {/* Texto principal */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-zinc-50 mb-4">
           {forceRedirect ? 'Redirecionando...' : 'Saindo...'}
         </h1>
-        <p className="text-lg text-gray-600 mb-2">{status}</p>
-        <p className="text-sm text-gray-500">
+        <p className="text-lg text-gray-600 dark:text-zinc-300 mb-2">{status}</p>
+        <p className="text-sm text-gray-500 dark:text-zinc-400">
           {forceRedirect ? 'Forçando redirecionamento...' : 'Aguarde, estamos processando...'}
         </p>
         
         {/* Barra de progresso */}
-        <div className="w-64 bg-gray-200 rounded-full h-2 mt-8 mx-auto overflow-hidden">
+        <div className="w-64 bg-gray-200 dark:bg-zinc-800 rounded-full h-2 mt-8 mx-auto overflow-hidden">
           <div 
             className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
@@ -113,7 +113,7 @@ export default function LogoutScreen() {
         </div>
         
         {/* Informação de segurança */}
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-gray-400 dark:text-zinc-500 mt-4">
           {forceRedirect 
             ? 'Redirecionamento forçado ativado' 
             : 'Se demorar mais de 5 segundos, você será redirecionado automaticamente'

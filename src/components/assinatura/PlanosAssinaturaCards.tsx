@@ -57,7 +57,7 @@ function PlanoCard({
     <div
       className={`relative flex flex-col rounded-2xl border p-5 sm:p-6 h-full transition-shadow ${
         destaque
-          ? 'border-[#B8E55A] bg-gradient-to-b from-[#f4fce8] to-white shadow-md ring-1 ring-[#D1FE6E]/40'
+          ? 'border-[#B8E55A] bg-gradient-to-b from-[#f4fce8] to-white shadow-md ring-1 ring-[#D1FE6E]/40 dark:from-zinc-800 dark:to-zinc-900 dark:border-[#D1FE6E]/50 dark:ring-[#D1FE6E]/25'
           : 'border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'
       }`}
     >

@@ -23,23 +23,23 @@ export default function NotificacoesFixas({ notificacoes, onMarcarAvisado }: Not
       {notificacoes.map((notificacao) => (
         <div
           key={notificacao.id}
-          className="bg-green-50 border-2 border-green-300 rounded-lg p-4 shadow-xl animate-pulse"
+          className="bg-green-50 dark:bg-green-950 border-2 border-green-300 dark:border-green-700 rounded-lg p-4 shadow-xl animate-pulse"
         >
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
-              <FiTool className="h-6 w-6 text-green-600 animate-bounce" />
+              <FiTool className="h-6 w-6 text-green-600 dark:text-green-400 animate-bounce" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-green-800">
+              <p className="text-sm font-bold text-green-800 dark:text-green-200">
                 ⚠️ ATENÇÃO: Reparo Concluído!
               </p>
-              <p className="text-sm text-green-700 mt-2">
+              <p className="text-sm text-green-700 dark:text-green-300 mt-2">
                 {notificacao.mensagem}
               </p>
-              <p className="text-xs text-green-600 mt-2">
+              <p className="text-xs text-green-600 dark:text-green-400 mt-2">
                 <strong>Data:</strong> {new Date(notificacao.created_at).toLocaleString('pt-BR')}
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                 <strong>Status:</strong> Aguardando aviso ao cliente
               </p>
             </div>
