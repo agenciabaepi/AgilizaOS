@@ -15,6 +15,7 @@ import {
 import type { WhatsAppAutomacao } from '@/lib/whatsapp-crm/types';
 import { EmbeddedSignupConnect } from '@/components/whatsapp-crm/EmbeddedSignupConnect';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 
 const EVENTO_LABELS: Record<string, string> = {
   os_criada: 'OS cadastrada',
@@ -28,11 +29,20 @@ const EVENTO_LABELS: Record<string, string> = {
   nota_fiscal_emitida: 'Nota fiscal emitida',
 };
 
+/** Formulário técnico só em beta/dev — não aparece para o fluxo normal do cliente. */
+const SHOW_TEST_MODE =
+  WHATSAPP_CRM_ENABLED &&
+  (process.env.NEXT_PUBLIC_ENVIRONMENT === 'beta' ||
+    process.env.NEXT_PUBLIC_ENVIRONMENT === 'development');
+
 export default function WhatsAppPage({ embedded = false }: { embedded?: boolean }) {
   const { podeAcessar } = useConfigPermission('whatsapp');
   const [aba, setAba] = useState<'conexao' | 'automacoes'>('conexao');
   const [config, setConfig] = useState<{
     display_phone_number?: string;
+    phone_number_id?: string;
+    business_account_id?: string;
+    waba_id?: string;
     ativo?: boolean;
     connection_mode?: 'cloud_api' | 'coexistence' | null;
     is_on_biz_app?: boolean;
@@ -40,6 +50,12 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
   const [automacoes, setAutomacoes] = useState<WhatsAppAutomacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [limpando, setLimpando] = useState(false);
+  const [salvandoTeste, setSalvandoTeste] = useState(false);
+  const [formTeste, setFormTeste] = useState({
+    phone_number_id: '',
+    access_token: '',
+    business_account_id: '',
+  });
 
   useEffect(() => {
     if (!podeAcessar) return;
@@ -56,11 +72,46 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
       const cfgJson = await cfgRes.json();
       const autoJson = await autoRes.json();
       if (cfgJson.success) {
-        setConfig(cfgJson.data ?? null);
+        const data = cfgJson.data ?? null;
+        setConfig(data);
+        if (data) {
+          setFormTeste((f) => ({
+            ...f,
+            phone_number_id: data.phone_number_id ?? '',
+            business_account_id: data.business_account_id ?? data.waba_id ?? '',
+          }));
+        }
       }
       if (autoJson.success) setAutomacoes(autoJson.data ?? []);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function salvarModoTeste() {
+    setSalvandoTeste(true);
+    try {
+      const res = await whatsappCrmFetch('/api/whatsapp/crm/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number_id: formTeste.phone_number_id.trim(),
+          access_token: formTeste.access_token.trim(),
+          business_account_id: formTeste.business_account_id.trim() || undefined,
+          ativo: true,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setConfig(json.data);
+        setFormTeste((f) => ({ ...f, access_token: '' }));
+        alert('Número de teste conectado.');
+        void carregarDados();
+      } else {
+        alert(json.error || 'Erro ao salvar');
+      }
+    } finally {
+      setSalvandoTeste(false);
     }
   }
 
@@ -92,6 +143,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
       if (json.success) {
         setConfig(null);
         setAutomacoes([]);
+        setFormTeste({ phone_number_id: '', access_token: '', business_account_id: '' });
         alert('WhatsApp desconectado.');
       } else {
         alert(json.error || 'Erro ao desconectar');
@@ -105,6 +157,58 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
     const denied = <AcessoNegadoComponent />;
     return embedded ? denied : <MenuLayout><div className="p-8">{denied}</div></MenuLayout>;
   }
+
+  const modoTesteForm = SHOW_TEST_MODE ? (
+    <details className="rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-4">
+      <summary className="cursor-pointer text-sm font-medium text-gray-700">
+        Modo teste (número da Meta)
+      </summary>
+      <div className="mt-3 space-y-3 border-t border-gray-200 pt-3">
+        <p className="text-xs text-gray-500">
+          Use o Phone Number ID e o token temporário da tela Configuração da API no painel Meta,
+          enquanto a análise do app não for aprovada.
+        </p>
+        <label className="block text-sm">
+          <span className="text-gray-700">Phone Number ID</span>
+          <input
+            type="text"
+            value={formTeste.phone_number_id}
+            onChange={(e) => setFormTeste({ ...formTeste, phone_number_id: e.target.value })}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            placeholder="783032591562273"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-700">Access Token</span>
+          <input
+            type="password"
+            value={formTeste.access_token}
+            onChange={(e) => setFormTeste({ ...formTeste, access_token: e.target.value })}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            placeholder={config?.phone_number_id ? '•••••••• (novo token)' : 'Token gerado na Meta'}
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-700">WhatsApp Business Account ID</span>
+          <input
+            type="text"
+            value={formTeste.business_account_id}
+            onChange={(e) => setFormTeste({ ...formTeste, business_account_id: e.target.value })}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            placeholder="1940948953356904"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void salvarModoTeste()}
+          disabled={salvandoTeste || !formTeste.phone_number_id}
+          className="w-full rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {salvandoTeste ? 'Salvando...' : 'Salvar número de teste'}
+        </button>
+      </div>
+    </details>
+  ) : null;
 
   const content = (
     <div className="space-y-6">
@@ -191,6 +295,8 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
                 </div>
               </div>
 
+              {modoTesteForm}
+
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <h3 className="font-medium text-gray-900">Desconectar</h3>
                 <p className="text-sm text-gray-600 mt-1">
@@ -209,7 +315,10 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
               </div>
             </>
           ) : (
-            <EmbeddedSignupConnect onConnected={() => void carregarDados()} />
+            <>
+              <EmbeddedSignupConnect onConnected={() => void carregarDados()} />
+              {modoTesteForm}
+            </>
           )}
         </div>
       ) : (
