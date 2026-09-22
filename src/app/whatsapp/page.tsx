@@ -120,20 +120,9 @@ export default function WhatsAppCrmPage() {
       const light = opts?.light ?? true;
       const hasCache = cacheRef.current.has(id);
 
+      // Mostra cache na hora, mas a resposta da API substitui (não mistura histórico velho)
       if (hasCache && selectedIdRef.current === id) {
-        const cached = cacheRef.current.get(id)!;
-        setDetalhe((prev) => {
-          if (!prev || prev.conversa.id !== id) return cached;
-          return {
-            ...cached,
-            mensagens: mergeWhatsAppMensagens(cached.mensagens, prev.mensagens),
-            notas: prev.notas.length > cached.notas.length ? prev.notas : cached.notas,
-            os_contexto: prev.os_contexto.length ? prev.os_contexto : cached.os_contexto,
-            ordens_cliente: prev.ordens_cliente.length
-              ? prev.ordens_cliente
-              : cached.ordens_cliente,
-          };
-        });
+        setDetalhe(cacheRef.current.get(id)!);
       }
 
       if (!silent && !hasCache) setLoadingDetalhe(true);
@@ -147,40 +136,45 @@ export default function WhatsAppCrmPage() {
         );
         const json = await res.json();
         if (!json.success) return;
+        if (selectedIdRef.current !== id) {
+          // Guarda no cache mesmo assim, para o próximo clique
+          const incoming = json.data as ConversaDetalhe;
+          const prevOs = cacheRef.current.get(id);
+          guardarCache(id, {
+            ...incoming,
+            os_contexto: incoming.os_contexto?.length
+              ? incoming.os_contexto
+              : prevOs?.os_contexto ?? [],
+            ordens_cliente: incoming.ordens_cliente?.length
+              ? incoming.ordens_cliente
+              : prevOs?.ordens_cliente ?? [],
+          });
+          return;
+        }
 
         const incoming = json.data as ConversaDetalhe;
-        const prevCached = cacheRef.current.get(id);
-        const merged: ConversaDetalhe = {
-          ...incoming,
-          mensagens: mergeWhatsAppMensagens(
-            incoming.mensagens,
-            prevCached?.mensagens ?? []
-          ),
-          os_contexto:
-            incoming.os_contexto?.length > 0
-              ? incoming.os_contexto
-              : prevCached?.os_contexto ?? [],
-          ordens_cliente:
-            incoming.ordens_cliente?.length > 0
-              ? incoming.ordens_cliente
-              : prevCached?.ordens_cliente ?? [],
-        };
-        guardarCache(id, merged);
-
-        if (selectedIdRef.current !== id) return;
-
         setDetalhe((prev) => {
-          if (!prev || prev.conversa.id !== id) return merged;
-          return {
-            ...merged,
-            mensagens: mergeWhatsAppMensagens(merged.mensagens, prev.mensagens),
-            os_contexto:
-              merged.os_contexto.length > 0 ? merged.os_contexto : prev.os_contexto,
-            ordens_cliente:
-              merged.ordens_cliente.length > 0
-                ? merged.ordens_cliente
-                : prev.ordens_cliente,
+          const pendingOnly =
+            prev && prev.conversa.id === id
+              ? prev.mensagens.filter((m) => m.id.startsWith('pending-'))
+              : [];
+          const prevOs = cacheRef.current.get(id);
+          const next: ConversaDetalhe = {
+            ...incoming,
+            mensagens: mergeWhatsAppMensagens(incoming.mensagens, pendingOnly),
+            os_contexto: incoming.os_contexto?.length
+              ? incoming.os_contexto
+              : prev?.os_contexto?.length
+                ? prev.os_contexto
+                : prevOs?.os_contexto ?? [],
+            ordens_cliente: incoming.ordens_cliente?.length
+              ? incoming.ordens_cliente
+              : prev?.ordens_cliente?.length
+                ? prev.ordens_cliente
+                : prevOs?.ordens_cliente ?? [],
           };
+          guardarCache(id, next);
+          return next;
         });
       } finally {
         if (selectedIdRef.current === id) setLoadingDetalhe(false);
@@ -196,7 +190,10 @@ export default function WhatsAppCrmPage() {
       void whatsappCrmFetch(`/api/whatsapp/crm/conversations/${id}?light=1&mark_read=0`)
         .then((res) => res.json())
         .then((json) => {
-          if (json.success) guardarCache(id, json.data as ConversaDetalhe);
+          if (!json.success) return;
+          const incoming = json.data as ConversaDetalhe;
+          // Prefetch: grava só o que veio do servidor (sem merge com cache velho)
+          guardarCache(id, incoming);
         })
         .finally(() => {
           prefetchInFlight.current.delete(id);
@@ -211,20 +208,19 @@ export default function WhatsAppCrmPage() {
       const json = await res.json();
       if (!json.success) return;
       const incoming = json.data as ConversaDetalhe;
-      const prevCached = cacheRef.current.get(id);
-      const merged: ConversaDetalhe = {
-        ...(prevCached ?? incoming),
-        ...incoming,
-        mensagens: mergeWhatsAppMensagens(
-          incoming.mensagens,
-          prevCached?.mensagens ?? []
-        ),
-        os_contexto: incoming.os_contexto,
-        ordens_cliente: incoming.ordens_cliente,
-      };
-      guardarCache(id, merged);
-      if (selectedIdRef.current !== id) return;
-      setDetalhe(merged);
+      setDetalhe((prev) => {
+        const pendingOnly =
+          prev && prev.conversa.id === id
+            ? prev.mensagens.filter((m) => m.id.startsWith('pending-'))
+            : [];
+        const next: ConversaDetalhe = {
+          ...incoming,
+          mensagens: mergeWhatsAppMensagens(incoming.mensagens, pendingOnly),
+        };
+        guardarCache(id, next);
+        if (selectedIdRef.current !== id) return prev;
+        return next;
+      });
     },
     [guardarCache]
   );
