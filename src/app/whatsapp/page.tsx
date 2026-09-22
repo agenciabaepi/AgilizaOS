@@ -5,10 +5,10 @@ import MenuLayout from '@/components/MenuLayout';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 import { useWhatsAppCrmRealtime } from '@/hooks/useWhatsAppCrmRealtime';
 import { useAuth } from '@/context/AuthContext';
-import { ConversationList } from '@/components/whatsapp-crm/ConversationList';
+import { ConversationList, type FiltroConversa } from '@/components/whatsapp-crm/ConversationList';
 import { ChatPanel } from '@/components/whatsapp-crm/ChatPanel';
 import { ClientOsSidebar } from '@/components/whatsapp-crm/ClientOsSidebar';
-import { MessageCircle, Settings } from 'lucide-react';
+import { MessageCircle, PanelRightClose, PanelRightOpen, Settings } from 'lucide-react';
 import Link from 'next/link';
 import type {
   WhatsAppConversa,
@@ -37,6 +37,11 @@ function ordenarConversas(lista: WhatsAppConversa[]) {
   });
 }
 
+function bateFiltro(conversa: WhatsAppConversa, filtro: FiltroConversa) {
+  if (filtro === 'todas') return true;
+  return conversa.status === filtro;
+}
+
 export default function WhatsAppCrmPage() {
   const { podeAcessar } = useConfigPermission('whatsapp');
   const { empresaData, usuarioData } = useAuth();
@@ -47,9 +52,12 @@ export default function WhatsAppCrmPage() {
   const [detalhe, setDetalhe] = useState<ConversaDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
-  const [filtro, setFiltro] = useState<'aberta' | 'fechada' | 'todas'>('aberta');
+  const [filtro, setFiltro] = useState<FiltroConversa>('aberta');
+  const [showOsSidebar, setShowOsSidebar] = useState(false);
   const selectedIdRef = useRef<string | null>(null);
+  const filtroRef = useRef(filtro);
   selectedIdRef.current = selectedId;
+  filtroRef.current = filtro;
 
   const zerarNaoLidas = useCallback((id: string) => {
     setConversas((prev) =>
@@ -114,6 +122,7 @@ export default function WhatsAppCrmPage() {
     const aberta = selectedIdRef.current;
     setConversas((prev) => {
       if (!prev.some((c) => c.id === msg.conversa_id)) {
+        // Nova atividade em conversa fora da lista → refresh leve
         void carregarConversas(aberta);
         return prev;
       }
@@ -124,7 +133,7 @@ export default function WhatsAppCrmPage() {
             ...c,
             ultima_mensagem_preview: msg.conteudo.slice(0, 120),
             ultima_mensagem_em: msg.created_at,
-            status: msg.direcao === 'entrada' ? 'aberta' : c.status,
+            status: msg.direcao === 'entrada' && c.status === 'fechada' ? 'aberta' : c.status,
             nao_lidas:
               aberta === msg.conversa_id
                 ? 0
@@ -182,23 +191,44 @@ export default function WhatsAppCrmPage() {
 
   const handleConversaChange = useCallback((conversa: WhatsAppConversa) => {
     const aberta = selectedIdRef.current;
-    setConversas((prev) =>
-      ordenarConversas(
-        prev.map((c) =>
-          c.id === conversa.id
-            ? { ...conversa, nao_lidas: aberta === conversa.id ? 0 : conversa.nao_lidas }
-            : c
-        )
-      )
-    );
+    const filtroAtual = filtroRef.current;
+
+    setConversas((prev) => {
+      const existe = prev.some((c) => c.id === conversa.id);
+      if (!bateFiltro(conversa, filtroAtual)) {
+        return prev.filter((c) => c.id !== conversa.id);
+      }
+      const merged = {
+        ...conversa,
+        nao_lidas: aberta === conversa.id ? 0 : conversa.nao_lidas,
+      };
+      if (!existe) return ordenarConversas([merged, ...prev]);
+      return ordenarConversas(prev.map((c) => (c.id === conversa.id ? { ...c, ...merged } : c)));
+    });
+
+    if (aberta === conversa.id) {
+      setDetalhe((d) => (d ? { ...d, conversa: { ...d.conversa, ...conversa } } : d));
+      if (!bateFiltro(conversa, filtroAtual)) {
+        setSelectedId(null);
+        setDetalhe(null);
+      }
+    }
   }, []);
 
   const handleConversaInsert = useCallback((conversa: WhatsAppConversa) => {
+    if (!bateFiltro(conversa, filtroRef.current)) return;
     setConversas((prev) => {
       if (prev.some((c) => c.id === conversa.id)) return prev;
       return ordenarConversas([conversa, ...prev]);
     });
   }, []);
+
+  const handleStatusChange = useCallback(
+    (conversa: WhatsAppConversa) => {
+      handleConversaChange(conversa);
+    },
+    [handleConversaChange]
+  );
 
   useWhatsAppCrmRealtime({
     empresaId: empresaData?.id,
@@ -286,7 +316,11 @@ export default function WhatsAppCrmPage() {
   }, [podeAcessar]);
 
   useEffect(() => {
-    if (podeAcessar) carregarConversas();
+    if (!podeAcessar) return;
+    setLoading(true);
+    setSelectedId(null);
+    setDetalhe(null);
+    void carregarConversas();
   }, [podeAcessar, carregarConversas]);
 
   const prevSelectedRef = useRef<string | null>(null);
@@ -304,21 +338,25 @@ export default function WhatsAppCrmPage() {
     void carregarDetalhe(selectedId);
   }, [selectedId, carregarDetalhe]);
 
-  useEffect(() => {
-    if (!selectedId || !podeAcessar) return;
-    const interval = setInterval(() => {
-      void carregarDetalhe(selectedId, true);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [selectedId, podeAcessar, carregarDetalhe]);
-
+  // Refresh só quando a aba volta ao foco (sem polling contínuo)
   useEffect(() => {
     if (!podeAcessar) return;
-    const interval = setInterval(() => {
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
       void carregarConversas(selectedIdRef.current);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [podeAcessar, carregarConversas]);
+      if (selectedIdRef.current) {
+        void carregarDetalhe(selectedIdRef.current, true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [podeAcessar, carregarConversas, carregarDetalhe]);
 
   if (!podeAcessar) {
     return (
@@ -330,24 +368,35 @@ export default function WhatsAppCrmPage() {
 
   return (
     <MenuLayout>
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white shrink-0">
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#f0f2f5]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#d1d7db] bg-[#f0f2f5] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-600 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00a884] text-white">
               <MessageCircle size={18} />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">WhatsApp</h1>
-              <p className="text-xs text-gray-500">Conversas com clientes e avisos de OS</p>
+              <h1 className="text-base font-semibold text-[#111b21]">WhatsApp</h1>
+              <p className="text-[11px] text-[#667781]">Atendimento em tempo real</p>
             </div>
           </div>
-          <Link
-            href="/configuracoes?tab=11"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <Settings size={16} />
-            Configurações
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowOsSidebar((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d1d7db] bg-white px-3 py-1.5 text-xs text-[#54656f] hover:bg-gray-50"
+              title={showOsSidebar ? 'Ocultar painel da OS' : 'Mostrar painel da OS'}
+            >
+              {showOsSidebar ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+              OS
+            </button>
+            <Link
+              href="/configuracoes?tab=11"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#d1d7db] bg-white px-3 py-1.5 text-xs text-[#54656f] hover:bg-gray-50"
+            >
+              <Settings size={15} />
+              Config
+            </Link>
+          </div>
         </div>
 
         <div className="flex flex-1 min-h-0">
@@ -367,13 +416,16 @@ export default function WhatsAppCrmPage() {
             usuarioAtualId={usuarioData?.id}
             salvandoAtendente={salvandoAtendente}
             onAtendenteChange={handleAtendenteChange}
+            onStatusChange={handleStatusChange}
             onMessageSent={handleMessageSent}
             onReplaceMessage={handleReplaceMessage}
             onMessageFailed={handleMessageFailed}
             onNotaSent={handleNotaSent}
           />
 
-          <ClientOsSidebar detalhe={detalhe} loading={loadingDetalhe} />
+          {showOsSidebar && (
+            <ClientOsSidebar detalhe={detalhe} loading={loadingDetalhe} />
+          )}
         </div>
       </div>
     </MenuLayout>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { WhatsAppConversa, WhatsAppConversaNota, WhatsAppMensagem } from '@/lib/whatsapp-crm/types';
 
@@ -13,6 +13,9 @@ interface UseWhatsAppCrmRealtimeOptions {
   onConversaInsert: (conversa: WhatsAppConversa) => void;
 }
 
+/**
+ * Realtime estável: callbacks via ref para não recriar o channel a cada render.
+ */
 export function useWhatsAppCrmRealtime({
   empresaId,
   onMensagemInsert,
@@ -21,6 +24,22 @@ export function useWhatsAppCrmRealtime({
   onConversaChange,
   onConversaInsert,
 }: UseWhatsAppCrmRealtimeOptions) {
+  const handlersRef = useRef({
+    onMensagemInsert,
+    onMensagemUpdate,
+    onNotaInsert,
+    onConversaChange,
+    onConversaInsert,
+  });
+
+  handlersRef.current = {
+    onMensagemInsert,
+    onMensagemUpdate,
+    onNotaInsert,
+    onConversaChange,
+    onConversaInsert,
+  };
+
   useEffect(() => {
     if (!empresaId || typeof window === 'undefined' || !supabase?.channel) return;
 
@@ -28,47 +47,62 @@ export function useWhatsAppCrmRealtime({
       .channel(`whatsapp_crm_${empresaId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'whatsapp_mensagens' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_mensagens',
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         (payload) => {
-          const msg = payload.new as WhatsAppMensagem;
-          if (msg.empresa_id !== empresaId) return;
-          onMensagemInsert(msg);
+          handlersRef.current.onMensagemInsert(payload.new as WhatsAppMensagem);
         }
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'whatsapp_mensagens' },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_mensagens',
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         (payload) => {
-          const msg = payload.new as WhatsAppMensagem;
-          if (msg.empresa_id !== empresaId) return;
-          onMensagemUpdate(msg);
+          handlersRef.current.onMensagemUpdate(payload.new as WhatsAppMensagem);
         }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'whatsapp_conversa_notas' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_conversa_notas',
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         (payload) => {
-          const nota = payload.new as WhatsAppConversaNota;
-          if (nota.empresa_id !== empresaId) return;
-          onNotaInsert(nota);
+          handlersRef.current.onNotaInsert(payload.new as WhatsAppConversaNota);
         }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'whatsapp_conversas' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_conversas',
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         (payload) => {
-          const conversa = payload.new as WhatsAppConversa;
-          if (conversa.empresa_id !== empresaId) return;
-          onConversaInsert(conversa);
+          handlersRef.current.onConversaInsert(payload.new as WhatsAppConversa);
         }
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'whatsapp_conversas' },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_conversas',
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         (payload) => {
-          const conversa = payload.new as WhatsAppConversa;
-          if (conversa.empresa_id !== empresaId) return;
-          onConversaChange(conversa);
+          handlersRef.current.onConversaChange(payload.new as WhatsAppConversa);
         }
       )
       .subscribe();
@@ -76,12 +110,5 @@ export function useWhatsAppCrmRealtime({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [
-    empresaId,
-    onMensagemInsert,
-    onMensagemUpdate,
-    onNotaInsert,
-    onConversaChange,
-    onConversaInsert,
-  ]);
+  }, [empresaId]);
 }
