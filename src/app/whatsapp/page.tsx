@@ -85,12 +85,16 @@ export default function WhatsAppCrmPage() {
     [zerarNaoLidas]
   );
 
+  const conversasFetchGen = useRef(0);
+
   const carregarConversas = useCallback(
     async (conversaAbertaId?: string | null) => {
+      const gen = ++conversasFetchGen.current;
       try {
         const params = filtro !== 'todas' ? `?status=${filtro}` : '';
         const res = await whatsappCrmFetch(`/api/whatsapp/crm/conversations${params}`);
         const json = await res.json();
+        if (gen !== conversasFetchGen.current) return;
         if (json.success) {
           const aberta = conversaAbertaId ?? selectedIdRef.current;
           const incoming = json.data as WhatsAppConversa[];
@@ -103,7 +107,7 @@ export default function WhatsAppCrmPage() {
           );
         }
       } finally {
-        setLoading(false);
+        if (gen === conversasFetchGen.current) setLoading(false);
       }
     },
     [filtro]
@@ -185,21 +189,29 @@ export default function WhatsAppCrmPage() {
           return next;
         });
 
-        // Mantém preview da lista alinhado ao detalhe (evita “última msg” atrasada)
+        // Só avança o preview da lista — nunca volta para mensagem mais antiga (race de fetch)
         const lastMsg = incoming.mensagens[incoming.mensagens.length - 1];
+        const candidatePreview = lastMsg
+          ? previewFromMensagem(lastMsg)
+          : {
+              ultima_mensagem_preview: incoming.conversa.ultima_mensagem_preview,
+              ultima_mensagem_em: incoming.conversa.ultima_mensagem_em,
+            };
         setConversas((prev) =>
           ordenarConversas(
             prev.map((c) => {
               if (c.id !== id) return c;
-              const fromServer = mergeWhatsAppConversa(c, {
-                ...incoming.conversa,
+              const curTs = c.ultima_mensagem_em
+                ? new Date(c.ultima_mensagem_em).getTime()
+                : 0;
+              const nextTs = candidatePreview.ultima_mensagem_em
+                ? new Date(candidatePreview.ultima_mensagem_em).getTime()
+                : 0;
+              return {
+                ...mergeWhatsAppConversa(c, { ...incoming.conversa, nao_lidas: 0 }),
+                ...(nextTs >= curTs ? candidatePreview : {}),
                 nao_lidas: 0,
-              });
-              if (!lastMsg) return fromServer;
-              return mergeWhatsAppConversa(fromServer, {
-                ...fromServer,
-                ...previewFromMensagem(lastMsg),
-              });
+              };
             })
           )
         );
@@ -270,9 +282,11 @@ export default function WhatsAppCrmPage() {
     const conversaAberta = aberta === msg.conversa_id;
 
     if (conversaAberta && msg.direcao === 'entrada') {
-      // Webhook incrementa nao_lidas no banco; se o chat está aberto, zera de novo.
       marcarComoLida(msg.conversa_id);
     }
+
+    const preview = previewFromMensagem(msg);
+    const msgTs = new Date(msg.created_at).getTime();
 
     setConversas((prev) => {
       if (!prev.some((c) => c.id === msg.conversa_id)) {
@@ -282,13 +296,23 @@ export default function WhatsAppCrmPage() {
       return ordenarConversas(
         prev.map((c) => {
           if (c.id !== msg.conversa_id) return c;
-          const preview = previewFromMensagem(msg);
-          // Não regride preview se já temos algo mais novo
-          const atualTs = c.ultima_mensagem_em ? new Date(c.ultima_mensagem_em).getTime() : 0;
-          const msgTs = new Date(msg.created_at).getTime();
+          const atualTs = c.ultima_mensagem_em
+            ? new Date(c.ultima_mensagem_em).getTime()
+            : 0;
+          // Sempre aplica se for igual ou mais novo (envio otimista / realtime)
+          if (msgTs < atualTs) {
+            return {
+              ...c,
+              nao_lidas: conversaAberta
+                ? 0
+                : msg.direcao === 'entrada'
+                  ? c.nao_lidas + 1
+                  : c.nao_lidas,
+            };
+          }
           return {
             ...c,
-            ...(msgTs >= atualTs ? preview : {}),
+            ...preview,
             status: msg.direcao === 'entrada' && c.status === 'fechada' ? 'aberta' : c.status,
             nao_lidas: conversaAberta
               ? 0
@@ -516,6 +540,34 @@ export default function WhatsAppCrmPage() {
 
     void carregarDetalhe(selectedId, { light: true, silent: cacheRef.current.has(selectedId) });
   }, [selectedId, carregarDetalhe]);
+
+  // Espelha a última mensagem do chat aberto na lista (envio otimista incluso)
+  useEffect(() => {
+    if (!detalhe?.conversa?.id || !detalhe.mensagens?.length) return;
+    const last = detalhe.mensagens[detalhe.mensagens.length - 1];
+    if (!last) return;
+    const conversaId = detalhe.conversa.id;
+    const preview = previewFromMensagem(last);
+    const msgTs = new Date(last.created_at).getTime();
+
+    setConversas((prev) => {
+      let changed = false;
+      const next = prev.map((c) => {
+        if (c.id !== conversaId) return c;
+        const curTs = c.ultima_mensagem_em ? new Date(c.ultima_mensagem_em).getTime() : 0;
+        if (msgTs < curTs) return c;
+        if (
+          c.ultima_mensagem_preview === preview.ultima_mensagem_preview &&
+          c.ultima_mensagem_em === preview.ultima_mensagem_em
+        ) {
+          return c;
+        }
+        changed = true;
+        return { ...c, ...preview };
+      });
+      return changed ? ordenarConversas(next) : prev;
+    });
+  }, [detalhe?.conversa?.id, detalhe?.mensagens]);
 
   // Ao abrir painel OS, busca dados pesados só então
   useEffect(() => {

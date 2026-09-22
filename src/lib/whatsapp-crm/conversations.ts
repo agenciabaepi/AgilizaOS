@@ -162,6 +162,28 @@ export async function listConversas(
   if (conversas.length === 0) return conversas;
 
   const ids = conversas.map((c) => c.id);
+
+  // Fonte da verdade do preview: última mensagem real (evita lista desatualizada)
+  const { data: recentMsgs } = await supabase
+    .from('whatsapp_mensagens')
+    .select('conversa_id, conteudo, created_at')
+    .in('conversa_id', ids)
+    .order('created_at', { ascending: false })
+    .limit(Math.max(ids.length * 8, 40));
+
+  const latestByConversa = new Map<
+    string,
+    { conteudo: string; created_at: string }
+  >();
+  for (const m of recentMsgs ?? []) {
+    if (!latestByConversa.has(m.conversa_id)) {
+      latestByConversa.set(m.conversa_id, {
+        conteudo: m.conteudo,
+        created_at: m.created_at,
+      });
+    }
+  }
+
   const { data: entradas } = await supabase
     .from('whatsapp_mensagens')
     .select('conversa_id, created_at')
@@ -184,10 +206,17 @@ export async function listConversas(
   }
 
   return conversas.map((c) => {
-    // Sem ultima_leitura_em (legado): mantém contador do banco
-    if (!c.ultima_leitura_em) return c;
+    const latest = latestByConversa.get(c.id);
+    const withPreview = latest
+      ? {
+          ...c,
+          ultima_mensagem_preview: latest.conteudo.slice(0, 120),
+          ultima_mensagem_em: latest.created_at,
+        }
+      : c;
+    if (!c.ultima_leitura_em) return withPreview;
     return {
-      ...c,
+      ...withPreview,
       nao_lidas: unreadByConversa.get(c.id) ?? 0,
     };
   });
@@ -253,7 +282,6 @@ export async function appendMensagem(
   }
 ) {
   const preview = params.conteudo.slice(0, 120);
-  const now = new Date().toISOString();
 
   const { data: msg, error } = await supabase
     .from('whatsapp_mensagens')
@@ -275,6 +303,8 @@ export async function appendMensagem(
 
   if (error) throw error;
 
+  const msgAt = msg.created_at as string;
+
   const { data: conv } = await supabase
     .from('whatsapp_conversas')
     .select('nao_lidas, ultima_leitura_em')
@@ -284,8 +314,7 @@ export async function appendMensagem(
   let naoLidas = conv?.nao_lidas ?? 0;
   if (params.direcao === 'entrada') {
     const lidoEm = conv?.ultima_leitura_em ? new Date(conv.ultima_leitura_em).getTime() : 0;
-    // Só incrementa se a mensagem for depois da última leitura (evita race ao abrir o chat)
-    if (new Date(now).getTime() > lidoEm) {
+    if (new Date(msgAt).getTime() > lidoEm) {
       naoLidas = (conv?.nao_lidas ?? 0) + 1;
     } else {
       naoLidas = 0;
@@ -294,8 +323,8 @@ export async function appendMensagem(
 
   const conversaUpdates: Record<string, unknown> = {
     ultima_mensagem_preview: preview,
-    ultima_mensagem_em: now,
-    updated_at: now,
+    ultima_mensagem_em: msgAt,
+    updated_at: msgAt,
     nao_lidas: naoLidas,
   };
 

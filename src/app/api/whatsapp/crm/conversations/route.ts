@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
     const supabase = createAdminClient();
     const conversas = await listConversas(supabase, auth.empresaId, { status });
 
-    return NextResponse.json({ success: true, data: conversas });
+    return NextResponse.json(
+      { success: true, data: conversas },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     return NextResponse.json({ error: message }, { status: 500 });

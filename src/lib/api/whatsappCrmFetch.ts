@@ -14,6 +14,7 @@ export async function whatsappCrmFetch(
 
   return fetch(input, {
     credentials: 'include',
+    cache: 'no-store',
     ...init,
     headers,
   });

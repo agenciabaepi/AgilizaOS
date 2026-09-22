@@ -100,16 +100,19 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        conversa: { ...conversa, nao_lidas: 0, ultima_leitura_em: new Date().toISOString() },
-        mensagens,
-        notas,
-        os_contexto: osContexto,
-        ordens_cliente: ordensCliente,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          conversa: { ...conversa, nao_lidas: 0, ultima_leitura_em: new Date().toISOString() },
+          mensagens,
+          notas,
+          os_contexto: osContexto,
+          ordens_cliente: ordensCliente,
+        },
       },
-    });
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     return NextResponse.json({ error: message }, { status: 500 });
