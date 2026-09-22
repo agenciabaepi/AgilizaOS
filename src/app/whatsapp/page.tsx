@@ -65,6 +65,21 @@ export default function WhatsAppCrmPage() {
     );
   }, []);
 
+  /** Zera no UI e no banco — evita badge voltar por race do Realtime/webhook. */
+  const marcarComoLida = useCallback(
+    (id: string) => {
+      zerarNaoLidas(id);
+      void whatsappCrmFetch(`/api/whatsapp/crm/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nao_lidas: 0 }),
+      }).catch(() => {
+        /* silencioso — GET do detalhe também zera */
+      });
+    },
+    [zerarNaoLidas]
+  );
+
   const carregarConversas = useCallback(
     async (conversaAbertaId?: string | null) => {
       try {
@@ -101,28 +116,34 @@ export default function WhatsAppCrmPage() {
               mensagens: mergeWhatsAppMensagens(incoming.mensagens, prev.mensagens),
             };
           });
-          zerarNaoLidas(id);
+          marcarComoLida(id);
         }
       } finally {
         if (!silent) setLoadingDetalhe(false);
       }
     },
-    [zerarNaoLidas]
+    [marcarComoLida]
   );
 
   const selecionarConversa = useCallback(
     (id: string) => {
       setSelectedId(id);
-      zerarNaoLidas(id);
+      marcarComoLida(id);
     },
-    [zerarNaoLidas]
+    [marcarComoLida]
   );
 
   const aplicarMensagemNaLista = useCallback((msg: WhatsAppMensagem) => {
     const aberta = selectedIdRef.current;
+    const conversaAberta = aberta === msg.conversa_id;
+
+    if (conversaAberta && msg.direcao === 'entrada') {
+      // Webhook incrementa nao_lidas no banco; se o chat está aberto, zera de novo.
+      marcarComoLida(msg.conversa_id);
+    }
+
     setConversas((prev) => {
       if (!prev.some((c) => c.id === msg.conversa_id)) {
-        // Nova atividade em conversa fora da lista → refresh leve
         void carregarConversas(aberta);
         return prev;
       }
@@ -134,17 +155,16 @@ export default function WhatsAppCrmPage() {
             ultima_mensagem_preview: msg.conteudo.slice(0, 120),
             ultima_mensagem_em: msg.created_at,
             status: msg.direcao === 'entrada' && c.status === 'fechada' ? 'aberta' : c.status,
-            nao_lidas:
-              aberta === msg.conversa_id
-                ? 0
-                : msg.direcao === 'entrada'
-                  ? c.nao_lidas + 1
-                  : c.nao_lidas,
+            nao_lidas: conversaAberta
+              ? 0
+              : msg.direcao === 'entrada'
+                ? c.nao_lidas + 1
+                : c.nao_lidas,
           };
         })
       );
     });
-  }, [carregarConversas]);
+  }, [carregarConversas, marcarComoLida]);
 
   const handleMensagemInsert = useCallback(
     (msg: WhatsAppMensagem) => {
@@ -192,6 +212,7 @@ export default function WhatsAppCrmPage() {
   const handleConversaChange = useCallback((conversa: WhatsAppConversa) => {
     const aberta = selectedIdRef.current;
     const filtroAtual = filtroRef.current;
+    const lendoEsta = aberta === conversa.id;
 
     setConversas((prev) => {
       const existe = prev.some((c) => c.id === conversa.id);
@@ -200,14 +221,23 @@ export default function WhatsAppCrmPage() {
       }
       const merged = {
         ...conversa,
-        nao_lidas: aberta === conversa.id ? 0 : conversa.nao_lidas,
+        // Nunca reaplicar badge na conversa que o usuário está lendo
+        nao_lidas: lendoEsta ? 0 : conversa.nao_lidas,
       };
       if (!existe) return ordenarConversas([merged, ...prev]);
       return ordenarConversas(prev.map((c) => (c.id === conversa.id ? { ...c, ...merged } : c)));
     });
 
-    if (aberta === conversa.id) {
-      setDetalhe((d) => (d ? { ...d, conversa: { ...d.conversa, ...conversa } } : d));
+    if (lendoEsta) {
+      setDetalhe((d) => (d ? { ...d, conversa: { ...d.conversa, ...conversa, nao_lidas: 0 } } : d));
+      if (conversa.nao_lidas > 0) {
+        // Realtime trouxe contador antigo/incrementado — força zero no banco
+        void whatsappCrmFetch(`/api/whatsapp/crm/conversations/${conversa.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nao_lidas: 0 }),
+        }).catch(() => {});
+      }
       if (!bateFiltro(conversa, filtroAtual)) {
         setSelectedId(null);
         setDetalhe(null);

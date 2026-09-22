@@ -98,10 +98,15 @@ export async function PATCH(
     const body = await req.json();
     const supabase = createAdminClient();
 
-    const allowed = ['status', 'os_id', 'cliente_id', 'atribuido_usuario_id'];
+    const allowed = ['status', 'os_id', 'cliente_id', 'atribuido_usuario_id', 'nao_lidas'];
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const key of allowed) {
       if (key in body) updates[key] = body[key];
+    }
+
+    if ('nao_lidas' in updates) {
+      const n = Number(updates.nao_lidas);
+      updates.nao_lidas = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
     }
 
     const { data, error } = await supabase
