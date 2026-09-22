@@ -337,9 +337,8 @@ export default function WhatsAppCrmPage() {
               <MessageCircle size={18} />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">WhatsApp CRM</h1>
-              <p className="text-xs text-amber-700 font-medium">Em desenvolvimento</p>
-              <p className="text-xs text-gray-500">Conversas vinculadas a clientes e ordens de serviço</p>
+              <h1 className="text-lg font-semibold text-gray-900">WhatsApp</h1>
+              <p className="text-xs text-gray-500">Conversas com clientes e avisos de OS</p>
             </div>
           </div>
           <Link

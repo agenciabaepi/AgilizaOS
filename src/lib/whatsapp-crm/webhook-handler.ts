@@ -93,19 +93,27 @@ async function processInboundMessage(
   });
 }
 
-async function resolveConfig(supabase: SupabaseAdmin, phoneNumberId: string | undefined) {
-  if (!phoneNumberId) return null;
+async function resolveConfigs(
+  supabase: SupabaseAdmin,
+  phoneNumberId: string | undefined
+): Promise<{ empresa_id: string; phone_number_id: string | null; ativo: boolean }[]> {
+  if (!phoneNumberId) return [];
 
   const id = String(phoneNumberId);
 
-  const { data: config } = await supabase
+  // Várias empresas de teste podem compartilhar o mesmo Phone Number ID da Meta.
+  // `.maybeSingle()` quebra nesse caso e o webhook descartava todas as mensagens.
+  const { data: matched, error } = await supabase
     .from('whatsapp_empresa_config')
     .select('empresa_id, phone_number_id, ativo')
     .eq('phone_number_id', id)
-    .eq('ativo', true)
-    .maybeSingle();
+    .eq('ativo', true);
 
-  if (config) return config;
+  if (error) {
+    console.warn('[CRM webhook] Erro ao buscar config:', error.message);
+  }
+
+  if (matched && matched.length > 0) return matched;
 
   const { data: configs } = await supabase
     .from('whatsapp_empresa_config')
@@ -116,11 +124,11 @@ async function resolveConfig(supabase: SupabaseAdmin, phoneNumberId: string | un
     console.warn(
       `[CRM webhook] phone_number_id ${id} não encontrado; usando única config ativa (${configs[0].phone_number_id})`
     );
-    return configs[0];
+    return configs;
   }
 
   console.warn(`[CRM webhook] Nenhuma config ativa para phone_number_id ${id}`);
-  return null;
+  return [];
 }
 
 /**
@@ -143,27 +151,29 @@ export async function processWhatsAppCrmWebhook(body: {
       const value = change.value;
       if (!value) continue;
 
-      const config = await resolveConfig(supabase, value.metadata?.phone_number_id);
-      if (!config) continue;
+      const configs = await resolveConfigs(supabase, value.metadata?.phone_number_id);
+      if (configs.length === 0) continue;
 
       const inbound = value.messages ?? [];
       const echoes = value.message_echoes ?? [];
 
-      for (const message of inbound) {
-        try {
-          await processInboundMessage(supabase, config, value, message);
-          processed += 1;
-        } catch (err) {
-          console.error('[CRM webhook] Erro ao salvar mensagem inbound:', err);
+      for (const config of configs) {
+        for (const message of inbound) {
+          try {
+            await processInboundMessage(supabase, config, value, message);
+            processed += 1;
+          } catch (err) {
+            console.error('[CRM webhook] Erro ao salvar mensagem inbound:', err);
+          }
         }
-      }
 
-      for (const message of echoes) {
-        try {
-          await processInboundMessage(supabase, config, value, message, { isEcho: true });
-          processed += 1;
-        } catch (err) {
-          console.error('[CRM webhook] Erro ao salvar message_echo:', err);
+        for (const message of echoes) {
+          try {
+            await processInboundMessage(supabase, config, value, message, { isEcho: true });
+            processed += 1;
+          } catch (err) {
+            console.error('[CRM webhook] Erro ao salvar message_echo:', err);
+          }
         }
       }
     }
