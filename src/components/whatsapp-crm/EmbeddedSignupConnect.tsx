@@ -91,7 +91,11 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
         const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (payload?.type !== 'WA_EMBEDDED_SIGNUP') return;
 
-        if (payload.event === 'FINISH' || payload.event === 'FINISH_ONLY_WABA') {
+        if (
+          payload.event === 'FINISH' ||
+          payload.event === 'FINISH_ONLY_WABA' ||
+          payload.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+        ) {
           sessionRef.current = {
             ...sessionRef.current,
             ...payload.data,
