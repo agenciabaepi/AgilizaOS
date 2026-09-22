@@ -179,11 +179,9 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
   if (!appId || !configId) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-medium">Embedded Signup não configurado</p>
+        <p className="font-medium">Conexão indisponível no momento</p>
         <p className="mt-1 text-xs text-amber-800">
-          Defina <code className="bg-white/80 px-1">NEXT_PUBLIC_WHATSAPP_APP_ID</code> e{' '}
-          <code className="bg-white/80 px-1">NEXT_PUBLIC_WHATSAPP_EMBEDDED_CONFIG_ID</code> no
-          ambiente. Crie a configuração em Meta App Dashboard → WhatsApp → Embedded Signup Builder.
+          Fale com o suporte da Gestão Consert para liberar a conexão do WhatsApp nesta conta.
         </p>
       </div>
     );
@@ -205,26 +203,17 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
           <div>
             <h3 className="font-semibold text-gray-900">Conectar meu WhatsApp</h3>
             <p className="text-sm text-gray-600 mt-1">
-              Use o número que já está no <strong>WhatsApp Business</strong> da sua assistência.
-              Você continua usando o app no celular — o Consert sincroniza conversas e automações
-              de OS pela API oficial da Meta (
-              <a
-                href="https://developers.facebook.com/docs/whatsapp/embedded-signup/custom-flows/onboarding-business-app-users/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-700 hover:underline"
-              >
-                coexistência
-              </a>
-              ).
+              Use o número do <strong>WhatsApp Business</strong> da sua assistência. Você continua
+              falando pelo celular — e as conversas também aparecem aqui no Consert, com avisos
+              automáticos de OS.
             </p>
           </div>
         </div>
 
-        <ul className="text-xs text-gray-600 space-y-1 pl-1">
-          <li>• App WhatsApp Business atualizado (v2.24.17+)</li>
-          <li>• Número usado no app há pelo menos 7 dias</li>
-          <li>• Conta Meta Business da loja</li>
+        <ul className="text-xs text-gray-600 space-y-1.5 pl-1">
+          <li>• Tenha o app WhatsApp Business instalado e atualizado</li>
+          <li>• Use um número que já esteja nesse app há alguns dias</li>
+          <li>• Tenha a conta Facebook/Meta da loja em mãos para autorizar</li>
         </ul>
 
         {error && (
@@ -253,7 +242,7 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
         </button>
 
         {!sdkReady && (
-          <p className="text-xs text-center text-gray-500">Carregando SDK Meta...</p>
+          <p className="text-xs text-center text-gray-500">Preparando conexão...</p>
         )}
       </div>
     </>
