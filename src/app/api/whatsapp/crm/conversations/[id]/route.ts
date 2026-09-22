@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { getOsContextoByConversa } from '@/lib/whatsapp-crm/os-context';
 import { listOrdensClienteConversa } from '@/lib/whatsapp-crm/client-orders';
 import { CONVERSA_USUARIO_JOIN } from '@/lib/whatsapp-crm/atendentes';
+import { markConversaLida } from '@/lib/whatsapp-crm/conversations';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 async function resolveEmpresa(req: NextRequest) {
@@ -62,15 +63,15 @@ export async function GET(
       telefone: conversa.telefone,
     });
 
-    await supabase
-      .from('whatsapp_conversas')
-      .update({ nao_lidas: 0 })
-      .eq('id', id);
+    await markConversaLida(supabase, {
+      conversaId: id,
+      empresaId: auth.empresaId,
+    });
 
     return NextResponse.json({
       success: true,
       data: {
-        conversa,
+        conversa: { ...conversa, nao_lidas: 0, ultima_leitura_em: new Date().toISOString() },
         mensagens: mensagens ?? [],
         notas: notas ?? [],
         os_contexto: osContexto,
@@ -98,15 +99,19 @@ export async function PATCH(
     const body = await req.json();
     const supabase = createAdminClient();
 
-    const allowed = ['status', 'os_id', 'cliente_id', 'atribuido_usuario_id', 'nao_lidas'];
+    // Atalho dedicado: marcar como lida
+    if (body?.nao_lidas === 0 || body?.mark_read === true) {
+      const data = await markConversaLida(supabase, {
+        conversaId: id,
+        empresaId: auth.empresaId,
+      });
+      return NextResponse.json({ success: true, data });
+    }
+
+    const allowed = ['status', 'os_id', 'cliente_id', 'atribuido_usuario_id'];
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const key of allowed) {
       if (key in body) updates[key] = body[key];
-    }
-
-    if ('nao_lidas' in updates) {
-      const n = Number(updates.nao_lidas);
-      updates.nao_lidas = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
     }
 
     const { data, error } = await supabase

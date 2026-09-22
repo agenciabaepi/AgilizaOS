@@ -55,6 +55,8 @@ export interface WhatsAppConversa {
   ultima_mensagem_preview: string | null;
   ultima_mensagem_em: string | null;
   nao_lidas: number;
+  /** ISO — mensagens de entrada após este horário contam como não lidas */
+  ultima_leitura_em?: string | null;
   atribuido_usuario_id: string | null;
   created_at: string;
   updated_at: string;

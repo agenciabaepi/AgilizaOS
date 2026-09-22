@@ -157,7 +157,83 @@ export async function listConversas(
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as WhatsAppConversa[];
+
+  const conversas = (data ?? []) as WhatsAppConversa[];
+  if (conversas.length === 0) return conversas;
+
+  const ids = conversas.map((c) => c.id);
+  const { data: entradas } = await supabase
+    .from('whatsapp_mensagens')
+    .select('conversa_id, created_at')
+    .in('conversa_id', ids)
+    .eq('direcao', 'entrada');
+
+  const unreadByConversa = new Map<string, number>();
+  const convById = new Map(conversas.map((c) => [c.id, c]));
+  for (const c of conversas) {
+    unreadByConversa.set(c.id, 0);
+  }
+  for (const m of entradas ?? []) {
+    const conv = convById.get(m.conversa_id);
+    if (!conv?.ultima_leitura_em) continue;
+    const lidoEm = new Date(conv.ultima_leitura_em).getTime();
+    const msgEm = new Date(m.created_at).getTime();
+    if (msgEm > lidoEm) {
+      unreadByConversa.set(m.conversa_id, (unreadByConversa.get(m.conversa_id) ?? 0) + 1);
+    }
+  }
+
+  return conversas.map((c) => {
+    // Sem ultima_leitura_em (legado): mantém contador do banco
+    if (!c.ultima_leitura_em) return c;
+    return {
+      ...c,
+      nao_lidas: unreadByConversa.get(c.id) ?? 0,
+    };
+  });
+}
+
+/** Marca conversa como lida (badge some e sobrevive a reload). */
+export async function markConversaLida(
+  supabase: SupabaseAdmin,
+  params: { conversaId: string; empresaId: string }
+) {
+  const now = new Date().toISOString();
+  const baseSelect = `*,
+      clientes ( id, nome, telefone, celular, email ),
+      ordens_servico ( id, numero_os, status, equipamento, marca, modelo ),
+      ${CONVERSA_USUARIO_JOIN}`;
+
+  const withLeitura = await supabase
+    .from('whatsapp_conversas')
+    .update({
+      nao_lidas: 0,
+      ultima_leitura_em: now,
+      updated_at: now,
+    })
+    .eq('id', params.conversaId)
+    .eq('empresa_id', params.empresaId)
+    .select(baseSelect)
+    .maybeSingle();
+
+  if (!withLeitura.error) {
+    return withLeitura.data as WhatsAppConversa | null;
+  }
+
+  // Fallback se a coluna ainda não existir no banco
+  const { data, error } = await supabase
+    .from('whatsapp_conversas')
+    .update({
+      nao_lidas: 0,
+      updated_at: now,
+    })
+    .eq('id', params.conversaId)
+    .eq('empresa_id', params.empresaId)
+    .select(baseSelect)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as WhatsAppConversa | null;
 }
 
 export async function appendMensagem(
@@ -201,16 +277,26 @@ export async function appendMensagem(
 
   const { data: conv } = await supabase
     .from('whatsapp_conversas')
-    .select('nao_lidas')
+    .select('nao_lidas, ultima_leitura_em')
     .eq('id', params.conversa_id)
     .single();
+
+  let naoLidas = conv?.nao_lidas ?? 0;
+  if (params.direcao === 'entrada') {
+    const lidoEm = conv?.ultima_leitura_em ? new Date(conv.ultima_leitura_em).getTime() : 0;
+    // Só incrementa se a mensagem for depois da última leitura (evita race ao abrir o chat)
+    if (new Date(now).getTime() > lidoEm) {
+      naoLidas = (conv?.nao_lidas ?? 0) + 1;
+    } else {
+      naoLidas = 0;
+    }
+  }
 
   const conversaUpdates: Record<string, unknown> = {
     ultima_mensagem_preview: preview,
     ultima_mensagem_em: now,
     updated_at: now,
-    nao_lidas:
-      params.direcao === 'entrada' ? (conv?.nao_lidas ?? 0) + 1 : conv?.nao_lidas ?? 0,
+    nao_lidas: naoLidas,
   };
 
   if (params.direcao === 'entrada') {
