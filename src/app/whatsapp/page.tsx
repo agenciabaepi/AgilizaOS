@@ -20,6 +20,11 @@ import type {
 } from '@/lib/whatsapp-crm/types';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 import { mergeWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
+import {
+  mergeWhatsAppConversa,
+  mergeWhatsAppConversasList,
+  previewFromMensagem,
+} from '@/lib/whatsapp-crm/merge-conversas';
 
 export interface ConversaDetalhe {
   conversa: WhatsAppConversa;
@@ -88,9 +93,12 @@ export default function WhatsAppCrmPage() {
         const json = await res.json();
         if (json.success) {
           const aberta = conversaAbertaId ?? selectedIdRef.current;
-          setConversas(
-            (json.data as WhatsAppConversa[]).map((c) =>
-              c.id === aberta ? { ...c, nao_lidas: 0 } : c
+          const incoming = json.data as WhatsAppConversa[];
+          setConversas((prev) =>
+            ordenarConversas(
+              mergeWhatsAppConversasList(prev, incoming).map((c) =>
+                c.id === aberta ? { ...c, nao_lidas: 0 } : c
+              )
             )
           );
         }
@@ -176,6 +184,25 @@ export default function WhatsAppCrmPage() {
           guardarCache(id, next);
           return next;
         });
+
+        // Mantém preview da lista alinhado ao detalhe (evita “última msg” atrasada)
+        const lastMsg = incoming.mensagens[incoming.mensagens.length - 1];
+        setConversas((prev) =>
+          ordenarConversas(
+            prev.map((c) => {
+              if (c.id !== id) return c;
+              const fromServer = mergeWhatsAppConversa(c, {
+                ...incoming.conversa,
+                nao_lidas: 0,
+              });
+              if (!lastMsg) return fromServer;
+              return mergeWhatsAppConversa(fromServer, {
+                ...fromServer,
+                ...previewFromMensagem(lastMsg),
+              });
+            })
+          )
+        );
       } finally {
         if (selectedIdRef.current === id) setLoadingDetalhe(false);
       }
@@ -255,10 +282,13 @@ export default function WhatsAppCrmPage() {
       return ordenarConversas(
         prev.map((c) => {
           if (c.id !== msg.conversa_id) return c;
+          const preview = previewFromMensagem(msg);
+          // Não regride preview se já temos algo mais novo
+          const atualTs = c.ultima_mensagem_em ? new Date(c.ultima_mensagem_em).getTime() : 0;
+          const msgTs = new Date(msg.created_at).getTime();
           return {
             ...c,
-            ultima_mensagem_preview: msg.conteudo.slice(0, 120),
-            ultima_mensagem_em: msg.created_at,
+            ...(msgTs >= atualTs ? preview : {}),
             status: msg.direcao === 'entrada' && c.status === 'fechada' ? 'aberta' : c.status,
             nao_lidas: conversaAberta
               ? 0
@@ -325,23 +355,21 @@ export default function WhatsAppCrmPage() {
     const lendoEsta = aberta === conversa.id;
 
     setConversas((prev) => {
-      const existe = prev.some((c) => c.id === conversa.id);
-      if (!bateFiltro(conversa, filtroAtual)) {
+      const atual = prev.find((c) => c.id === conversa.id);
+      const merged = mergeWhatsAppConversa(atual, {
+        ...conversa,
+        nao_lidas: lendoEsta ? 0 : conversa.nao_lidas,
+      });
+      if (!bateFiltro(merged, filtroAtual)) {
         return prev.filter((c) => c.id !== conversa.id);
       }
-      const merged = {
-        ...conversa,
-        // Nunca reaplicar badge na conversa que o usuário está lendo
-        nao_lidas: lendoEsta ? 0 : conversa.nao_lidas,
-      };
-      if (!existe) return ordenarConversas([merged, ...prev]);
-      return ordenarConversas(prev.map((c) => (c.id === conversa.id ? { ...c, ...merged } : c)));
+      if (!atual) return ordenarConversas([merged, ...prev]);
+      return ordenarConversas(prev.map((c) => (c.id === conversa.id ? merged : c)));
     });
 
     if (lendoEsta) {
       setDetalhe((d) => (d ? { ...d, conversa: { ...d.conversa, ...conversa, nao_lidas: 0 } } : d));
       if (conversa.nao_lidas > 0) {
-        // Realtime trouxe contador antigo/incrementado — força zero no banco
         void whatsappCrmFetch(`/api/whatsapp/crm/conversations/${conversa.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -394,7 +422,8 @@ export default function WhatsAppCrmPage() {
       const semTemp = d.mensagens.filter((m) => m.id !== tempId);
       return { ...d, mensagens: mergeWhatsAppMensagens(semTemp, [msg]) };
     });
-  }, []);
+    aplicarMensagemNaLista(msg);
+  }, [aplicarMensagemNaLista]);
 
   const handleMessageFailed = useCallback((tempId: string, error: string) => {
     setDetalhe((d) => {

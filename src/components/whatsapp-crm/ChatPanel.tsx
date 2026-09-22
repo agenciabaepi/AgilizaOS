@@ -15,6 +15,7 @@ import type { WhatsAppConversaNota, WhatsAppMensagem } from '@/lib/whatsapp-crm/
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 import { mergeWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
 import { AtendenteSelect } from '@/components/whatsapp-crm/AtendenteSelect';
+import { ContactAvatar } from '@/components/whatsapp-crm/ContactAvatar';
 import type { WhatsAppAtendente, WhatsAppConversa } from '@/lib/whatsapp-crm/types';
 
 interface Props {
@@ -241,15 +242,7 @@ export function ChatPanel({
     <main className="flex-1 flex flex-col min-w-0 bg-[#efeae2]">
       <div className="px-4 py-2.5 bg-[#f0f2f5] border-b border-[#d1d7db] flex items-center justify-between gap-3 shrink-0 relative">
         <div className="min-w-0 flex items-center gap-3">
-          <div className="h-10 w-10 shrink-0 rounded-full bg-[#dfe5e7] text-[#54656f] flex items-center justify-center text-sm font-semibold">
-            {nome
-              .trim()
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((p) => p[0])
-              .join('')
-              .toUpperCase() || '?'}
-          </div>
+          <ContactAvatar name={nome} fotoUrl={conversa?.foto_url} size={40} />
           <div className="min-w-0">
             <h2 className="font-medium text-[#111b21] truncate text-[16px]">{nome}</h2>
             <p className="text-xs text-[#667781] truncate">{conversa?.telefone}</p>

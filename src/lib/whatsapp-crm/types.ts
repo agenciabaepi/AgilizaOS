@@ -51,6 +51,8 @@ export interface WhatsAppConversa {
   wa_id: string;
   telefone: string;
   nome_contato: string | null;
+  /** URL da foto do contato (Cloud API não fornece; reservado para sync futuro) */
+  foto_url?: string | null;
   status: WhatsAppConversaStatus;
   ultima_mensagem_preview: string | null;
   ultima_mensagem_em: string | null;

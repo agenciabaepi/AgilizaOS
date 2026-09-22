@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Archive, Search } from 'lucide-react';
 import type { WhatsAppConversa } from '@/lib/whatsapp-crm/types';
+import { ContactAvatar } from '@/components/whatsapp-crm/ContactAvatar';
 
 export type FiltroConversa = 'aberta' | 'arquivada' | 'todas';
 
@@ -27,13 +28,6 @@ function formatTime(iso: string | null | undefined) {
     return 'Ontem';
   }
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 interface Props {
@@ -158,9 +152,7 @@ export function ConversationList({
                   selected ? 'bg-[#f0f2f5]' : 'hover:bg-[#f5f6f6]'
                 }`}
               >
-                <div className="h-12 w-12 shrink-0 rounded-full bg-[#dfe5e7] text-[#54656f] flex items-center justify-center text-sm font-semibold">
-                  {initials(nome)}
-                </div>
+                <ContactAvatar name={nome} fotoUrl={c.foto_url} size={48} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <p
