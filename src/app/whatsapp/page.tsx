@@ -557,22 +557,22 @@ export default function WhatsAppCrmPage() {
 
   return (
     <MenuLayout>
-      <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#f0f2f5]">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#d1d7db] bg-[#f0f2f5] shrink-0">
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#f0f2f5] dark:bg-[#111b21]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#d1d7db] dark:border-[#222d34] bg-[#f0f2f5] dark:bg-[#202c33] shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00a884] text-white">
               <MessageCircle size={18} />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-[#111b21]">WhatsApp</h1>
-              <p className="text-[11px] text-[#667781]">Atendimento em tempo real</p>
+              <h1 className="text-base font-semibold text-[#111b21] dark:text-[#e9edef]">WhatsApp</h1>
+              <p className="text-[11px] text-[#667781] dark:text-[#8696a0]">Atendimento em tempo real</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowOsSidebar((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d1d7db] bg-white px-3 py-1.5 text-xs text-[#54656f] hover:bg-gray-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d1d7db] dark:border-[#3b4a54] bg-white dark:bg-[#2a3942] px-3 py-1.5 text-xs text-[#54656f] dark:text-[#aebac1] hover:bg-gray-50 dark:hover:bg-[#3b4a54]"
               title={showOsSidebar ? 'Ocultar painel da OS' : 'Mostrar painel da OS'}
             >
               {showOsSidebar ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
@@ -580,7 +580,7 @@ export default function WhatsAppCrmPage() {
             </button>
             <Link
               href="/configuracoes?tab=11"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#d1d7db] bg-white px-3 py-1.5 text-xs text-[#54656f] hover:bg-gray-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#d1d7db] dark:border-[#3b4a54] bg-white dark:bg-[#2a3942] px-3 py-1.5 text-xs text-[#54656f] dark:text-[#aebac1] hover:bg-gray-50 dark:hover:bg-[#3b4a54]"
             >
               <Settings size={15} />
               Config

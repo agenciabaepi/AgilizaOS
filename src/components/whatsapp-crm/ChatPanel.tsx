@@ -101,15 +101,16 @@ export function ChatPanel({
 
   if (!detalhe && !loading) {
     return (
-      <main className="flex-1 flex flex-col items-center justify-center bg-[#f0f2f5] text-[#667781]">
+      <main className="flex-1 flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-[#0b141a] text-[#667781] dark:text-[#8696a0]">
         <div className="max-w-sm text-center px-6">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-white shadow-sm flex items-center justify-center text-[#00a884]">
-            <Send size={28} />
+          <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-white dark:bg-[#202c33] shadow-sm flex items-center justify-center text-[#00a884]">
+            <Send size={32} />
           </div>
-          <p className="text-lg font-light text-[#41525d]">WhatsApp Consert</p>
-          <p className="text-sm mt-2">
+          <p className="text-xl font-light text-[#41525d] dark:text-[#e9edef]">WhatsApp Consert</p>
+          <p className="text-sm mt-2 dark:text-[#8696a0]">
             Selecione uma conversa à esquerda para ler e responder mensagens dos clientes.
           </p>
+          <p className="text-[11px] mt-8 text-[#8696a0]">Protegida com a criptografia de ponta a ponta</p>
         </div>
       </main>
     );
@@ -239,13 +240,13 @@ export function ChatPanel({
   ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 bg-[#efeae2]">
-      <div className="px-4 py-2.5 bg-[#f0f2f5] border-b border-[#d1d7db] flex items-center justify-between gap-3 shrink-0 relative">
+    <main className="flex-1 flex flex-col min-w-0 bg-[#efeae2] dark:bg-[#0b141a]">
+      <div className="px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#d1d7db] dark:border-[#222d34] flex items-center justify-between gap-3 shrink-0 relative">
         <div className="min-w-0 flex items-center gap-3">
           <ContactAvatar name={nome} fotoUrl={conversa?.foto_url} size={40} />
           <div className="min-w-0">
-            <h2 className="font-medium text-[#111b21] truncate text-[16px]">{nome}</h2>
-            <p className="text-xs text-[#667781] truncate">{conversa?.telefone}</p>
+            <h2 className="font-medium text-[#111b21] dark:text-[#e9edef] truncate text-[16px]">{nome}</h2>
+            <p className="text-xs text-[#667781] dark:text-[#8696a0] truncate">{conversa?.telefone}</p>
           </div>
         </div>
 
@@ -264,19 +265,19 @@ export function ChatPanel({
           <button
             type="button"
             onClick={() => setMenuAberto((v) => !v)}
-            className="p-2 rounded-full text-[#54656f] hover:bg-[#e9edef]"
+            className="p-2 rounded-full text-[#54656f] dark:text-[#aebac1] hover:bg-[#e9edef] dark:hover:bg-[#2a3942]"
             aria-label="Opções da conversa"
           >
             <MoreVertical size={20} />
           </button>
           {menuAberto && conversa && (
-            <div className="absolute right-3 top-12 z-20 w-48 rounded-lg bg-white shadow-lg border border-gray-100 py-1 text-sm">
+            <div className="absolute right-3 top-12 z-20 w-48 rounded-lg bg-white dark:bg-[#233138] shadow-lg border border-gray-100 dark:border-[#222d34] py-1 text-sm">
               {arquivada ? (
                 <button
                   type="button"
                   disabled={alterandoStatus}
                   onClick={() => void alterarStatus('aberta')}
-                  className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-2 text-[#111b21]"
+                  className="w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-[#2a3942] flex items-center gap-2 text-[#111b21] dark:text-[#e9edef]"
                 >
                   <ArchiveRestore size={16} />
                   Desarquivar
@@ -286,7 +287,7 @@ export function ChatPanel({
                   type="button"
                   disabled={alterandoStatus}
                   onClick={() => void alterarStatus('arquivada')}
-                  className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-2 text-[#111b21]"
+                  className="w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-[#2a3942] flex items-center gap-2 text-[#111b21] dark:text-[#e9edef]"
                 >
                   <Archive size={16} />
                   Arquivar conversa
@@ -298,13 +299,13 @@ export function ChatPanel({
       </div>
 
       {arquivada && (
-        <div className="bg-[#fff7d1] text-[#5e4200] text-xs text-center py-1.5 border-b border-[#f0e3a8]">
+        <div className="bg-[#fff7d1] dark:bg-[#3b3419] text-[#5e4200] dark:text-[#e9c46a] text-xs text-center py-1.5 border-b border-[#f0e3a8] dark:border-[#4a4120]">
           Conversa arquivada — você ainda pode enviar mensagens ou desarquivar.
         </div>
       )}
 
       {erroEnvio && (
-        <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <span className="flex-1">{erroEnvio}</span>
           <button type="button" className="underline" onClick={() => setErroEnvio(null)}>
@@ -316,23 +317,19 @@ export function ChatPanel({
       <div
         ref={listRef}
         onScroll={onScrollList}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(229,221,213,.92), rgba(229,221,213,.92)), url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23cbb9a8\' fill-opacity=\'0.18\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-        }}
+        className="wa-crm-chat-bg flex-1 overflow-y-auto px-4 py-3 space-y-1.5"
       >
         {loading && mensagensLocais.length === 0 ? (
-          <p className="text-sm text-[#667781] text-center py-8">Carregando mensagens...</p>
+          <p className="text-sm text-[#667781] dark:text-[#8696a0] text-center py-8">Carregando mensagens...</p>
         ) : timeline.length === 0 ? (
-          <p className="text-sm text-[#667781] text-center py-8">Nenhuma mensagem ainda</p>
+          <p className="text-sm text-[#667781] dark:text-[#8696a0] text-center py-8">Nenhuma mensagem ainda</p>
         ) : (
           timeline.map((item) => {
             if (item.kind === 'nota') {
               const nota = item.data;
               return (
                 <div key={`nota-${nota.id}`} className="flex justify-center my-2">
-                  <div className="max-w-[85%] rounded-lg border border-amber-200/80 bg-[#fff7d1] px-3 py-2 text-xs text-[#5e4200] shadow-sm">
+                  <div className="max-w-[85%] rounded-lg border border-amber-200/80 dark:border-[#4a4120] bg-[#fff7d1] dark:bg-[#3b3419] px-3 py-2 text-xs text-[#5e4200] dark:text-[#e9c46a] shadow-sm">
                     <p className="font-medium flex items-center gap-1">
                       <StickyNote size={12} />
                       Nota interna{nota.autor_nome ? ` · ${nota.autor_nome}` : ''}
@@ -353,13 +350,13 @@ export function ChatPanel({
                   className={`max-w-[75%] rounded-lg px-2.5 py-1.5 text-[14.2px] leading-[19px] shadow-sm whitespace-pre-wrap relative ${
                     saida
                       ? falhou
-                        ? 'bg-red-50 text-[#111b21] border border-red-200'
-                        : 'bg-[#d9fdd3] text-[#111b21]'
-                      : 'bg-white text-[#111b21]'
+                        ? 'bg-red-50 dark:bg-red-950/50 text-[#111b21] dark:text-[#e9edef] border border-red-200 dark:border-red-800'
+                        : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef]'
+                      : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]'
                   } ${pending ? 'opacity-80' : ''}`}
                 >
                   {m.conteudo}
-                  <span className="float-right ml-2 mt-1 text-[11px] text-[#667781] flex items-center gap-1 leading-none">
+                  <span className="float-right ml-2 mt-1 text-[11px] text-[#667781] dark:text-[#8696a0] flex items-center gap-1 leading-none">
                     {pending && <Loader2 size={10} className="animate-spin" />}
                     {falhou && !pending && (
                       <span className="text-red-500" title={m.erro_entrega ?? undefined}>
@@ -377,7 +374,7 @@ export function ChatPanel({
                     )}
                   </span>
                   {falhou && m.erro_entrega && (
-                    <p className="clear-both text-[11px] text-red-600 mt-1 max-w-[240px]">
+                    <p className="clear-both text-[11px] text-red-600 dark:text-red-400 mt-1 max-w-[240px]">
                       {m.erro_entrega}
                     </p>
                   )}
@@ -390,7 +387,7 @@ export function ChatPanel({
       </div>
 
       {conversa && (
-        <div className="bg-[#f0f2f5] px-3 py-2 shrink-0">
+        <div className="bg-[#f0f2f5] dark:bg-[#202c33] px-3 py-2 shrink-0">
           <div className="sm:hidden mb-2">
             <AtendenteSelect
               atendentes={atendentes}
@@ -405,7 +402,9 @@ export function ChatPanel({
               type="button"
               onClick={() => setModo('reply')}
               className={`text-xs px-3 py-1 rounded-full ${
-                modo === 'reply' ? 'bg-[#00a884] text-white' : 'bg-white text-[#54656f]'
+                modo === 'reply'
+                  ? 'bg-[#00a884] text-white'
+                  : 'bg-white dark:bg-[#2a3942] text-[#54656f] dark:text-[#8696a0]'
               }`}
             >
               Responder
@@ -414,7 +413,9 @@ export function ChatPanel({
               type="button"
               onClick={() => setModo('notes')}
               className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full ${
-                modo === 'notes' ? 'bg-amber-500 text-white' : 'bg-white text-[#54656f]'
+                modo === 'notes'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-white dark:bg-[#2a3942] text-[#54656f] dark:text-[#8696a0]'
               }`}
             >
               <StickyNote size={12} />
@@ -429,7 +430,7 @@ export function ChatPanel({
                 modo === 'notes' ? 'Nota interna (só a equipe vê)...' : 'Digite uma mensagem'
               }
               rows={1}
-              className="flex-1 rounded-lg bg-white px-3 py-2.5 text-sm resize-none max-h-28 focus:outline-none shadow-sm"
+              className="flex-1 rounded-lg bg-white dark:bg-[#2a3942] text-[#111b21] dark:text-[#e9edef] placeholder:text-[#667781] dark:placeholder:text-[#8696a0] px-3 py-2.5 text-sm resize-none max-h-28 focus:outline-none shadow-sm dark:shadow-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

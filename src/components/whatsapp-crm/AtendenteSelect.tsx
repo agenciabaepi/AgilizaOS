@@ -22,7 +22,7 @@ export function AtendenteSelect({
 }: Props) {
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <Headphones size={14} className="text-gray-400 shrink-0" />
+      <Headphones size={14} className="text-gray-400 dark:text-[#8696a0] shrink-0" />
       <label className="sr-only" htmlFor="atendente-conversa">
         Atendente responsável
       </label>
@@ -35,7 +35,7 @@ export function AtendenteSelect({
             const v = e.target.value;
             void onChange(v ? v : null);
           }}
-          className="w-full appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-2.5 pr-8 text-xs text-gray-800 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600 disabled:opacity-50 truncate"
+          className="w-full appearance-none rounded-lg border border-gray-200 dark:border-[#3b4a54] bg-white dark:bg-[#2a3942] py-1.5 pl-2.5 pr-8 text-xs text-gray-800 dark:text-[#e9edef] focus:border-[#00a884] focus:outline-none focus:ring-1 focus:ring-[#00a884] disabled:opacity-50 truncate"
         >
           <option value="">Selecionar atendente...</option>
           {atendentes.map((a) => (
@@ -47,7 +47,7 @@ export function AtendenteSelect({
         {saving && (
           <Loader2
             size={12}
-            className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-gray-400 pointer-events-none"
+            className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-gray-400 dark:text-[#8696a0] pointer-events-none"
           />
         )}
       </div>

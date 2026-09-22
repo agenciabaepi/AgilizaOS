@@ -23,7 +23,9 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-        ok ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+        ok
+          ? 'bg-green-100 dark:bg-[#0d3b2e] text-green-800 dark:text-[#00a884]'
+          : 'bg-gray-100 dark:bg-[#2a3942] text-gray-600 dark:text-[#8696a0]'
       }`}
     >
       {ok ? <CheckCircle2 size={12} /> : null}
@@ -59,34 +61,38 @@ function OsCard({
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 ${
-        vinculada ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 bg-white'
+        vinculada
+          ? 'border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-950/30'
+          : 'border-gray-200 dark:border-[#2a3942] bg-white dark:bg-[#202c33]'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <FileText size={16} className="text-blue-600 shrink-0" />
-          <span className="font-medium text-sm truncate">OS #{os.numero_os}</span>
+          <FileText size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+          <span className="font-medium text-sm truncate text-gray-900 dark:text-[#e9edef]">
+            OS #{os.numero_os}
+          </span>
         </div>
         {vinculada && (
-          <span className="text-[10px] uppercase tracking-wide text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 rounded-full shrink-0">
             Vinculada
           </span>
         )}
       </div>
 
-      <div className="flex items-start gap-2 text-xs text-gray-700">
-        <Smartphone size={14} className="text-gray-400 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-2 text-xs text-gray-700 dark:text-[#aebac1]">
+        <Smartphone size={14} className="text-gray-400 dark:text-[#8696a0] shrink-0 mt-0.5" />
         <p className="leading-snug">{formatAparelho(os)}</p>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
         {os.status && (
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+          <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
             {ctx?.status_os || os.status}
           </span>
         )}
         {os.status_tecnico && (
-          <span className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">
+          <span className="inline-flex items-center gap-1 text-xs bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">
             <Wrench size={11} />
             {ctx?.status_tecnico || os.status_tecnico}
           </span>
@@ -102,16 +108,18 @@ function OsCard({
       )}
 
       {os.data_entrega && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-[#8696a0]">
           Entrega prevista: {new Date(os.data_entrega).toLocaleDateString('pt-BR')}
         </p>
       )}
 
-      {valor && <p className="text-sm font-medium text-gray-900">{valor}</p>}
+      {valor && (
+        <p className="text-sm font-medium text-gray-900 dark:text-[#e9edef]">{valor}</p>
+      )}
 
       <Link
         href={`/ordens/${os.id}`}
-        className="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline"
+        className="inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 hover:underline"
       >
         Abrir ordem de serviço
         <ExternalLink size={12} />
@@ -123,7 +131,7 @@ function OsCard({
 export function ClientOsSidebar({ detalhe, loading }: Props) {
   if (!detalhe && !loading) {
     return (
-      <aside className="w-80 shrink-0 border-l border-gray-200 bg-white hidden xl:block" />
+      <aside className="w-80 shrink-0 border-l border-gray-200 dark:border-[#222d34] bg-white dark:bg-[#111b21] hidden xl:block" />
     );
   }
 
@@ -133,24 +141,24 @@ export function ClientOsSidebar({ detalhe, loading }: Props) {
   const ctxPorOs = new Map((detalhe?.os_contexto ?? []).map((c) => [c.os_id, c]));
 
   return (
-    <aside className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto hidden xl:flex xl:flex-col">
-      <div className="p-4 border-b border-gray-100">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+    <aside className="w-80 shrink-0 border-l border-gray-200 dark:border-[#222d34] bg-white dark:bg-[#111b21] overflow-y-auto hidden xl:flex xl:flex-col">
+      <div className="p-4 border-b border-gray-100 dark:border-[#222d34]">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#8696a0] mb-3">
           Smart cards
         </h3>
 
-        <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="rounded-xl border border-gray-200 dark:border-[#2a3942] bg-white dark:bg-[#202c33] p-4 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-              <User size={20} className="text-green-700" />
+            <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-[#0d3b2e] flex items-center justify-center">
+              <User size={20} className="text-green-700 dark:text-[#00a884]" />
             </div>
             <div>
-              <p className="font-medium text-sm text-gray-900">
+              <p className="font-medium text-sm text-gray-900 dark:text-[#e9edef]">
                 {cliente?.nome || conversa?.nome_contato || '—'}
               </p>
-              <p className="text-xs text-gray-500">{conversa?.telefone}</p>
+              <p className="text-xs text-gray-500 dark:text-[#8696a0]">{conversa?.telefone}</p>
               {cliente?.email && (
-                <p className="text-xs text-gray-500">{cliente.email}</p>
+                <p className="text-xs text-gray-500 dark:text-[#8696a0]">{cliente.email}</p>
               )}
             </div>
           </div>
@@ -158,7 +166,7 @@ export function ClientOsSidebar({ detalhe, loading }: Props) {
           {cliente?.id && (
             <Link
               href={`/clientes/${cliente.id}`}
-              className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-[#00a884] hover:underline"
             >
               Ver ficha do cliente
               <ExternalLink size={12} />
@@ -166,33 +174,33 @@ export function ClientOsSidebar({ detalhe, loading }: Props) {
           )}
 
           {conversa?.usuarios?.nome && (
-            <p className="text-xs text-violet-800 bg-violet-50 border border-violet-100 rounded-lg px-2 py-1.5">
+            <p className="text-xs text-violet-800 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900/50 rounded-lg px-2 py-1.5">
               Atendente: <span className="font-medium">{conversa.usuarios.nome}</span>
             </p>
           )}
 
           {!cliente?.id && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
+            <p className="text-xs text-amber-700 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 rounded-lg px-2 py-1.5">
               Cliente não encontrado para este número. Cadastre o telefone no cadastro de clientes.
             </p>
           )}
         </div>
       </div>
 
-      <div className="p-4 border-b border-gray-100 space-y-3">
+      <div className="p-4 border-b border-gray-100 dark:border-[#222d34] space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#8696a0]">
             Ordens de serviço
           </h4>
           {ordens.length > 0 && (
-            <span className="text-[10px] text-gray-500">{ordens.length}</span>
+            <span className="text-[10px] text-gray-500 dark:text-[#8696a0]">{ordens.length}</span>
           )}
         </div>
 
         {loading && ordens.length === 0 ? (
-          <p className="text-xs text-gray-500">Carregando OS...</p>
+          <p className="text-xs text-gray-500 dark:text-[#8696a0]">Carregando OS...</p>
         ) : ordens.length === 0 ? (
-          <p className="text-xs text-gray-500 rounded-lg bg-gray-50 border border-gray-100 p-3">
+          <p className="text-xs text-gray-500 dark:text-[#8696a0] rounded-lg bg-gray-50 dark:bg-[#202c33] border border-gray-100 dark:border-[#2a3942] p-3">
             {cliente?.id || conversa?.cliente_id
               ? 'Nenhuma ordem de serviço encontrada para este cliente.'
               : 'Vincule o cliente pelo telefone para ver as OS aqui.'}
@@ -212,46 +220,53 @@ export function ClientOsSidebar({ detalhe, loading }: Props) {
       </div>
 
       <div className="p-4 flex-1">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#8696a0] mb-2">
           Notas internas
         </h4>
         {detalhe?.notas?.length ? (
           <ul className="space-y-2">
             {detalhe.notas.map((n) => (
-              <li key={n.id} className="rounded-lg bg-amber-50 border border-amber-100 p-2 text-xs">
-                <p className="text-gray-800 whitespace-pre-wrap">{n.conteudo}</p>
-                <p className="text-gray-400 mt-1">
+              <li
+                key={n.id}
+                className="rounded-lg bg-amber-50 dark:bg-[#3b3419] border border-amber-100 dark:border-[#4a4120] p-2 text-xs"
+              >
+                <p className="text-gray-800 dark:text-[#e9edef] whitespace-pre-wrap">{n.conteudo}</p>
+                <p className="text-gray-400 dark:text-[#8696a0] mt-1">
                   {n.autor_nome} · {new Date(n.created_at).toLocaleString('pt-BR')}
                 </p>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-500">Nenhuma nota ainda. Use a aba &quot;Notas&quot; no chat.</p>
+          <p className="text-xs text-gray-500 dark:text-[#8696a0]">
+            Nenhuma nota ainda. Use a aba &quot;Notas&quot; no chat.
+          </p>
         )}
 
         {cliente?.observacoes && (
           <div className="mt-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#8696a0] mb-2">
               Obs. do cliente
             </h4>
-            <p className="text-xs text-gray-600 bg-gray-50 rounded-lg p-2">{cliente.observacoes}</p>
+            <p className="text-xs text-gray-600 dark:text-[#aebac1] bg-gray-50 dark:bg-[#202c33] rounded-lg p-2">
+              {cliente.observacoes}
+            </p>
           </div>
         )}
       </div>
 
-      <div className="p-4 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-gray-50 p-2">
-          <CreditCard size={16} className="mx-auto text-gray-400 mb-1" />
-          <p className="text-[10px] text-gray-500">Pagamento</p>
+      <div className="p-4 border-t border-gray-100 dark:border-[#222d34] grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-gray-50 dark:bg-[#202c33] p-2">
+          <CreditCard size={16} className="mx-auto text-gray-400 dark:text-[#8696a0] mb-1" />
+          <p className="text-[10px] text-gray-500 dark:text-[#8696a0]">Pagamento</p>
         </div>
-        <div className="rounded-lg bg-gray-50 p-2">
-          <Receipt size={16} className="mx-auto text-gray-400 mb-1" />
-          <p className="text-[10px] text-gray-500">Nota fiscal</p>
+        <div className="rounded-lg bg-gray-50 dark:bg-[#202c33] p-2">
+          <Receipt size={16} className="mx-auto text-gray-400 dark:text-[#8696a0] mb-1" />
+          <p className="text-[10px] text-gray-500 dark:text-[#8696a0]">Nota fiscal</p>
         </div>
-        <div className="rounded-lg bg-gray-50 p-2">
-          <FileText size={16} className="mx-auto text-gray-400 mb-1" />
-          <p className="text-[10px] text-gray-500">OS</p>
+        <div className="rounded-lg bg-gray-50 dark:bg-[#202c33] p-2">
+          <FileText size={16} className="mx-auto text-gray-400 dark:text-[#8696a0] mb-1" />
+          <p className="text-[10px] text-gray-500 dark:text-[#8696a0]">OS</p>
         </div>
       </div>
     </aside>
