@@ -27,9 +27,18 @@ export async function GET(
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    /** light=1 → só chat (rápido). full → inclui OS/sidebar. */
+    const light = searchParams.get('light') === '1';
+    const markRead = searchParams.get('mark_read') !== '0';
+    const msgLimit = Math.min(
+      Math.max(parseInt(searchParams.get('limit') || '120', 10) || 120, 20),
+      300
+    );
+
     const supabase = createAdminClient();
 
-    const { data: conversa, error } = await supabase
+    const conversaPromise = supabase
       .from('whatsapp_conversas')
       .select(
         `*,
@@ -41,39 +50,62 @@ export async function GET(
       .eq('empresa_id', auth.empresaId)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!conversa) return NextResponse.json({ error: 'Conversa não encontrada' }, { status: 404 });
-
-    const { data: mensagens } = await supabase
+    const mensagensPromise = supabase
       .from('whatsapp_mensagens')
       .select('*')
       .eq('conversa_id', id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(msgLimit);
 
-    const { data: notas } = await supabase
+    const notasPromise = supabase
       .from('whatsapp_conversa_notas')
       .select('*')
       .eq('conversa_id', id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-    const osContexto = await getOsContextoByConversa(supabase, id);
+    const [{ data: conversa, error }, mensagensRes, notasRes] = await Promise.all([
+      conversaPromise,
+      mensagensPromise,
+      notasPromise,
+    ]);
 
-    const ordensCliente = await listOrdensClienteConversa(supabase, auth.empresaId, {
-      cliente_id: conversa.cliente_id,
-      telefone: conversa.telefone,
-    });
+    if (error) throw error;
+    if (!conversa) return NextResponse.json({ error: 'Conversa não encontrada' }, { status: 404 });
 
-    await markConversaLida(supabase, {
-      conversaId: id,
-      empresaId: auth.empresaId,
-    });
+    // Buscamos as mais recentes (desc) e devolvemos em ordem cronológica
+    const mensagens = [...(mensagensRes.data ?? [])].reverse();
+    const notas = notasRes.data ?? [];
+
+    let osContexto: Awaited<ReturnType<typeof getOsContextoByConversa>> = [];
+    let ordensCliente: Awaited<ReturnType<typeof listOrdensClienteConversa>> = [];
+
+    if (!light) {
+      const [osCtx, ordens] = await Promise.all([
+        getOsContextoByConversa(supabase, id),
+        listOrdensClienteConversa(supabase, auth.empresaId, {
+          cliente_id: conversa.cliente_id,
+          telefone: conversa.telefone,
+        }),
+      ]);
+      osContexto = osCtx;
+      ordensCliente = ordens;
+    }
+
+    if (markRead) {
+      // Não bloqueia a resposta — leitura em paralelo
+      void markConversaLida(supabase, {
+        conversaId: id,
+        empresaId: auth.empresaId,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         conversa: { ...conversa, nao_lidas: 0, ultima_leitura_em: new Date().toISOString() },
-        mensagens: mensagens ?? [],
-        notas: notas ?? [],
+        mensagens,
+        notas,
         os_contexto: osContexto,
         ordens_cliente: ordensCliente,
       },
@@ -99,7 +131,6 @@ export async function PATCH(
     const body = await req.json();
     const supabase = createAdminClient();
 
-    // Atalho dedicado: marcar como lida
     if (body?.nao_lidas === 0 || body?.mark_read === true) {
       const data = await markConversaLida(supabase, {
         conversaId: id,

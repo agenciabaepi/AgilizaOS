@@ -101,34 +101,143 @@ export default function WhatsAppCrmPage() {
     [filtro]
   );
 
+  const cacheRef = useRef<Map<string, ConversaDetalhe>>(new Map());
+  const prefetchInFlight = useRef<Set<string>>(new Set());
+  const MAX_CACHE = 25;
+
+  const guardarCache = useCallback((id: string, data: ConversaDetalhe) => {
+    const cache = cacheRef.current;
+    cache.set(id, data);
+    if (cache.size > MAX_CACHE) {
+      const first = cache.keys().next().value;
+      if (first) cache.delete(first);
+    }
+  }, []);
+
   const carregarDetalhe = useCallback(
-    async (id: string, silent = false) => {
-      if (!silent) setLoadingDetalhe(true);
+    async (id: string, opts?: { silent?: boolean; light?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      const light = opts?.light ?? true;
+      const hasCache = cacheRef.current.has(id);
+
+      if (hasCache && selectedIdRef.current === id) {
+        const cached = cacheRef.current.get(id)!;
+        setDetalhe((prev) => {
+          if (!prev || prev.conversa.id !== id) return cached;
+          return {
+            ...cached,
+            mensagens: mergeWhatsAppMensagens(cached.mensagens, prev.mensagens),
+            notas: prev.notas.length > cached.notas.length ? prev.notas : cached.notas,
+            os_contexto: prev.os_contexto.length ? prev.os_contexto : cached.os_contexto,
+            ordens_cliente: prev.ordens_cliente.length
+              ? prev.ordens_cliente
+              : cached.ordens_cliente,
+          };
+        });
+      }
+
+      if (!silent && !hasCache) setLoadingDetalhe(true);
+
       try {
-        const res = await whatsappCrmFetch(`/api/whatsapp/crm/conversations/${id}`);
+        const qs = new URLSearchParams();
+        if (light) qs.set('light', '1');
+        qs.set('mark_read', '0');
+        const res = await whatsappCrmFetch(
+          `/api/whatsapp/crm/conversations/${id}?${qs.toString()}`
+        );
         const json = await res.json();
-        if (json.success) {
-          setDetalhe((prev) => {
-            const incoming = json.data as ConversaDetalhe;
-            if (!prev || prev.conversa.id !== id) return incoming;
-            return {
-              ...incoming,
-              mensagens: mergeWhatsAppMensagens(incoming.mensagens, prev.mensagens),
-            };
-          });
-          marcarComoLida(id);
-        }
+        if (!json.success) return;
+
+        const incoming = json.data as ConversaDetalhe;
+        const prevCached = cacheRef.current.get(id);
+        const merged: ConversaDetalhe = {
+          ...incoming,
+          mensagens: mergeWhatsAppMensagens(
+            incoming.mensagens,
+            prevCached?.mensagens ?? []
+          ),
+          os_contexto:
+            incoming.os_contexto?.length > 0
+              ? incoming.os_contexto
+              : prevCached?.os_contexto ?? [],
+          ordens_cliente:
+            incoming.ordens_cliente?.length > 0
+              ? incoming.ordens_cliente
+              : prevCached?.ordens_cliente ?? [],
+        };
+        guardarCache(id, merged);
+
+        if (selectedIdRef.current !== id) return;
+
+        setDetalhe((prev) => {
+          if (!prev || prev.conversa.id !== id) return merged;
+          return {
+            ...merged,
+            mensagens: mergeWhatsAppMensagens(merged.mensagens, prev.mensagens),
+            os_contexto:
+              merged.os_contexto.length > 0 ? merged.os_contexto : prev.os_contexto,
+            ordens_cliente:
+              merged.ordens_cliente.length > 0
+                ? merged.ordens_cliente
+                : prev.ordens_cliente,
+          };
+        });
       } finally {
-        if (!silent) setLoadingDetalhe(false);
+        if (selectedIdRef.current === id) setLoadingDetalhe(false);
       }
     },
-    [marcarComoLida]
+    [guardarCache]
+  );
+
+  const prefetchConversa = useCallback(
+    (id: string) => {
+      if (!id || cacheRef.current.has(id) || prefetchInFlight.current.has(id)) return;
+      prefetchInFlight.current.add(id);
+      void whatsappCrmFetch(`/api/whatsapp/crm/conversations/${id}?light=1&mark_read=0`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success) guardarCache(id, json.data as ConversaDetalhe);
+        })
+        .finally(() => {
+          prefetchInFlight.current.delete(id);
+        });
+    },
+    [guardarCache]
+  );
+
+  const carregarOsSidebar = useCallback(
+    async (id: string) => {
+      const res = await whatsappCrmFetch(`/api/whatsapp/crm/conversations/${id}?mark_read=0`);
+      const json = await res.json();
+      if (!json.success) return;
+      const incoming = json.data as ConversaDetalhe;
+      const prevCached = cacheRef.current.get(id);
+      const merged: ConversaDetalhe = {
+        ...(prevCached ?? incoming),
+        ...incoming,
+        mensagens: mergeWhatsAppMensagens(
+          incoming.mensagens,
+          prevCached?.mensagens ?? []
+        ),
+        os_contexto: incoming.os_contexto,
+        ordens_cliente: incoming.ordens_cliente,
+      };
+      guardarCache(id, merged);
+      if (selectedIdRef.current !== id) return;
+      setDetalhe(merged);
+    },
+    [guardarCache]
   );
 
   const selecionarConversa = useCallback(
     (id: string) => {
       setSelectedId(id);
       marcarComoLida(id);
+      const cached = cacheRef.current.get(id);
+      if (cached) {
+        setDetalhe(cached);
+        setLoadingDetalhe(false);
+      }
     },
     [marcarComoLida]
   );
@@ -183,7 +292,12 @@ export default function WhatsAppCrmPage() {
               m.direcao === msg.direcao
             )
         );
-        return { ...d, mensagens: mergeWhatsAppMensagens(semPendingDuplicado, [msg]) };
+        const next = {
+          ...d,
+          mensagens: mergeWhatsAppMensagens(semPendingDuplicado, [msg]),
+        };
+        cacheRef.current.set(msg.conversa_id, next);
+        return next;
       });
     },
     [aplicarMensagemNaLista]
@@ -361,12 +475,32 @@ export default function WhatsAppCrmPage() {
       prevSelectedRef.current = null;
       return;
     }
-    if (prevSelectedRef.current !== selectedId) {
-      setDetalhe(null);
-      prevSelectedRef.current = selectedId;
+
+    const trocou = prevSelectedRef.current !== selectedId;
+    prevSelectedRef.current = selectedId;
+
+    if (trocou) {
+      const cached = cacheRef.current.get(selectedId);
+      if (cached) {
+        setDetalhe(cached);
+        setLoadingDetalhe(false);
+      } else {
+        setDetalhe(null);
+      }
     }
-    void carregarDetalhe(selectedId);
+
+    void carregarDetalhe(selectedId, { light: true, silent: cacheRef.current.has(selectedId) });
   }, [selectedId, carregarDetalhe]);
+
+  // Ao abrir painel OS, busca dados pesados só então
+  useEffect(() => {
+    if (!showOsSidebar || !selectedId) return;
+    const cached = cacheRef.current.get(selectedId);
+    if (cached && (cached.ordens_cliente?.length > 0 || cached.os_contexto?.length > 0)) {
+      return;
+    }
+    void carregarOsSidebar(selectedId);
+  }, [showOsSidebar, selectedId, carregarOsSidebar]);
 
   // Refresh só quando a aba volta ao foco (sem polling contínuo)
   useEffect(() => {
@@ -376,7 +510,7 @@ export default function WhatsAppCrmPage() {
       if (document.visibilityState !== 'visible') return;
       void carregarConversas(selectedIdRef.current);
       if (selectedIdRef.current) {
-        void carregarDetalhe(selectedIdRef.current, true);
+        void carregarDetalhe(selectedIdRef.current, { silent: true, light: true });
       }
     };
 
@@ -434,6 +568,7 @@ export default function WhatsAppCrmPage() {
             conversas={conversas}
             selectedId={selectedId}
             onSelect={selecionarConversa}
+            onPrefetch={prefetchConversa}
             filtro={filtro}
             onFiltroChange={setFiltro}
             loading={loading}

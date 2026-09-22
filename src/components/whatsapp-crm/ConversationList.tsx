@@ -40,6 +40,7 @@ interface Props {
   conversas: WhatsAppConversa[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onPrefetch?: (id: string) => void;
   filtro: FiltroConversa;
   onFiltroChange: (f: FiltroConversa) => void;
   loading: boolean;
@@ -49,6 +50,7 @@ export function ConversationList({
   conversas,
   selectedId,
   onSelect,
+  onPrefetch,
   filtro,
   onFiltroChange,
   loading,
@@ -150,6 +152,8 @@ export function ConversationList({
                 key={c.id}
                 type="button"
                 onClick={() => onSelect(c.id)}
+                onMouseEnter={() => onPrefetch?.(c.id)}
+                onFocus={() => onPrefetch?.(c.id)}
                 className={`w-full text-left px-3 py-3 flex gap-3 border-b border-[#f0f2f5] transition-colors ${
                   selected ? 'bg-[#f0f2f5]' : 'hover:bg-[#f5f6f6]'
                 }`}
