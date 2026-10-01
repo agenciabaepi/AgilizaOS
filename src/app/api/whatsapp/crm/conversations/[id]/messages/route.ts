@@ -82,6 +82,20 @@ export async function POST(
     const texto = conteudo.trim();
     const usuario = await getUsuarioForAuth(auth.userId);
 
+    // Login costuma ser compartilhado pela loja: quem assina é o atendente selecionado na conversa.
+    let atendente: { id: string; nome: string | null } | null = usuario
+      ? { id: usuario.id, nome: usuario.nome }
+      : null;
+    if (conversa.atribuido_usuario_id && conversa.atribuido_usuario_id !== usuario?.id) {
+      const { data: atribuido } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .eq('id', conversa.atribuido_usuario_id)
+        .eq('empresa_id', auth.empresaId)
+        .maybeSingle();
+      if (atribuido) atendente = atribuido;
+    }
+
     const msg = await appendMensagem(supabase, {
       conversa_id: conversaId,
       empresa_id: auth.empresaId,
@@ -90,10 +104,10 @@ export async function POST(
       conteudo: texto,
       status_entrega: 'enviada',
       os_id: conversa.os_id,
-      enviado_por_usuario_id: usuario?.id ?? undefined,
+      enviado_por_usuario_id: atendente?.id ?? undefined,
     });
 
-    const nomeAtendente = usuario?.nome?.replace(/[*_~`]/g, '').trim();
+    const nomeAtendente = atendente?.nome?.replace(/[*_~`]/g, '').trim();
     const sendResult = await sendWhatsAppTextMessage({
       to: conversa.telefone,
       message: nomeAtendente ? `*${nomeAtendente}:*\n${texto}` : texto,

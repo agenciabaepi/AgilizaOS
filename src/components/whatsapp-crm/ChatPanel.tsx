@@ -171,7 +171,7 @@ export function ChatPanel({
       erro_entrega: null,
       os_id: conversa.os_id ?? null,
       automacao_id: null,
-      enviado_por_usuario_id: usuarioAtualId ?? null,
+      enviado_por_usuario_id: conversa.atribuido_usuario_id ?? usuarioAtualId ?? null,
       created_at: new Date().toISOString(),
     };
 
