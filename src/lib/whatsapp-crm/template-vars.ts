@@ -18,7 +18,9 @@ export const AUTOMACOES_PADRAO = [
     evento: 'os_criada' as const,
     status_trigger: null,
     mensagem_template:
-      'Olá {{cliente_nome}}! 👋\n\nSua ordem de serviço *#{{numero_os}}* foi registrada.\n\nAparelho: {{equipamento}} {{marca}} {{modelo}}\n\nEm breve entraremos em contato com atualizações.',
+      'Olá {{cliente_nome}},\n\nSua ordem de serviço *Nº {{numero_os}}* foi criada.\n\nAparelho: {{equipamento}} {{marca}} {{modelo}}\nStatus: *{{status}}*\n\nEm breve entraremos em contato com atualizações.',
+    usar_template_meta: true,
+    meta_template_name: 'nova_os',
     ordem: 1,
   },
   {

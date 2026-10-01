@@ -87,6 +87,91 @@ export async function sendWhatsAppTextMessage(
   }
 }
 
+export interface SendTemplateMessageParams {
+  to: string;
+  templateName: string;
+  languageCode: string;
+  bodyParams?: string[];
+  /** Sufixo da URL dinâmica de um botão (índice do botão no template) */
+  urlButtons?: { index: number; param: string }[];
+  config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null;
+}
+
+/** Meta rejeita parâmetros vazios, com quebra de linha/tab ou com mais de 4 espaços seguidos */
+function sanitizeTemplateParam(value: string): string {
+  const clean = value.replace(/[\n\r\t]+/g, ' ').replace(/ {4,}/g, '   ').trim();
+  return clean || '-';
+}
+
+/** Envia mensagem de template aprovado via WhatsApp Cloud API (permite iniciar conversa) */
+export async function sendWhatsAppTemplateMessage(
+  params: SendTemplateMessageParams
+): Promise<SendTextMessageResult> {
+  const { phoneNumberId, accessToken } = resolveCredentials(params.config);
+
+  if (!phoneNumberId || !accessToken) {
+    return { success: false, error: humanizeWhatsAppError('Credenciais WhatsApp não configuradas') };
+  }
+
+  const to = params.to.replace(/\D/g, '');
+  const phoneWithCountry = to.startsWith('55') ? to : `55${to}`;
+
+  const components: Record<string, unknown>[] = [];
+  if (params.bodyParams?.length) {
+    components.push({
+      type: 'body',
+      parameters: params.bodyParams.map((text) => ({ type: 'text', text: sanitizeTemplateParam(text) })),
+    });
+  }
+  for (const button of params.urlButtons ?? []) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: String(button.index),
+      parameters: [{ type: 'text', text: button.param }],
+    });
+  }
+
+  try {
+    const response = await fetch(`${GRAPH_BASE}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phoneWithCountry,
+        type: 'template',
+        template: {
+          name: params.templateName,
+          language: { code: params.languageCode },
+          ...(components.length ? { components } : {}),
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errMsg = data?.error?.message || `HTTP ${response.status}`;
+      const errCode = data?.error?.code ? ` (#${data.error.code})` : '';
+      return { success: false, error: humanizeWhatsAppError(`${errMsg}${errCode}`) };
+    }
+
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Erro ao enviar template',
+    };
+  }
+}
+
 /** Valida credenciais contra a Graph API */
 export async function validateWhatsAppCredentials(
   phoneNumberId: string,

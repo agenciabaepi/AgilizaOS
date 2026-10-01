@@ -1,7 +1,8 @@
 import { createAdminClient } from '@/lib/supabaseClient';
 import { WHATSAPP_AUTOMATION_ENABLED } from '@/config/whatsapp-config';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
-import { sendWhatsAppTextMessage } from './graph-api';
+import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from './graph-api';
+import { buildMetaTemplate } from './meta-templates';
 import { getOrCreateConversa, appendMensagem, getEmpresaConfig } from './conversations';
 import { syncOsContexto } from './os-context';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
@@ -134,7 +135,27 @@ export async function dispatchAutomacaoOs(
     link_avaliacao: LINK_AVALIACAO_GOOGLE,
   };
 
-  const mensagem = renderAutomacaoTemplate(automacao.mensagem_template, vars);
+  const metaTemplate =
+    automacao.usar_template_meta && automacao.meta_template_name
+      ? buildMetaTemplate(automacao.meta_template_name, {
+          id: os.id,
+          numero_os: os.numero_os,
+          cliente_nome: cliente?.nome ?? 'Cliente',
+          equipamento: os.equipamento ?? '',
+          marca: os.marca ?? '',
+          modelo: os.modelo ?? '',
+          status: payload.status_novo ?? os.status ?? '',
+          status_tecnico: os.status_tecnico ?? '',
+        })
+      : null;
+
+  if (automacao.usar_template_meta && !metaTemplate) {
+    return { sent: false, reason: `template_meta_desconhecido:${automacao.meta_template_name ?? ''}` };
+  }
+
+  const mensagem = metaTemplate
+    ? metaTemplate.preview
+    : renderAutomacaoTemplate(automacao.mensagem_template, vars);
 
   const conversa = await getOrCreateConversa(supabase, {
     empresa_id: payload.empresa_id,
@@ -150,17 +171,26 @@ export async function dispatchAutomacaoOs(
     empresa_id: payload.empresa_id,
   });
 
-  const sendResult = await sendWhatsAppTextMessage({
-    to: telefone,
-    message: mensagem,
-    config,
-  });
+  const sendResult = metaTemplate
+    ? await sendWhatsAppTemplateMessage({
+        to: telefone,
+        templateName: metaTemplate.templateName,
+        languageCode: metaTemplate.languageCode,
+        bodyParams: metaTemplate.bodyParams,
+        urlButtons: metaTemplate.urlButtons,
+        config,
+      })
+    : await sendWhatsAppTextMessage({
+        to: telefone,
+        message: mensagem,
+        config,
+      });
 
   await appendMensagem(supabase, {
     conversa_id: conversa.id,
     empresa_id: payload.empresa_id,
     direcao: 'saida',
-    tipo: automacao.usar_template_meta ? 'template' : 'texto',
+    tipo: metaTemplate ? 'template' : 'texto',
     conteudo: mensagem,
     meta_message_id: sendResult.messageId,
     status_entrega: sendResult.success ? 'enviada' : 'falha',

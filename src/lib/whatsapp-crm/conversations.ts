@@ -46,6 +46,8 @@ export async function seedAutomacoesPadrao(supabase: SupabaseAdmin, empresaId: s
   await supabase.from('whatsapp_automacoes').insert(
     AUTOMACOES_PADRAO.map((a) => ({
       empresa_id: empresaId,
+      usar_template_meta: false,
+      meta_template_name: null,
       ...a,
       ativo: false,
     }))
