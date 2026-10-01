@@ -8,6 +8,8 @@ type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
 const MODELO = 'gpt-4o-mini';
 const HISTORICO_MAX = 16;
+/** Mensagens mais antigas que isso são outro atendimento e não entram no contexto da IA */
+const JANELA_HISTORICO_MS = 6 * 60 * 60 * 1000;
 /** Espera o cliente terminar de digitar várias mensagens seguidas antes de responder uma vez só */
 const DEBOUNCE_MS = 4_000;
 const PAUSA_APOS_TRANSFERENCIA_MS = 12 * 60 * 60 * 1000;
@@ -232,14 +234,29 @@ function formatarData(iso: string | null | undefined, timezone: string | null | 
   }
 }
 
+const SIGNIFICADO_STATUS: [RegExp, string][] = [
+  [/sem\s*reparo/i, 'não foi possível consertar o aparelho'],
+  [/reparo\s*conclu/i, 'o conserto foi concluído'],
+  [/aguardando\s*pe[cç]a/i, 'aguardando a chegada de peça'],
+  [/aguardando\s*aprova/i, 'aguardando o cliente aprovar o orçamento'],
+  [/aguardando\s*in[ií]cio/i, 'na fila para o técnico começar'],
+  [/em\s*an[aá]lise|em_analise/i, 'o técnico está avaliando o aparelho'],
+  [/^or[cç]amento$/i, 'em avaliação para orçamento'],
+];
+
+function comSignificado(status: string): string {
+  const s = SIGNIFICADO_STATUS.find(([re]) => re.test(status.trim()));
+  return s ? `${status} (= ${s[1]})` : status;
+}
+
 function descreverOs(os: OsResumoIA, timezone: string | null | undefined): string {
   return [
     `O.S. nº ${os.numero_os}`,
     [os.equipamento, os.marca, os.modelo].filter(Boolean).join(' ') || null,
-    os.status ? `status: ${os.status}` : null,
-    os.status_tecnico ? `situação técnica: ${os.status_tecnico}` : null,
+    os.status ? `status: ${comSignificado(os.status)}` : null,
+    os.status_tecnico ? `situação técnica: ${comSignificado(os.status_tecnico)}` : null,
     os.data_entrega
-      ? `entregue ao cliente em ${formatarData(os.data_entrega, timezone)}`
+      ? `aparelho já retirado pelo cliente em ${formatarData(os.data_entrega, timezone)} (não diga que está aguardando retirada)`
       : os.prazo_entrega && new Date(os.prazo_entrega).getTime() >= Date.now()
         ? `previsão de entrega: ${formatarData(os.prazo_entrega, timezone)}`
         : os.prazo_entrega
@@ -354,10 +371,11 @@ COMO RESPONDER
       : 'A conversa já começou: não repita a saudação nem a apresentação, a menos que o cliente cumprimente de novo.'
   }
 - Use SOMENTE as informações abaixo. Nunca invente preço, valor de orçamento, prazo, diagnóstico, disponibilidade de peça ou promoção.
+- Você não consegue fazer nada depois de responder: nunca diga "vou verificar", "um momento" ou "já te retorno". Responda agora com o que tem ou transfira para um atendente.
 - Fale apenas de assuntos da assistência técnica. Para qualquer outro assunto, diga educadamente que só pode ajudar com o atendimento da loja.
 - Se o cliente perguntar sobre um aparelho que deixou na loja e não houver O.S. consultada abaixo, peça o número da ordem de serviço (fica no comprovante entregue na loja).
 - Status, situação ou previsão de uma O.S. só podem vir das seções de O.S. abaixo, preenchidas pelo sistema. Se o cliente informou um número e não há resultado do sistema para ele, NÃO deduza nada: diga que um atendente vai verificar e marque "transferir": true.
-- Ao informar uma O.S., escreva de forma natural (sem copiar o formato do sistema nem os status em maiúsculas), citando o aparelho e explicando a situação em palavras simples. Nunca informe valores, mesmo que o cliente peça.
+- Ao informar uma O.S., escreva de forma natural (sem copiar o formato do sistema nem os status em maiúsculas), citando o aparelho e explicando a situação em palavras simples, sem mudar o sentido do status (ex.: "sem reparo" significa que não foi possível consertar o aparelho, não que ele não precisava de conserto). Nunca informe valores, mesmo que o cliente peça.
 - Se você não tiver a informação, se o cliente pedir para falar com uma pessoa/atendente, reclamar, quiser negociar valores ou precisar de orçamento, marque "transferir": true e termine a resposta avisando claramente que um atendente vai continuar o atendimento por aqui em breve.
 
 DADOS DA LOJA
@@ -407,13 +425,15 @@ export async function gerarRespostaIA(params: {
   const raw = completion.choices[0]?.message?.content;
   if (!raw) return null;
 
+  const osDeOutroCliente = (params.consultas ?? []).some((c) => c.resultado === 'telefone_diferente');
+
   try {
     const parsed = JSON.parse(raw) as Partial<RespostaIA>;
     const resposta = typeof parsed.resposta === 'string' ? parsed.resposta.trim() : '';
     if (!resposta) return null;
-    return { resposta, transferir: parsed.transferir === true };
+    return { resposta, transferir: parsed.transferir === true || osDeOutroCliente };
   } catch {
-    return { resposta: raw.trim(), transferir: false };
+    return { resposta: raw.trim(), transferir: osDeOutroCliente };
   }
 }
 
@@ -460,7 +480,7 @@ export async function responderComIA(params: {
 
   const { data: recentes } = await supabase
     .from('whatsapp_mensagens')
-    .select('id, direcao, conteudo, tipo')
+    .select('id, direcao, conteudo, tipo, created_at')
     .eq('conversa_id', params.conversaId)
     .order('created_at', { ascending: false })
     .limit(HISTORICO_MAX);
@@ -468,8 +488,14 @@ export async function responderComIA(params: {
   const ultima = recentes?.[0];
   if (!ultima || ultima.id !== params.mensagemId) return 'mensagem_mais_nova';
 
+  const inicioSessao = Date.now() - JANELA_HISTORICO_MS;
   const historico: MensagemHistoricoIA[] = (recentes ?? [])
-    .filter((m) => m.tipo !== 'nota_interna' && m.conteudo?.trim())
+    .filter(
+      (m) =>
+        m.tipo !== 'nota_interna' &&
+        m.conteudo?.trim() &&
+        new Date(m.created_at).getTime() >= inicioSessao
+    )
     .reverse()
     .map((m) => ({ direcao: m.direcao, conteudo: m.conteudo }));
 
