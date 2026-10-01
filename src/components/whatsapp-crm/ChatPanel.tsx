@@ -79,6 +79,7 @@ export function ChatPanel({
 
   function autorMensagem(m: WhatsAppMensagem): string | null {
     if (m.direcao !== 'saida') return null;
+    if (m.enviado_por_ia) return 'Assistente IA';
     if (m.enviado_por_usuario_id) return nomesAtendentes.get(m.enviado_por_usuario_id) ?? null;
     if (m.automacao_id) return 'Mensagem automática';
     return null;

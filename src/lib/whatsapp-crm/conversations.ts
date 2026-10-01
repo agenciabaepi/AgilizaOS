@@ -281,6 +281,7 @@ export async function appendMensagem(
     os_id?: string;
     automacao_id?: string;
     enviado_por_usuario_id?: string;
+    enviado_por_ia?: boolean;
   }
 ) {
   const preview = params.conteudo.slice(0, 120);
@@ -299,6 +300,7 @@ export async function appendMensagem(
       os_id: params.os_id ?? null,
       automacao_id: params.automacao_id ?? null,
       enviado_por_usuario_id: params.enviado_por_usuario_id ?? null,
+      enviado_por_ia: params.enviado_por_ia ?? false,
     })
     .select()
     .single();

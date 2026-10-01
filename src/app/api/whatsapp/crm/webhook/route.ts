@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
 import { processWhatsAppCrmWebhook } from '@/lib/whatsapp-crm/webhook-handler';
 
+/** O assistente IA responde depois do 200 (via `after`), dentro deste limite */
+export const maxDuration = 60;
+
 /**
  * Webhook CRM — processa mensagens inbound da Cloud API.
  * Configure em Meta Developer: POST /api/whatsapp/crm/webhook

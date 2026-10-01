@@ -1,5 +1,7 @@
+import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { getOrCreateConversa, appendMensagem, findClienteByPhone } from './conversations';
+import { responderComIA } from './assistente-ia';
 import { syncOsContexto } from './os-context';
 import { toWhatsAppId } from './normalize-phone';
 
@@ -109,8 +111,8 @@ async function processInboundMessage(
   value: MetaWebhookValue,
   message: MetaMessage,
   options?: { isEcho?: boolean }
-) {
-  if (!message.from || !message.id) return;
+): Promise<{ empresaId: string; conversaId: string; mensagemId: string } | null> {
+  if (!message.from || !message.id) return null;
 
   const from = message.from;
   const waId = toWhatsAppId(from);
@@ -143,9 +145,9 @@ async function processInboundMessage(
     .eq('empresa_id', config.empresa_id)
     .maybeSingle();
 
-  if (existing) return;
+  if (existing) return null;
 
-  await appendMensagem(supabase, {
+  const salva = await appendMensagem(supabase, {
     conversa_id: conversa.id,
     empresa_id: config.empresa_id,
     direcao: options?.isEcho ? 'saida' : 'entrada',
@@ -153,6 +155,26 @@ async function processInboundMessage(
     conteudo,
     meta_message_id: message.id,
     status_entrega: options?.isEcho ? 'enviada' : 'entregue',
+  });
+
+  return { empresaId: config.empresa_id, conversaId: conversa.id, mensagemId: salva.id };
+}
+
+/** Um número pode estar ligado a várias empresas: a IA responde no máximo uma vez por mensagem. */
+function agendarRespostaIA(
+  candidatas: { empresaId: string; conversaId: string; mensagemId: string }[]
+) {
+  if (candidatas.length === 0) return;
+  after(async () => {
+    for (const c of candidatas) {
+      try {
+        const resultado = await responderComIA(c);
+        if (resultado !== 'inativo') return;
+      } catch (err) {
+        console.error('[CRM IA] Erro ao responder:', err);
+        return;
+      }
+    }
   });
 }
 
@@ -228,11 +250,18 @@ export async function processWhatsAppCrmWebhook(body: {
       const inbound = value.messages ?? [];
       const echoes = value.message_echoes ?? [];
 
+      const candidatasIA = new Map<string, { empresaId: string; conversaId: string; mensagemId: string }[]>();
+
       for (const config of configs) {
         for (const message of inbound) {
           try {
-            await processInboundMessage(supabase, config, value, message);
+            const salva = await processInboundMessage(supabase, config, value, message);
             processed += 1;
+            if (salva && message.id && message.type === 'text') {
+              const lista = candidatasIA.get(message.id) ?? [];
+              lista.push(salva);
+              candidatasIA.set(message.id, lista);
+            }
           } catch (err) {
             console.error('[CRM webhook] Erro ao salvar mensagem inbound:', err);
           }
@@ -246,6 +275,10 @@ export async function processWhatsAppCrmWebhook(body: {
             console.error('[CRM webhook] Erro ao salvar message_echo:', err);
           }
         }
+      }
+
+      for (const candidatas of candidatasIA.values()) {
+        agendarRespostaIA(candidatas);
       }
     }
   }

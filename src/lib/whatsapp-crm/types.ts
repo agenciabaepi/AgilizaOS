@@ -60,6 +60,8 @@ export interface WhatsAppConversa {
   /** ISO — mensagens de entrada após este horário contam como não lidas */
   ultima_leitura_em?: string | null;
   atribuido_usuario_id: string | null;
+  /** Assistente IA não responde esta conversa até este instante */
+  ia_pausada_ate?: string | null;
   created_at: string;
   updated_at: string;
   /** Joins opcionais */
@@ -103,7 +105,30 @@ export interface WhatsAppMensagem {
   os_id: string | null;
   automacao_id: string | null;
   enviado_por_usuario_id: string | null;
+  enviado_por_ia?: boolean;
   created_at: string;
+}
+
+export interface WhatsAppIaFaqItem {
+  pergunta: string;
+  resposta: string;
+}
+
+export interface WhatsAppIaConfig {
+  empresa_id: string;
+  ativo: boolean;
+  nome_assistente: string;
+  modo_resposta: 'sempre' | 'sem_atendente';
+  pausa_apos_humano_min: number;
+  endereco: string | null;
+  horario_funcionamento: string | null;
+  servicos: string | null;
+  formas_pagamento: string | null;
+  garantia: string | null;
+  instrucoes: string | null;
+  faq: WhatsAppIaFaqItem[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface WhatsAppConversaNota {

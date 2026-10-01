@@ -7,6 +7,9 @@ import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { processWhatsAppCrmWebhook } from '@/lib/whatsapp-crm/webhook-handler';
 import { isUsuarioTecnico } from '@/lib/tecnicos';
 
+/** O assistente IA do CRM responde depois do 200 (via `after`), dentro deste limite */
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -76,6 +79,8 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
     
     if (!usuario) {
       console.log('🚫 Acesso negado - número não cadastrado:', normalizedFrom);
+      // Com o inbox CRM ativo, números não cadastrados são clientes: quem atende é o CRM/assistente IA
+      if (WHATSAPP_CRM_ENABLED) return { message: null };
       return {
         message: '🚫 *Acesso Restrito*\n\nEste serviço é exclusivo para usuários cadastrados no sistema.\n\nEntre em contato com o administrador para cadastrar seu WhatsApp.'
       };

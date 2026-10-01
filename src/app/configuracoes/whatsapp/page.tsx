@@ -11,9 +11,11 @@ import {
   ExternalLink,
   CheckCircle2,
   Trash2,
+  Bot,
 } from 'lucide-react';
 import type { WhatsAppAutomacao } from '@/lib/whatsapp-crm/types';
 import { EmbeddedSignupConnect } from '@/components/whatsapp-crm/EmbeddedSignupConnect';
+import { AssistenteIAConfig } from '@/components/whatsapp-crm/AssistenteIAConfig';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 
@@ -37,7 +39,7 @@ const SHOW_TEST_MODE =
 
 export default function WhatsAppPage({ embedded = false }: { embedded?: boolean }) {
   const { podeAcessar } = useConfigPermission('whatsapp');
-  const [aba, setAba] = useState<'conexao' | 'automacoes'>('conexao');
+  const [aba, setAba] = useState<'conexao' | 'automacoes' | 'assistente'>('conexao');
   const [config, setConfig] = useState<{
     display_phone_number?: string;
     phone_number_id?: string;
@@ -247,7 +249,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
       )}
 
       <div className="flex gap-2 border-b border-gray-200">
-        {(['conexao', 'automacoes'] as const).map((t) => (
+        {(['conexao', 'automacoes', 'assistente'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -260,14 +262,18 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
           >
             {t === 'conexao' ? (
               <span className="inline-flex items-center gap-1.5"><Settings size={15} /> Conexão</span>
-            ) : (
+            ) : t === 'automacoes' ? (
               <span className="inline-flex items-center gap-1.5"><Zap size={15} /> Automações</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5"><Bot size={15} /> Assistente IA</span>
             )}
           </button>
         ))}
       </div>
 
-      {loading ? (
+      {aba === 'assistente' ? (
+        <AssistenteIAConfig />
+      ) : loading ? (
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : aba === 'conexao' ? (
         <div className="space-y-6 max-w-xl">

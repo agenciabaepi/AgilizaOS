@@ -8,6 +8,7 @@ import {
 } from '@/lib/whatsapp-crm/conversations';
 import { sendWhatsAppTextMessage } from '@/lib/whatsapp-crm/graph-api';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
+import { getIaConfig } from '@/lib/whatsapp-crm/assistente-ia';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -119,6 +120,17 @@ export async function POST(
       status_entrega: sendResult.success ? 'enviada' : 'falha',
       erro_entrega: sendResult.success ? null : sendResult.error ?? 'Falha ao enviar',
     });
+
+    if (sendResult.success) {
+      const iaConfig = await getIaConfig(supabase, auth.empresaId);
+      if (iaConfig?.ativo) {
+        const pausaMs = (iaConfig.pausa_apos_humano_min || 60) * 60_000;
+        await supabase
+          .from('whatsapp_conversas')
+          .update({ ia_pausada_ate: new Date(Date.now() + pausaMs).toISOString() })
+          .eq('id', conversaId);
+      }
+    }
 
     return NextResponse.json({
       success: true,
