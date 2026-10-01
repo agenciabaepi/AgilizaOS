@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { WhatsAppConversa, WhatsAppConversaNota, WhatsAppMensagem } from '@/lib/whatsapp-crm/types';
 
@@ -15,6 +15,7 @@ interface UseWhatsAppCrmRealtimeOptions {
 
 /**
  * Realtime estável: callbacks via ref para não recriar o channel a cada render.
+ * Retorna se o canal está inscrito, para a tela cair em polling quando não estiver.
  */
 export function useWhatsAppCrmRealtime({
   empresaId,
@@ -23,7 +24,8 @@ export function useWhatsAppCrmRealtime({
   onNotaInsert,
   onConversaChange,
   onConversaInsert,
-}: UseWhatsAppCrmRealtimeOptions) {
+}: UseWhatsAppCrmRealtimeOptions): boolean {
+  const [conectado, setConectado] = useState(false);
   const handlersRef = useRef({
     onMensagemInsert,
     onMensagemUpdate,
@@ -105,10 +107,15 @@ export function useWhatsAppCrmRealtime({
           handlersRef.current.onConversaChange(payload.new as WhatsAppConversa);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        setConectado(status === 'SUBSCRIBED');
+      });
 
     return () => {
+      setConectado(false);
       void supabase.removeChannel(channel);
     };
   }, [empresaId]);
+
+  return conectado;
 }

@@ -12,12 +12,74 @@ type MetaMessage = {
   text?: { body?: string };
 };
 
+type MetaStatus = {
+  id?: string;
+  status?: string;
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
+};
+
 type MetaWebhookValue = {
   metadata?: { phone_number_id?: string };
   contacts?: { profile?: { name?: string } }[];
   messages?: MetaMessage[];
   message_echoes?: MetaMessage[];
+  statuses?: MetaStatus[];
 };
+
+type StatusEntrega = 'enviada' | 'entregue' | 'lida' | 'falha';
+
+const STATUS_META: Record<string, StatusEntrega> = {
+  sent: 'enviada',
+  delivered: 'entregue',
+  read: 'lida',
+  failed: 'falha',
+};
+
+/** A Meta pode entregar os eventos fora de ordem; um status nunca regride (falha sempre vence). */
+const STATUS_RANK: Record<StatusEntrega, number> = {
+  enviada: 1,
+  entregue: 2,
+  lida: 3,
+  falha: 4,
+};
+
+function descreverErroMeta(status: MetaStatus): string {
+  const err = status.errors?.[0];
+  if (!err) return 'Falha na entrega';
+  const detalhe = err.error_data?.details || err.message || err.title || 'Falha na entrega';
+  return err.code ? `${detalhe} (código ${err.code})` : detalhe;
+}
+
+async function processStatus(supabase: SupabaseAdmin, status: MetaStatus) {
+  const novo = status.status ? STATUS_META[status.status] : undefined;
+  if (!status.id || !novo) return 0;
+
+  const { data: rows } = await supabase
+    .from('whatsapp_mensagens')
+    .select('id, status_entrega')
+    .eq('meta_message_id', status.id);
+
+  let atualizadas = 0;
+  for (const row of rows ?? []) {
+    const atual = row.status_entrega as StatusEntrega | null;
+    if (atual && STATUS_RANK[atual] >= STATUS_RANK[novo]) continue;
+
+    const { error } = await supabase
+      .from('whatsapp_mensagens')
+      .update({
+        status_entrega: novo,
+        erro_entrega: novo === 'falha' ? descreverErroMeta(status) : null,
+      })
+      .eq('id', row.id);
+
+    if (error) {
+      console.error('[CRM webhook] Erro ao atualizar status:', error.message);
+    } else {
+      atualizadas += 1;
+    }
+  }
+  return atualizadas;
+}
 
 function mapMessageType(metaType: string): string {
   const map: Record<string, string> = {
@@ -78,6 +140,7 @@ async function processInboundMessage(
     .from('whatsapp_mensagens')
     .select('id')
     .eq('meta_message_id', message.id)
+    .eq('empresa_id', config.empresa_id)
     .maybeSingle();
 
   if (existing) return;
@@ -150,6 +213,14 @@ export async function processWhatsAppCrmWebhook(body: {
     for (const change of entry.changes ?? []) {
       const value = change.value;
       if (!value) continue;
+
+      for (const status of value.statuses ?? []) {
+        try {
+          processed += await processStatus(supabase, status);
+        } catch (err) {
+          console.error('[CRM webhook] Erro ao processar status:', err);
+        }
+      }
 
       const configs = await resolveConfigs(supabase, value.metadata?.phone_number_id);
       if (configs.length === 0) continue;

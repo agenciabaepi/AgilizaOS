@@ -13,7 +13,6 @@ import {
 import type { ConversaDetalhe } from '@/app/whatsapp/page';
 import type { WhatsAppConversaNota, WhatsAppMensagem } from '@/lib/whatsapp-crm/types';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
-import { mergeWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
 import { AtendenteSelect } from '@/components/whatsapp-crm/AtendenteSelect';
 import { ContactAvatar } from '@/components/whatsapp-crm/ContactAvatar';
 import type { WhatsAppAtendente, WhatsAppConversa } from '@/lib/whatsapp-crm/types';
@@ -23,6 +22,7 @@ interface Props {
   loading: boolean;
   atendentes: WhatsAppAtendente[];
   usuarioAtualId?: string | null;
+  usuarioAtualNome?: string | null;
   salvandoAtendente?: boolean;
   onAtendenteChange: (atribuidoUsuarioId: string | null) => void | Promise<void>;
   onStatusChange: (conversa: WhatsAppConversa) => void;
@@ -41,6 +41,7 @@ export function ChatPanel({
   loading,
   atendentes,
   usuarioAtualId,
+  usuarioAtualNome,
   salvandoAtendente = false,
   onAtendenteChange,
   onStatusChange,
@@ -55,42 +56,33 @@ export function ChatPanel({
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [menuAberto, setMenuAberto] = useState(false);
   const [alterandoStatus, setAlterandoStatus] = useState(false);
-  const [mensagensLocais, setMensagensLocais] = useState<WhatsAppMensagem[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const conversaId = detalhe?.conversa.id;
-  const conversaIdAnterior = useRef<string | null>(null);
   const stickToBottomRef = useRef(true);
+  const mensagens = detalhe?.mensagens ?? [];
 
   useEffect(() => {
-    if (!conversaId) {
-      setMensagensLocais([]);
-      conversaIdAnterior.current = null;
-      setTexto('');
-      setErroEnvio(null);
-      setMenuAberto(false);
-      return;
-    }
-
-    const trocouConversa = conversaIdAnterior.current !== conversaId;
-    if (trocouConversa) {
-      conversaIdAnterior.current = conversaId;
-      setMensagensLocais(detalhe?.mensagens ?? []);
-      setTexto('');
-      setErroEnvio(null);
-      setMenuAberto(false);
-      stickToBottomRef.current = true;
-      return;
-    }
-
-    if (!detalhe?.mensagens) return;
-    setMensagensLocais((prev) => mergeWhatsAppMensagens(detalhe.mensagens, prev));
-  }, [conversaId, detalhe?.mensagens]);
+    setTexto('');
+    setErroEnvio(null);
+    setMenuAberto(false);
+    stickToBottomRef.current = true;
+  }, [conversaId]);
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensagensLocais.length, detalhe?.notas.length]);
+  }, [conversaId, mensagens.length, detalhe?.notas.length]);
+
+  const nomesAtendentes = new Map(atendentes.map((a) => [a.id, a.nome]));
+  if (usuarioAtualId && usuarioAtualNome) nomesAtendentes.set(usuarioAtualId, usuarioAtualNome);
+
+  function autorMensagem(m: WhatsAppMensagem): string | null {
+    if (m.direcao !== 'saida') return null;
+    if (m.enviado_por_usuario_id) return nomesAtendentes.get(m.enviado_por_usuario_id) ?? null;
+    if (m.automacao_id) return 'Mensagem automática';
+    return null;
+  }
 
   function onScrollList() {
     const el = listRef.current;
@@ -179,11 +171,10 @@ export function ChatPanel({
       erro_entrega: null,
       os_id: conversa.os_id ?? null,
       automacao_id: null,
-      enviado_por_usuario_id: null,
+      enviado_por_usuario_id: usuarioAtualId ?? null,
       created_at: new Date().toISOString(),
     };
 
-    setMensagensLocais((prev) => mergeWhatsAppMensagens(prev, [optimistic]));
     onMessageSent(optimistic);
     setTexto('');
 
@@ -200,42 +191,22 @@ export function ChatPanel({
           ...json.data,
           status_entrega: json.data.status_entrega ?? 'enviada',
         };
-        setMensagensLocais((prev) =>
-          mergeWhatsAppMensagens(
-            prev.filter((m) => m.id !== tempId),
-            [realMsg]
-          )
-        );
         onReplaceMessage(tempId, realMsg);
         if (realMsg.status_entrega === 'falha') {
           setErroEnvio(realMsg.erro_entrega || json.erro || 'Mensagem não enviada ao WhatsApp');
         }
       } else {
-        setMensagensLocais((prev) =>
-          prev.map((m) =>
-            m.id === tempId
-              ? { ...m, status_entrega: 'falha' as const, erro_entrega: json.error || 'Erro ao enviar' }
-              : m
-          )
-        );
         onMessageFailed(tempId, json.error || 'Erro ao enviar');
         setErroEnvio(json.error || 'Erro ao enviar');
       }
     } catch {
-      setMensagensLocais((prev) =>
-        prev.map((m) =>
-          m.id === tempId
-            ? { ...m, status_entrega: 'falha' as const, erro_entrega: 'Erro de conexão' }
-            : m
-        )
-      );
       onMessageFailed(tempId, 'Erro de conexão');
       setErroEnvio('Erro de conexão ao enviar mensagem');
     }
   }
 
   const timeline = [
-    ...mensagensLocais.map((m) => ({ kind: 'msg' as const, at: m.created_at, data: m })),
+    ...mensagens.map((m) => ({ kind: 'msg' as const, at: m.created_at, data: m })),
     ...(detalhe?.notas ?? []).map((n) => ({ kind: 'nota' as const, at: n.created_at, data: n })),
   ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
@@ -319,7 +290,7 @@ export function ChatPanel({
         onScroll={onScrollList}
         className="wa-crm-chat-bg flex-1 overflow-y-auto px-4 py-3 space-y-1.5"
       >
-        {loading && mensagensLocais.length === 0 ? (
+        {loading && mensagens.length === 0 ? (
           <p className="text-sm text-[#667781] dark:text-[#8696a0] text-center py-8">Carregando mensagens...</p>
         ) : timeline.length === 0 ? (
           <p className="text-sm text-[#667781] dark:text-[#8696a0] text-center py-8">Nenhuma mensagem ainda</p>
@@ -344,6 +315,7 @@ export function ChatPanel({
             const pending = isPendingMessage(m);
             const falhou = m.status_entrega === 'falha';
             const saida = m.direcao === 'saida';
+            const autor = autorMensagem(m);
             return (
               <div key={m.id} className={`flex ${saida ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -355,6 +327,11 @@ export function ChatPanel({
                       : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]'
                   } ${pending ? 'opacity-80' : ''}`}
                 >
+                  {autor && (
+                    <p className="text-[12.5px] font-semibold leading-4 mb-0.5 text-[#027eb5] dark:text-[#53bdeb]">
+                      {autor}
+                    </p>
+                  )}
                   {m.conteudo}
                   <span className="float-right ml-2 mt-1 text-[11px] text-[#667781] dark:text-[#8696a0] flex items-center gap-1 leading-none">
                     {pending && <Loader2 size={10} className="animate-spin" />}

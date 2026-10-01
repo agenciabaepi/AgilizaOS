@@ -19,7 +19,7 @@ import type {
   WhatsAppAtendente,
 } from '@/lib/whatsapp-crm/types';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
-import { mergeWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
+import { mergeWhatsAppMensagens, upsertWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
 import {
   mergeWhatsAppConversa,
   mergeWhatsAppConversasList,
@@ -166,14 +166,11 @@ export default function WhatsAppCrmPage() {
 
         const incoming = json.data as ConversaDetalhe;
         setDetalhe((prev) => {
-          const pendingOnly =
-            prev && prev.conversa.id === id
-              ? prev.mensagens.filter((m) => m.id.startsWith('pending-'))
-              : [];
+          const locais = prev && prev.conversa.id === id ? prev.mensagens : [];
           const prevOs = cacheRef.current.get(id);
           const next: ConversaDetalhe = {
             ...incoming,
-            mensagens: mergeWhatsAppMensagens(incoming.mensagens, pendingOnly),
+            mensagens: mergeWhatsAppMensagens(incoming.mensagens, locais),
             os_contexto: incoming.os_contexto?.length
               ? incoming.os_contexto
               : prev?.os_contexto?.length
@@ -248,13 +245,10 @@ export default function WhatsAppCrmPage() {
       if (!json.success) return;
       const incoming = json.data as ConversaDetalhe;
       setDetalhe((prev) => {
-        const pendingOnly =
-          prev && prev.conversa.id === id
-            ? prev.mensagens.filter((m) => m.id.startsWith('pending-'))
-            : [];
+        const locais = prev && prev.conversa.id === id ? prev.mensagens : [];
         const next: ConversaDetalhe = {
           ...incoming,
-          mensagens: mergeWhatsAppMensagens(incoming.mensagens, pendingOnly),
+          mensagens: mergeWhatsAppMensagens(incoming.mensagens, locais),
         };
         guardarCache(id, next);
         if (selectedIdRef.current !== id) return prev;
@@ -332,20 +326,8 @@ export default function WhatsAppCrmPage() {
       if (selectedIdRef.current !== msg.conversa_id) return;
 
       setDetalhe((d) => {
-        if (!d) return d;
-        if (d.mensagens.some((m) => m.id === msg.id)) return d;
-        const semPendingDuplicado = d.mensagens.filter(
-          (m) =>
-            !(
-              m.id.startsWith('pending-') &&
-              m.conteudo === msg.conteudo &&
-              m.direcao === msg.direcao
-            )
-        );
-        const next = {
-          ...d,
-          mensagens: mergeWhatsAppMensagens(semPendingDuplicado, [msg]),
-        };
+        if (!d || d.conversa.id !== msg.conversa_id) return d;
+        const next = { ...d, mensagens: upsertWhatsAppMensagens(d.mensagens, [msg]) };
         cacheRef.current.set(msg.conversa_id, next);
         return next;
       });
@@ -356,11 +338,11 @@ export default function WhatsAppCrmPage() {
   const handleMensagemUpdate = useCallback((msg: WhatsAppMensagem) => {
     if (selectedIdRef.current !== msg.conversa_id) return;
     setDetalhe((d) => {
-      if (!d) return d;
-      return {
-        ...d,
-        mensagens: d.mensagens.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
-      };
+      if (!d || d.conversa.id !== msg.conversa_id) return d;
+      if (!d.mensagens.some((m) => m.id === msg.id)) return d;
+      const next = { ...d, mensagens: upsertWhatsAppMensagens(d.mensagens, [msg]) };
+      cacheRef.current.set(msg.conversa_id, next);
+      return next;
     });
   }, []);
 
@@ -422,7 +404,7 @@ export default function WhatsAppCrmPage() {
     [handleConversaChange]
   );
 
-  useWhatsAppCrmRealtime({
+  const realtimeConectado = useWhatsAppCrmRealtime({
     empresaId: empresaData?.id,
     onMensagemInsert: handleMensagemInsert,
     onMensagemUpdate: handleMensagemUpdate,
@@ -433,18 +415,21 @@ export default function WhatsAppCrmPage() {
 
   const handleMessageSent = useCallback((msg: WhatsAppMensagem) => {
     setDetalhe((d) => {
-      if (!d) return d;
-      if (d.mensagens.some((m) => m.id === msg.id)) return d;
-      return { ...d, mensagens: mergeWhatsAppMensagens(d.mensagens, [msg]) };
+      if (!d || d.conversa.id !== msg.conversa_id) return d;
+      const next = { ...d, mensagens: upsertWhatsAppMensagens(d.mensagens, [msg]) };
+      cacheRef.current.set(msg.conversa_id, next);
+      return next;
     });
     aplicarMensagemNaLista(msg);
   }, [aplicarMensagemNaLista]);
 
   const handleReplaceMessage = useCallback((tempId: string, msg: WhatsAppMensagem) => {
     setDetalhe((d) => {
-      if (!d) return d;
+      if (!d || d.conversa.id !== msg.conversa_id) return d;
       const semTemp = d.mensagens.filter((m) => m.id !== tempId);
-      return { ...d, mensagens: mergeWhatsAppMensagens(semTemp, [msg]) };
+      const next = { ...d, mensagens: upsertWhatsAppMensagens(semTemp, [msg]) };
+      cacheRef.current.set(msg.conversa_id, next);
+      return next;
     });
     aplicarMensagemNaLista(msg);
   }, [aplicarMensagemNaLista]);
@@ -452,7 +437,7 @@ export default function WhatsAppCrmPage() {
   const handleMessageFailed = useCallback((tempId: string, error: string) => {
     setDetalhe((d) => {
       if (!d) return d;
-      return {
+      const next = {
         ...d,
         mensagens: d.mensagens.map((m) =>
           m.id === tempId
@@ -460,6 +445,8 @@ export default function WhatsAppCrmPage() {
             : m
         ),
       };
+      cacheRef.current.set(d.conversa.id, next);
+      return next;
     });
   }, []);
 
@@ -599,6 +586,19 @@ export default function WhatsAppCrmPage() {
     };
   }, [podeAcessar, carregarConversas, carregarDetalhe]);
 
+  // Sem canal realtime (rede, RLS, reconexão) a tela não pode congelar
+  useEffect(() => {
+    if (!podeAcessar || realtimeConectado) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void carregarConversas(selectedIdRef.current);
+      if (selectedIdRef.current) {
+        void carregarDetalhe(selectedIdRef.current, { silent: true, light: true });
+      }
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [podeAcessar, realtimeConectado, carregarConversas, carregarDetalhe]);
+
   if (!podeAcessar) {
     return (
       <MenuLayout>
@@ -656,6 +656,7 @@ export default function WhatsAppCrmPage() {
             loading={loadingDetalhe}
             atendentes={atendentes}
             usuarioAtualId={usuarioData?.id}
+            usuarioAtualNome={usuarioData?.nome}
             salvandoAtendente={salvandoAtendente}
             onAtendenteChange={handleAtendenteChange}
             onStatusChange={handleStatusChange}

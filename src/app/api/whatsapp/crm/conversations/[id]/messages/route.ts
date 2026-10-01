@@ -90,12 +90,13 @@ export async function POST(
       conteudo: texto,
       status_entrega: 'enviada',
       os_id: conversa.os_id,
-      enviado_por_usuario_id: usuario?.id ?? null,
+      enviado_por_usuario_id: usuario?.id ?? undefined,
     });
 
+    const nomeAtendente = usuario?.nome?.replace(/[*_~`]/g, '').trim();
     const sendResult = await sendWhatsAppTextMessage({
       to: conversa.telefone,
-      message: texto,
+      message: nomeAtendente ? `*${nomeAtendente}:*\n${texto}` : texto,
       config,
     });
 

@@ -11,6 +11,11 @@ function isAdminRoute(pathname: string): boolean {
   return pathname.startsWith('/admin-login') || pathname.startsWith('/admin-saas');
 }
 
+/** Telas com campo de envio fixo no rodapé, onde o botão flutuante cobriria o botão de enviar */
+function isChatRoute(pathname: string): boolean {
+  return pathname.startsWith('/whatsapp');
+}
+
 export default function PricingCalculatorFAB() {
   const pathname = usePathname() || '';
   const { session, usuarioData } = useAuth();
@@ -20,7 +25,8 @@ export default function PricingCalculatorFAB() {
     !!session &&
     !!usuarioData &&
     !isPublicPath(pathname) &&
-    !isAdminRoute(pathname);
+    !isAdminRoute(pathname) &&
+    !isChatRoute(pathname);
 
   if (!visivel) return null;
 
