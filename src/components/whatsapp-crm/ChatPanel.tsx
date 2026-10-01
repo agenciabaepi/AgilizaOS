@@ -5,7 +5,10 @@ import {
   AlertCircle,
   Archive,
   ArchiveRestore,
+  Bot,
+  Hand,
   Loader2,
+  UserRound,
   MoreVertical,
   Send,
   StickyNote,
@@ -15,7 +18,8 @@ import type { WhatsAppConversaNota, WhatsAppMensagem } from '@/lib/whatsapp-crm/
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 import { AtendenteSelect } from '@/components/whatsapp-crm/AtendenteSelect';
 import { ContactAvatar } from '@/components/whatsapp-crm/ContactAvatar';
-import type { WhatsAppAtendente, WhatsAppConversa } from '@/lib/whatsapp-crm/types';
+import type { WhatsAppAtendente, WhatsAppConversa, WhatsAppIaResumo } from '@/lib/whatsapp-crm/types';
+import { atendimentoIa, iaPausadaSemPrazo } from '@/lib/whatsapp-crm/ia-atendimento';
 
 interface Props {
   detalhe: ConversaDetalhe | null;
@@ -30,6 +34,10 @@ interface Props {
   onReplaceMessage: (tempId: string, msg: WhatsAppMensagem) => void;
   onMessageFailed: (tempId: string, error: string) => void;
   onNotaSent: (nota: WhatsAppConversaNota) => void;
+  ia?: WhatsAppIaResumo | null;
+  agora?: number;
+  salvandoIa?: boolean;
+  onIaAcao?: (acao: 'assumir' | 'devolver') => void | Promise<void>;
 }
 
 function isPendingMessage(m: WhatsAppMensagem) {
@@ -49,6 +57,10 @@ export function ChatPanel({
   onReplaceMessage,
   onMessageFailed,
   onNotaSent,
+  ia,
+  agora = Date.now(),
+  salvandoIa = false,
+  onIaAcao,
 }: Props) {
   const [texto, setTexto] = useState('');
   const [modo, setModo] = useState<'reply' | 'notes'>('reply');
@@ -112,6 +124,19 @@ export function ChatPanel({
   const conversa = detalhe?.conversa;
   const nome = conversa?.clientes?.nome || conversa?.nome_contato || 'Conversa';
   const arquivada = conversa?.status === 'arquivada';
+  const atendimento = conversa ? atendimentoIa(conversa, ia, agora) : null;
+  const nomeIa = ia?.nome_assistente || 'Assistente IA';
+  const pausaSemPrazo = conversa ? iaPausadaSemPrazo(conversa) : false;
+  const iaPausada = !!conversa?.ia_pausada_ate && new Date(conversa.ia_pausada_ate).getTime() > agora;
+  const voltaAs = conversa?.ia_pausada_ate
+    ? new Date(conversa.ia_pausada_ate).toLocaleString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        ...(new Date(conversa.ia_pausada_ate).toDateString() !== new Date(agora).toDateString()
+          ? { day: '2-digit', month: '2-digit' }
+          : {}),
+      })
+    : null;
 
   async function alterarStatus(status: 'aberta' | 'arquivada' | 'fechada') {
     if (!conversa) return;
@@ -273,6 +298,81 @@ export function ChatPanel({
       {arquivada && (
         <div className="bg-[#fff7d1] dark:bg-[#3b3419] text-[#5e4200] dark:text-[#e9c46a] text-xs text-center py-1.5 border-b border-[#f0e3a8] dark:border-[#4a4120]">
           Conversa arquivada — você ainda pode enviar mensagens ou desarquivar.
+        </div>
+      )}
+
+      {atendimento && onIaAcao && (
+        <div
+          className={`flex items-center gap-3 px-4 py-2 text-xs border-b shrink-0 ${
+            atendimento === 'ia'
+              ? 'bg-[#e1f3fb] dark:bg-[#0f2f3d] text-[#03597f] dark:text-[#8fd3f4] border-[#c6e7f5] dark:border-[#16404f]'
+              : atendimento === 'aguardando'
+                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-200 dark:border-amber-900/60'
+                : 'bg-[#f0f2f5] dark:bg-[#182229] text-[#54656f] dark:text-[#aebac1] border-[#d1d7db] dark:border-[#222d34]'
+          }`}
+        >
+          {atendimento === 'ia' ? (
+            <Bot size={16} className="shrink-0" />
+          ) : atendimento === 'aguardando' ? (
+            <Hand size={16} className="shrink-0" />
+          ) : (
+            <UserRound size={16} className="shrink-0" />
+          )}
+          <p className="flex-1 min-w-0">
+            {atendimento === 'ia' && (
+              <>
+                <span className="font-semibold">{nomeIa}</span> está atendendo esta conversa.
+              </>
+            )}
+            {atendimento === 'aguardando' && (
+              <>
+                <span className="font-semibold">A IA transferiu para um atendente.</span> Responda o cliente
+                ou assuma a conversa.
+              </>
+            )}
+            {atendimento === 'atendente' &&
+              (pausaSemPrazo ? (
+                <>
+                  <span className="font-semibold">Atendimento humano.</span> A IA não responde até a conversa
+                  ser devolvida.
+                </>
+              ) : iaPausada ? (
+                <>
+                  <span className="font-semibold">Atendimento humano.</span> A IA volta a responder às{' '}
+                  {voltaAs} se ninguém responder antes.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">Conversa com atendente responsável.</span> Remova o atendente
+                  para a IA voltar a responder.
+                </>
+              ))}
+          </p>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {salvandoIa && <Loader2 size={14} className="animate-spin" />}
+            {(atendimento !== 'atendente' || (iaPausada && !pausaSemPrazo)) && (
+              <button
+                type="button"
+                disabled={salvandoIa}
+                onClick={() => void onIaAcao('assumir')}
+                className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-[#2a3942] px-3 py-1 font-medium text-[#111b21] dark:text-[#e9edef] shadow-sm hover:bg-gray-50 dark:hover:bg-[#3b4a54] disabled:opacity-50"
+              >
+                <Hand size={13} />
+                Assumir conversa
+              </button>
+            )}
+            {atendimento !== 'ia' && iaPausada && (
+              <button
+                type="button"
+                disabled={salvandoIa}
+                onClick={() => void onIaAcao('devolver')}
+                className="inline-flex items-center gap-1 rounded-full bg-[#00a884] px-3 py-1 font-medium text-white shadow-sm hover:bg-[#019a78] disabled:opacity-50"
+              >
+                <Bot size={13} />
+                Devolver para a IA
+              </button>
+            )}
+          </div>
         </div>
       )}
 

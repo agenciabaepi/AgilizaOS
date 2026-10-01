@@ -1,11 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Archive, Search } from 'lucide-react';
-import type { WhatsAppConversa } from '@/lib/whatsapp-crm/types';
+import { Archive, Bot, Hand, Search, UserRound } from 'lucide-react';
+import type {
+  WhatsAppAtendimentoIa,
+  WhatsAppConversa,
+  WhatsAppIaResumo,
+} from '@/lib/whatsapp-crm/types';
 import { ContactAvatar } from '@/components/whatsapp-crm/ContactAvatar';
+import { atendimentoIa } from '@/lib/whatsapp-crm/ia-atendimento';
 
 export type FiltroConversa = 'aberta' | 'arquivada' | 'todas';
+type FiltroAtendimento = 'todos' | WhatsAppAtendimentoIa;
 
 function formatTime(iso: string | null | undefined) {
   if (!iso) return '';
@@ -38,6 +44,8 @@ interface Props {
   filtro: FiltroConversa;
   onFiltroChange: (f: FiltroConversa) => void;
   loading: boolean;
+  ia?: WhatsAppIaResumo | null;
+  agora?: number;
 }
 
 export function ConversationList({
@@ -48,13 +56,31 @@ export function ConversationList({
   filtro,
   onFiltroChange,
   loading,
+  ia,
+  agora = Date.now(),
 }: Props) {
   const [busca, setBusca] = useState('');
+  const [filtroAtendimento, setFiltroAtendimento] = useState<FiltroAtendimento>('todos');
+  const iaAtiva = !!ia?.ativo;
+
+  const atendimentos = useMemo(
+    () => new Map(conversas.map((c) => [c.id, atendimentoIa(c, ia, agora)])),
+    [conversas, ia, agora]
+  );
+
+  const contagem = useMemo(() => {
+    const total = { ia: 0, aguardando: 0, atendente: 0 };
+    for (const a of atendimentos.values()) if (a) total[a] += 1;
+    return total;
+  }, [atendimentos]);
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return conversas;
     return conversas.filter((c) => {
+      if (iaAtiva && filtroAtendimento !== 'todos' && atendimentos.get(c.id) !== filtroAtendimento) {
+        return false;
+      }
+      if (!termo) return true;
       return (
         c.nome_contato?.toLowerCase().includes(termo) ||
         c.clientes?.nome?.toLowerCase().includes(termo) ||
@@ -63,7 +89,7 @@ export function ConversationList({
         c.usuarios?.nome?.toLowerCase().includes(termo)
       );
     });
-  }, [conversas, busca]);
+  }, [conversas, busca, iaAtiva, filtroAtendimento, atendimentos]);
 
   return (
     <aside className="w-full max-w-[380px] shrink-0 border-r border-[#d1d7db] dark:border-[#222d34] bg-[#f0f2f5] dark:bg-[#111b21] flex flex-col">
@@ -107,6 +133,41 @@ export function ConversationList({
             </button>
           ))}
         </div>
+        {iaAtiva && (
+          <div className="flex gap-1 overflow-x-auto pb-0.5">
+            {(
+              [
+                { id: 'todos', label: 'Todos', icon: null, n: null },
+                { id: 'ia', label: 'IA', icon: <Bot size={12} />, n: contagem.ia },
+                { id: 'aguardando', label: 'Aguardando', icon: <Hand size={12} />, n: contagem.aguardando },
+                { id: 'atendente', label: 'Atendente', icon: <UserRound size={12} />, n: contagem.atendente },
+              ] as const
+            ).map((f) => {
+              const ativo = filtroAtendimento === f.id;
+              const destaque = f.id === 'aguardando' && contagem.aguardando > 0;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFiltroAtendimento(f.id)}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    ativo
+                      ? destaque
+                        ? 'border-amber-500 bg-amber-500 text-white'
+                        : 'border-[#00a884] bg-[#d9fdd3] text-[#008069] dark:bg-[#0d3b2e] dark:text-[#00a884]'
+                      : destaque
+                        ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
+                        : 'border-transparent bg-white text-[#54656f] hover:bg-gray-100 dark:bg-[#202c33] dark:text-[#8696a0] dark:hover:bg-[#2a3942]'
+                  }`}
+                >
+                  {f.icon}
+                  {f.label}
+                  {f.n !== null && f.n > 0 && <span className="opacity-80">{f.n}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21]">
@@ -124,7 +185,15 @@ export function ConversationList({
           </div>
         ) : filtradas.length === 0 ? (
           <div className="p-8 text-center text-sm text-[#667781] dark:text-[#8696a0]">
-            {filtro === 'arquivada' ? (
+            {iaAtiva && filtroAtendimento !== 'todos' ? (
+              <>
+                {filtroAtendimento === 'ia'
+                  ? 'Nenhuma conversa com a IA agora'
+                  : filtroAtendimento === 'aguardando'
+                    ? 'Nenhuma conversa aguardando atendente'
+                    : 'Nenhuma conversa com atendente agora'}
+              </>
+            ) : filtro === 'arquivada' ? (
               <>
                 <Archive className="mx-auto mb-2 text-[#8696a0]" size={28} />
                 Nenhuma conversa arquivada
@@ -141,6 +210,7 @@ export function ConversationList({
             const nome = c.clientes?.nome || c.nome_contato || c.telefone;
             const selected = selectedId === c.id;
             const unread = c.nao_lidas > 0 && !selected;
+            const atendimento = atendimentos.get(c.id);
             return (
               <button
                 key={c.id}
@@ -186,8 +256,18 @@ export function ConversationList({
                       </span>
                     )}
                   </div>
-                  {(c.ordens_servico || c.usuarios?.nome) && (
+                  {(c.ordens_servico || c.usuarios?.nome || atendimento === 'ia' || atendimento === 'aguardando') && (
                     <div className="mt-1 flex flex-wrap gap-1">
+                      {atendimento === 'ia' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] bg-[#e1f3fb] dark:bg-[#0f2f3d] text-[#027eb5] dark:text-[#53bdeb] px-1.5 py-0.5 rounded">
+                          <Bot size={10} /> IA atendendo
+                        </span>
+                      )}
+                      {atendimento === 'aguardando' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                          <Hand size={10} /> Aguardando atendente
+                        </span>
+                      )}
                       {c.ordens_servico && (
                         <span className="text-[10px] bg-[#e7fce3] dark:bg-[#0d3b2e] text-[#027a48] dark:text-[#00a884] px-1.5 py-0.5 rounded">
                           OS #{c.ordens_servico.numero_os}

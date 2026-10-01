@@ -529,7 +529,10 @@ export async function responderComIA(params: {
   if (resultado.transferir) {
     await supabase
       .from('whatsapp_conversas')
-      .update({ ia_pausada_ate: new Date(Date.now() + PAUSA_APOS_TRANSFERENCIA_MS).toISOString() })
+      .update({
+        ia_pausada_ate: new Date(Date.now() + PAUSA_APOS_TRANSFERENCIA_MS).toISOString(),
+        ia_pausa_motivo: 'transferencia',
+      })
       .eq('id', params.conversaId);
   }
 

@@ -125,9 +125,14 @@ export async function POST(
       const iaConfig = await getIaConfig(supabase, auth.empresaId);
       if (iaConfig?.ativo) {
         const pausaMs = (iaConfig.pausa_apos_humano_min || 60) * 60_000;
+        const atual = conversa.ia_pausada_ate ? new Date(conversa.ia_pausada_ate).getTime() : 0;
+        const ate = Math.max(atual, Date.now() + pausaMs);
         await supabase
           .from('whatsapp_conversas')
-          .update({ ia_pausada_ate: new Date(Date.now() + pausaMs).toISOString() })
+          .update({
+            ia_pausada_ate: new Date(ate).toISOString(),
+            ia_pausa_motivo: conversa.ia_pausa_motivo === 'manual' ? 'manual' : 'atendente',
+          })
           .eq('id', conversaId);
       }
     }

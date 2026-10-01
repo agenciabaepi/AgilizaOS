@@ -3,6 +3,8 @@ import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpres
 import { createAdminClient } from '@/lib/supabaseClient';
 import { listConversas } from '@/lib/whatsapp-crm/conversations';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
+import { getIaConfig, iaDisponivel } from '@/lib/whatsapp-crm/assistente-ia';
+import type { WhatsAppIaResumo } from '@/lib/whatsapp-crm/types';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -24,10 +26,18 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') ?? undefined;
 
     const supabase = createAdminClient();
-    const conversas = await listConversas(supabase, auth.empresaId, { status });
+    const [conversas, iaConfig] = await Promise.all([
+      listConversas(supabase, auth.empresaId, { status }),
+      getIaConfig(supabase, auth.empresaId),
+    ]);
+    const ia: WhatsAppIaResumo = {
+      ativo: !!iaConfig?.ativo && iaDisponivel(),
+      modo_resposta: iaConfig?.modo_resposta ?? 'sempre',
+      nome_assistente: iaConfig?.nome_assistente ?? 'Assistente virtual',
+    };
 
     return NextResponse.json(
-      { success: true, data: conversas },
+      { success: true, data: conversas, ia },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   } catch (err) {

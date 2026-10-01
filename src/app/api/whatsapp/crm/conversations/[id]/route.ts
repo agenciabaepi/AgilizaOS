@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { responderComIA } from '@/lib/whatsapp-crm/assistente-ia';
+import { IA_PAUSA_MANUAL_ATE } from '@/lib/whatsapp-crm/ia-atendimento';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { getOsContextoByConversa } from '@/lib/whatsapp-crm/os-context';
@@ -6,6 +8,8 @@ import { listOrdensClienteConversa } from '@/lib/whatsapp-crm/client-orders';
 import { CONVERSA_USUARIO_JOIN } from '@/lib/whatsapp-crm/atendentes';
 import { markConversaLida } from '@/lib/whatsapp-crm/conversations';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
+
+export const maxDuration = 60;
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -148,6 +152,14 @@ export async function PATCH(
       if (key in body) updates[key] = body[key];
     }
 
+    if (body?.ia_acao === 'assumir') {
+      updates.ia_pausada_ate = IA_PAUSA_MANUAL_ATE;
+      updates.ia_pausa_motivo = 'manual';
+    } else if (body?.ia_acao === 'devolver') {
+      updates.ia_pausada_ate = null;
+      updates.ia_pausa_motivo = null;
+    }
+
     const { data, error } = await supabase
       .from('whatsapp_conversas')
       .update(updates)
@@ -162,6 +174,25 @@ export async function PATCH(
       .single();
 
     if (error) throw error;
+
+    if (body?.ia_acao === 'devolver') {
+      const { data: ultima } = await supabase
+        .from('whatsapp_mensagens')
+        .select('id, direcao, tipo')
+        .eq('conversa_id', id)
+        .neq('tipo', 'nota_interna')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ultima?.direcao === 'entrada') {
+        after(() =>
+          responderComIA({ empresaId: auth.empresaId, conversaId: id, mensagemId: ultima.id }).catch(
+            (err) => console.error('[whatsapp-crm] IA ao devolver conversa:', err)
+          )
+        );
+      }
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';

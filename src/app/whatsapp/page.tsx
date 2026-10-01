@@ -17,6 +17,7 @@ import type {
   WhatsAppOsContexto,
   WhatsAppOrdemResumo,
   WhatsAppAtendente,
+  WhatsAppIaResumo,
 } from '@/lib/whatsapp-crm/types';
 import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 import { mergeWhatsAppMensagens, upsertWhatsAppMensagens } from '@/lib/whatsapp-crm/merge-messages';
@@ -59,6 +60,9 @@ export default function WhatsAppCrmPage() {
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [filtro, setFiltro] = useState<FiltroConversa>('aberta');
   const [showOsSidebar, setShowOsSidebar] = useState(false);
+  const [ia, setIa] = useState<WhatsAppIaResumo | null>(null);
+  const [salvandoIa, setSalvandoIa] = useState(false);
+  const [agora, setAgora] = useState(() => Date.now());
   const selectedIdRef = useRef<string | null>(null);
   const filtroRef = useRef(filtro);
   selectedIdRef.current = selectedId;
@@ -96,6 +100,7 @@ export default function WhatsAppCrmPage() {
         const json = await res.json();
         if (gen !== conversasFetchGen.current) return;
         if (json.success) {
+          if (json.ia) setIa(json.ia as WhatsAppIaResumo);
           const aberta = conversaAbertaId ?? selectedIdRef.current;
           const incoming = json.data as WhatsAppConversa[];
           setConversas((prev) =>
@@ -486,6 +491,40 @@ export default function WhatsAppCrmPage() {
     }
   }, []);
 
+  const handleIaAcao = useCallback(async (acao: 'assumir' | 'devolver') => {
+    const conversaId = selectedIdRef.current;
+    if (!conversaId) return;
+
+    setSalvandoIa(true);
+    try {
+      const res = await whatsappCrmFetch(`/api/whatsapp/crm/conversations/${conversaId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ia_acao: acao }),
+      });
+      const json = await res.json();
+      if (!json.success || !json.data) return;
+
+      const atualizada = json.data as WhatsAppConversa;
+      setAgora(Date.now());
+      setDetalhe((d) =>
+        d && d.conversa.id === conversaId
+          ? { ...d, conversa: { ...d.conversa, ...atualizada } }
+          : d
+      );
+      setConversas((prev) =>
+        prev.map((c) => (c.id === conversaId ? { ...c, ...atualizada } : c))
+      );
+    } finally {
+      setSalvandoIa(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setAgora(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (!podeAcessar) return;
     void whatsappCrmFetch('/api/whatsapp/crm/atendentes')
@@ -649,6 +688,8 @@ export default function WhatsAppCrmPage() {
             filtro={filtro}
             onFiltroChange={setFiltro}
             loading={loading}
+            ia={ia}
+            agora={agora}
           />
 
           <ChatPanel
@@ -664,6 +705,10 @@ export default function WhatsAppCrmPage() {
             onReplaceMessage={handleReplaceMessage}
             onMessageFailed={handleMessageFailed}
             onNotaSent={handleNotaSent}
+            ia={ia}
+            agora={agora}
+            salvandoIa={salvandoIa}
+            onIaAcao={handleIaAcao}
           />
 
           {showOsSidebar && (

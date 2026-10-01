@@ -62,6 +62,7 @@ export interface WhatsAppConversa {
   atribuido_usuario_id: string | null;
   /** Assistente IA não responde esta conversa até este instante */
   ia_pausada_ate?: string | null;
+  ia_pausa_motivo?: WhatsAppIaPausaMotivo | null;
   created_at: string;
   updated_at: string;
   /** Joins opcionais */
@@ -108,6 +109,17 @@ export interface WhatsAppMensagem {
   enviado_por_ia?: boolean;
   created_at: string;
 }
+
+export type WhatsAppIaPausaMotivo = 'transferencia' | 'atendente' | 'manual';
+
+/** O que o CRM precisa saber do assistente para mostrar quem atende cada conversa. */
+export interface WhatsAppIaResumo {
+  ativo: boolean;
+  modo_resposta: WhatsAppIaConfig['modo_resposta'];
+  nome_assistente: string;
+}
+
+export type WhatsAppAtendimentoIa = 'ia' | 'aguardando' | 'atendente';
 
 export interface WhatsAppIaFaqItem {
   pergunta: string;
