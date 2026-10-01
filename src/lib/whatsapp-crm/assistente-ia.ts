@@ -241,6 +241,7 @@ const SIGNIFICADO_STATUS: [RegExp, string][] = [
   [/aguardando\s*aprova/i, 'aguardando o cliente aprovar o orçamento'],
   [/aguardando\s*in[ií]cio/i, 'na fila para o técnico começar'],
   [/em\s*an[aá]lise|em_analise/i, 'o técnico está avaliando o aparelho'],
+  [/or[cç]amento\s*conclu/i, 'o orçamento está pronto e aguarda a aprovação do cliente'],
   [/^or[cç]amento$/i, 'em avaliação para orçamento'],
 ];
 
