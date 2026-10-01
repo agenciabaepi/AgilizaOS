@@ -24,20 +24,20 @@ export default function NovaOSPendenciasFinalizar({
     <div
       className={`rounded-xl border p-4 ${
         pronto
-          ? 'border-emerald-200 bg-emerald-50/80'
-          : 'border-amber-200 bg-amber-50/80'
+          ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-800/60 dark:bg-emerald-950/40'
+          : 'border-amber-200 bg-amber-50/80 dark:border-amber-800/60 dark:bg-amber-950/40'
       }`}
     >
       <div className="flex items-start gap-3">
         {pronto ? (
-          <FiCheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+          <FiCheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
         ) : (
-          <FiAlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+          <FiAlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
         )}
         <div className="min-w-0 flex-1">
           <h4
             className={`text-sm font-semibold ${
-              pronto ? 'text-emerald-900' : 'text-amber-900'
+              pronto ? 'text-emerald-900 dark:text-emerald-100' : 'text-amber-900 dark:text-amber-100'
             }`}
           >
             {pronto
@@ -46,7 +46,7 @@ export default function NovaOSPendenciasFinalizar({
           </h4>
           <p
             className={`mt-1 text-xs leading-relaxed ${
-              pronto ? 'text-emerald-800' : 'text-amber-800'
+              pronto ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-800 dark:text-amber-200'
             }`}
           >
             {pronto

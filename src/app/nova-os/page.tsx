@@ -1501,9 +1501,9 @@ function NovaOS2Content() {
           </header>
 
           {(draftRestored || draftUpdatedAt) && (
-            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800/60 dark:bg-amber-950/40">
               <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
                   <FiFileText className="h-4 w-4" aria-hidden />
                 </div>
                 <div className="min-w-0">
@@ -1708,7 +1708,7 @@ function NovaOS2Content() {
                       </ul>
                     )}
                     {osGarantiaSelecionada && (
-                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada as { numero_os?: number; id: string }).numero_os ?? (osGarantiaSelecionada as { id: string }).id}</span></div>
+                      <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada as { numero_os?: number; id: string }).numero_os ?? (osGarantiaSelecionada as { id: string }).id}</span></div>
                     )}
                   </div>
                 )}
@@ -2016,7 +2016,7 @@ function NovaOS2Content() {
                   step={1}
                   title="Tipo e modelo"
                   description="Defina a categoria e selecione o aparelho no catálogo."
-                  icon={<FiPackage className="text-amber-600" />}
+                  icon={<FiPackage className="text-amber-600 dark:text-amber-400" />}
                 >
                   <div className="space-y-4">
                     <div className="relative isolate">
@@ -2047,7 +2047,7 @@ function NovaOS2Content() {
                         <button
                           type="button"
                           onClick={() => setIdentificacaoManual(true)}
-                          className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+                          className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                         >
                           Não encontrou? Preencher manualmente
                         </button>
@@ -2066,7 +2066,7 @@ function NovaOS2Content() {
                         : 'Confira ou ajuste os dados do equipamento.'
                       : 'Selecione um aparelho acima para liberar.'
                   }
-                  icon={<FiSmartphone className="text-blue-600" />}
+                  icon={<FiSmartphone className="text-blue-600 dark:text-blue-400" />}
                 >
                   {!identificacaoLiberada ? (
                     <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
@@ -2203,7 +2203,7 @@ function NovaOS2Content() {
                         />
                       </div>
                       {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border dark:border-emerald-800/60">
                           <FiCheckCircle className="h-3.5 w-3.5" /> Acesso registrado
                         </span>
                       )}
@@ -2214,25 +2214,25 @@ function NovaOS2Content() {
                     step={5}
                     title="Itens que acompanham"
                     description="Acessórios e estado físico na entrega."
-                    icon={<FiList className="text-amber-600" />}
+                    icon={<FiList className="text-amber-600 dark:text-amber-400" />}
                     optional
                   >
                     <div className="space-y-3">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">Acessórios</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-zinc-400">Acessórios</label>
                         <textarea
                           placeholder="Carregador, cabo, capa..."
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                          className={`${inputEdicaoRapidaClass} resize-none`}
                           rows={2}
                           value={acessorios}
                           onChange={(e) => setAcessorios(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">Estado físico</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-zinc-400">Estado físico</label>
                         <textarea
                           placeholder="Riscos, amassados..."
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                          className={`${inputEdicaoRapidaClass} resize-none`}
                           rows={2}
                           value={condicoesEquipamento}
                           onChange={(e) => setCondicoesEquipamento(e.target.value)}
@@ -2247,13 +2247,13 @@ function NovaOS2Content() {
             {etapaAtual === 3 && (
               <div className="w-full flex flex-col gap-4">
                 <div className="text-center sm:text-left">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center justify-center sm:justify-start gap-2">
-                    <FiList className="text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-50 flex items-center justify-center sm:justify-start gap-2">
+                    <FiList className="text-blue-600 dark:text-blue-400" />
                     Checklist de entrada
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
                     {dadosEquipamento.tipo
-                      ? <>Checklist para <strong>{dadosEquipamento.tipo}</strong>. Para cada item testado, indique se <strong>funciona</strong> ou <strong>não funciona</strong>.</>
+                      ? <>Checklist para <strong className="text-gray-800 dark:text-zinc-200">{dadosEquipamento.tipo}</strong>. Para cada item testado, indique se <strong className="text-gray-800 dark:text-zinc-200">funciona</strong> ou <strong className="text-gray-800 dark:text-zinc-200">não funciona</strong>.</>
                       : 'Selecione o tipo de equipamento na etapa anterior para ver o checklist específico.'}
                   </p>
                 </div>
@@ -2267,10 +2267,10 @@ function NovaOS2Content() {
                     showAparelhoNaoLiga={true}
                   />
                 ) : (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
-                    <FiPackage className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                    <p className="text-amber-800 font-medium">Volte à etapa Aparelho</p>
-                    <p className="text-amber-700 text-sm mt-1">Selecione o tipo de equipamento para carregar o checklist correspondente.</p>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800/60 dark:bg-amber-950/40">
+                    <FiPackage className="w-12 h-12 text-amber-500 dark:text-amber-400 mx-auto mb-3" />
+                    <p className="text-amber-800 dark:text-amber-100 font-medium">Volte à etapa Aparelho</p>
+                    <p className="text-amber-700 dark:text-amber-200 text-sm mt-1">Selecione o tipo de equipamento para carregar o checklist correspondente.</p>
                   </div>
                 )}
               </div>
@@ -2496,7 +2496,7 @@ function NovaOS2Content() {
                       </ul>
                     )}
                     {osGarantiaSelecionada && (
-                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada.numero_os as string) || (osGarantiaSelecionada.id as string)}</span></div>
+                      <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada.numero_os as string) || (osGarantiaSelecionada.id as string)}</span></div>
                     )}
                   </div>
                 )}
@@ -2557,7 +2557,7 @@ function NovaOS2Content() {
                     </select>
                     {loadingTermos && <p className="text-xs text-gray-500 mt-1 text-left">Carregando termos...</p>}
                     {termos.length > 0 && termoSelecionado && !loadingTermos && (
-                      <p className="text-xs text-green-600 mt-1 text-left">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 text-left">
                         Termo selecionado — use o padrão do sistema ou um personalizado
                       </p>
                     )}
@@ -2580,8 +2580,8 @@ function NovaOS2Content() {
                         const validacao = validarProdutosServicosAprovados();
                         if (!validacao.valido) {
                           return (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                              <p className="text-sm text-red-700">
+                            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-lg p-3 mb-4">
+                              <p className="text-sm text-red-700 dark:text-red-300">
                                 ⚠️ <strong>Atenção:</strong> {validacao.mensagem}
                               </p>
                             </div>
@@ -2594,16 +2594,16 @@ function NovaOS2Content() {
                                           servicosSelecionados.reduce((sum, s) => sum + s.preco, 0);
                         
                         return (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                            <p className="text-sm text-green-700">
+                          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-emerald-700 dark:text-emerald-300">
                               ✅ <strong>OS Aprovada:</strong> {totalProdutos} produto(s) e {totalServicos} serviço(s) selecionados - Total: R$ {valorTotal.toFixed(2)}
                             </p>
                           </div>
                         );
                       })()}
                       
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-blue-700">
+                      <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
                           💡 <strong>Dica:</strong> Não encontrou o produto ou serviço? Use os botões "+" para cadastrar rapidamente!
                         </p>
                       </div>
@@ -2714,25 +2714,25 @@ function NovaOS2Content() {
 
                       {/* Resumo dos itens selecionados */}
                       {(produtosSelecionados.length > 0 || servicosSelecionados.length > 0) && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h5 className="text-sm font-medium text-blue-700 mb-2">Itens Selecionados</h5>
+                        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-lg">
+                          <h5 className="text-sm font-medium text-blue-700 dark:text-blue-200 mb-2">Itens Selecionados</h5>
                           <div className="space-y-2">
                             {produtosSelecionados.map(produto => (
                               <div key={produto.id} className="flex justify-between text-sm">
-                                <span className="text-gray-700">📦 {produto.codigo || 'N/A'} - {produto.nome}</span>
-                                <span className="text-gray-600">R$ {produto.preco.toFixed(2)}/{produto.unidade}</span>
+                                <span className="text-gray-700 dark:text-zinc-200">📦 {produto.codigo || 'N/A'} - {produto.nome}</span>
+                                <span className="text-gray-600 dark:text-zinc-400">R$ {produto.preco.toFixed(2)}/{produto.unidade}</span>
                               </div>
                             ))}
                             {servicosSelecionados.map(servico => (
                               <div key={servico.id} className="flex justify-between text-sm">
-                                <span className="text-gray-700">🔧 {servico.codigo || 'N/A'} - {servico.nome}</span>
-                                <span className="text-gray-600">R$ {servico.preco.toFixed(2)}</span>
+                                <span className="text-gray-700 dark:text-zinc-200">🔧 {servico.codigo || 'N/A'} - {servico.nome}</span>
+                                <span className="text-gray-600 dark:text-zinc-400">R$ {servico.preco.toFixed(2)}</span>
                               </div>
                             ))}
-                            <div className="border-t pt-2 mt-2">
+                            <div className="border-t border-blue-200 dark:border-blue-800/40 pt-2 mt-2">
                               <div className="flex justify-between text-sm font-medium">
-                                <span className="text-blue-700">Total:</span>
-                                <span className="text-blue-700">
+                                <span className="text-blue-700 dark:text-blue-300">Total:</span>
+                                <span className="text-blue-700 dark:text-blue-300">
                                   R$ {(
                                     produtosSelecionados.reduce((sum, p) => sum + p.preco, 0) +
                                     servicosSelecionados.reduce((sum, s) => sum + s.preco, 0)
@@ -2862,9 +2862,9 @@ function NovaOS2Content() {
                   onIrParaEtapa={irParaEtapa}
                 />
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-700 mb-2 text-left">💡 Dica</h4>
-                  <p className="text-sm text-blue-600 text-left">
+                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-700 dark:text-blue-200 mb-2 text-left">💡 Dica</h4>
+                  <p className="text-sm text-blue-600 dark:text-blue-300 text-left">
                     Tire fotos do equipamento para documentar seu estado atual. 
                     Isso ajuda a evitar problemas futuros e facilita a identificação.
                   </p>

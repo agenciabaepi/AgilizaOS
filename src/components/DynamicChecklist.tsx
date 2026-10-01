@@ -181,11 +181,11 @@ export default function DynamicChecklist({
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4 mb-4"></div>
           <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
           </div>
         </div>
       </div>
@@ -194,8 +194,8 @@ export default function DynamicChecklist({
 
   if (!empresaData?.id) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-600 text-sm">
+      <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-lg">
+        <p className="text-red-700 dark:text-red-300 text-sm">
           Erro: Empresa não identificada. Não é possível carregar o checklist.
         </p>
       </div>
@@ -204,8 +204,8 @@ export default function DynamicChecklist({
 
   if (itens.length === 0) {
     return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <p className="text-yellow-700 text-sm">
+      <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg">
+        <p className="text-amber-800 dark:text-amber-200 text-sm">
           {equipamentoCategoria 
             ? `Nenhum item de checklist configurado para a categoria "${equipamentoCategoria}". Configure os itens em Configurações → Checklist por Categoria.`
             : `Nenhum item de checklist configurado para esta empresa. Configure os itens em Configurações → Checklist ou Checklist por Categoria.`
@@ -220,11 +220,11 @@ export default function DynamicChecklist({
   return (
     <div className={isWide ? 'space-y-5' : 'space-y-6'}>
       {!aparelhoNaoLiga && (
-        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <div className="rounded-lg border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
           <p className="font-medium">Como responder</p>
-          <p className="mt-1 text-blue-800 text-xs leading-relaxed">
+          <p className="mt-1 text-blue-800 dark:text-blue-300 text-xs leading-relaxed">
             Para cada item testado na recepção, escolha <strong>Funciona</strong> ou{' '}
-            <strong>Não funciona</strong>. Itens com <span className="text-red-600 font-semibold">*</span>{' '}
+            <strong>Não funciona</strong>. Itens com <span className="text-red-600 dark:text-red-400 font-semibold">*</span>{' '}
             precisam de uma das duas opções.
           </p>
         </div>
@@ -232,7 +232,7 @@ export default function DynamicChecklist({
 
       {/* Aparelho não liga - sempre no topo */}
       {showAparelhoNaoLiga && (
-        <div className="border-b pb-4">
+        <div className="border-b border-gray-200 dark:border-zinc-700 pb-4">
           <div className="flex items-center space-x-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -240,14 +240,14 @@ export default function DynamicChecklist({
                 checked={aparelhoNaoLiga}
                 onChange={(e) => handleAparelhoNaoLigaChange(e.target.checked)}
                 disabled={disabled}
-                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 dark:border-zinc-600 dark:bg-zinc-800 rounded"
               />
-              <span className="text-sm font-medium text-red-600">
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">
                 Aparelho não liga
               </span>
             </label>
           </div>
-          <p className="text-xs text-gray-500 mt-1 ml-6">
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 ml-6">
             Marque esta opção se o aparelho não liga. Os demais testes não poderão ser realizados.
           </p>
         </div>
@@ -257,7 +257,7 @@ export default function DynamicChecklist({
       {!aparelhoNaoLiga &&
         Object.keys(itensPorCategoria).map((categoria) => (
           <div key={categoria} className={isWide ? 'space-y-2.5' : 'space-y-3'}>
-            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wide">
               {getCategoriaLabel(categoria)}
             </h4>
 
@@ -276,17 +276,17 @@ export default function DynamicChecklist({
                 return (
                   <div
                     key={item.id}
-                    className="min-w-0 rounded-lg border border-gray-100 bg-gray-50 p-3"
+                    className="min-w-0 rounded-lg border border-gray-100 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/60 p-3"
                   >
                     <div className="mb-2.5">
-                      <span className="text-sm font-medium leading-snug text-gray-800">
+                      <span className="text-sm font-medium leading-snug text-gray-800 dark:text-zinc-100">
                         {label}
                         {item.obrigatorio && (
-                          <span className="ml-1 text-xs font-semibold text-red-500">*</span>
+                          <span className="ml-1 text-xs font-semibold text-red-500 dark:text-red-400">*</span>
                         )}
                       </span>
                       {item.descricao && (
-                        <p className="mt-0.5 text-xs leading-snug text-gray-500">{item.descricao}</p>
+                        <p className="mt-0.5 text-xs leading-snug text-gray-500 dark:text-zinc-400">{item.descricao}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
@@ -296,8 +296,8 @@ export default function DynamicChecklist({
                         onClick={() => handleItemStatus(item.id, true)}
                         className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
                           ok
-                            ? 'border-green-600 bg-green-600 text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-green-400 hover:text-green-700'
+                            ? 'border-green-600 bg-green-600 text-white dark:border-emerald-500 dark:bg-emerald-600'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-green-400 hover:text-green-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-500 dark:hover:text-emerald-400'
                         } disabled:cursor-not-allowed disabled:opacity-50`}
                       >
                         <FiCheck size={14} />
@@ -309,8 +309,8 @@ export default function DynamicChecklist({
                         onClick={() => handleItemStatus(item.id, false)}
                         className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
                           fail
-                            ? 'border-red-600 bg-red-600 text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'
+                            ? 'border-red-600 bg-red-600 text-white dark:border-red-500 dark:bg-red-600'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-red-500 dark:hover:text-red-400'
                         } disabled:cursor-not-allowed disabled:opacity-50`}
                       >
                         <FiX size={14} />
@@ -326,14 +326,14 @@ export default function DynamicChecklist({
 
       {/* Mensagem quando aparelho não liga */}
       {aparelhoNaoLiga && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-lg">
           <div className="flex items-center space-x-2">
-            <FiX className="text-red-500" size={20} />
+            <FiX className="text-red-500 dark:text-red-400 shrink-0" size={20} />
             <div>
-              <p className="text-red-700 font-medium text-sm">
+              <p className="text-red-800 dark:text-red-200 font-medium text-sm">
                 Checklist não pode ser realizado
               </p>
-              <p className="text-red-600 text-xs mt-1">
+              <p className="text-red-700 dark:text-red-300 text-xs mt-1">
                 Como o aparelho não liga, não é possível realizar os testes para verificar quais componentes estão funcionando. 
                 Após o técnico conseguir fazer o aparelho ligar (caso tenha conserto), será realizado o checklist completo 
                 para verificar quais componentes estão ou não funcionando.
@@ -351,7 +351,7 @@ export default function DynamicChecklist({
         return (
           <div className="space-y-3">
             {/* Resumo dos itens obrigatórios */}
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-zinc-400">
               <p>
                 * Obrigatórios ({itensObrigatorios.length}): responda Funciona ou Não funciona em cada um
               </p>
@@ -359,19 +359,19 @@ export default function DynamicChecklist({
 
             {/* Alerta de validação */}
             {validation.missingItems.length > 0 && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg">
                 <div className="flex items-start space-x-2">
-                  <FiX className="text-yellow-500 mt-0.5" size={16} />
+                  <FiX className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" size={16} />
                   <div className="flex-1">
-                    <p className="text-yellow-800 font-medium text-sm">
+                    <p className="text-amber-900 dark:text-amber-100 font-medium text-sm">
                       Itens obrigatórios sem resposta
                     </p>
-                    <p className="text-yellow-700 text-xs mt-1">
+                    <p className="text-amber-800 dark:text-amber-200 text-xs mt-1">
                       {validation.message}
                     </p>
                     <div className="mt-2 space-y-1">
                       {validation.missingItems.map(item => (
-                        <div key={item.id} className="text-xs text-yellow-700">
+                        <div key={item.id} className="text-xs text-amber-800 dark:text-amber-200">
                           • {item.nome} ({getCategoriaLabel(item.categoria)})
                         </div>
                       ))}
@@ -383,10 +383,10 @@ export default function DynamicChecklist({
 
             {/* Confirmação de validação */}
             {validation.isValid && itensObrigatorios.length > 0 && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <FiCheck className="text-green-500" size={16} />
-                  <p className="text-green-800 font-medium text-sm">
+                  <FiCheck className="text-emerald-600 dark:text-emerald-400 shrink-0" size={16} />
+                  <p className="text-emerald-800 dark:text-emerald-200 font-medium text-sm">
                     Todos os itens obrigatórios foram respondidos
                   </p>
                 </div>
