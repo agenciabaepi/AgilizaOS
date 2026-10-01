@@ -3,6 +3,7 @@ import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpres
 import { createAdminClient } from '@/lib/supabaseClient';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 import {
+  consultarOsCitadas,
   gerarRespostaIA,
   getEmpresaBasica,
   iaDisponivel,
@@ -36,10 +37,14 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createAdminClient();
-    const empresa = await getEmpresaBasica(supabase, empresaId);
+    const [empresa, consultas] = await Promise.all([
+      getEmpresaBasica(supabase, empresaId),
+      consultarOsCitadas(supabase, empresaId, historico, null),
+    ]);
     const resultado = await gerarRespostaIA({
       config: sanitizarIaConfig(body.config ?? {}),
       empresa,
+      consultas,
       historico,
     });
 
