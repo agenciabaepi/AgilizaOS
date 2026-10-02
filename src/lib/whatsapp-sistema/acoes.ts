@@ -182,7 +182,7 @@ export async function prepararStatus(
   return {
     paraTecnico: [
       `🔄 Confirma mudar o status da ${identificacaoOs(os)}?\n\n*${os.status_tecnico || 'sem status'}* → *${alvo}*`,
-      finaliza ? 'ℹ️ Isso conclui o reparo: registra a data de conclusão e a comissão, como na bancada.' : null,
+      finaliza ? 'ℹ️ A O.S. *não* é entregue: a entrega e o fechamento no caixa continuam com a recepção.' : null,
       RODAPE_CONFIRMACAO,
     ]
       .filter(Boolean)

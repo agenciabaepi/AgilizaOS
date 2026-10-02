@@ -236,8 +236,8 @@ export async function POST(request: NextRequest) {
 
     // Normalizar status para comparação
     const statusNormalizado = normalizeStatus(newStatus || '');
-    const statusTecnicoNormalizado = normalizeStatus(newStatusTecnico || '');
-    const seraFinalizada = statusNormalizado === 'ENTREGUE' || isStatusTecnicoFinal(statusTecnicoNormalizado);
+    // Só a entrega (atendente/admin, com fechamento no caixa) finaliza: REPARO CONCLUÍDO do técnico não entrega
+    const seraFinalizada = statusNormalizado === 'ENTREGUE';
     
     // Preparar dados de atualização
     const dadosAtualizacao: any = {
@@ -513,7 +513,7 @@ export async function POST(request: NextRequest) {
     
     const statusAtual = normalizeStatus(osAtualizada?.status || '');
     const statusTecnicoAtual = normalizeStatus(osAtualizada?.status_tecnico || '');
-    const foiFinalizada = statusAtual === 'ENTREGUE' || isStatusTecnicoFinal(statusTecnicoAtual);
+    const foiFinalizada = statusAtual === 'ENTREGUE';
     const temDataEntrega = osAtualizada?.data_entrega;
     const temTecnico = osAtualizada?.tecnico_id || osAnterior.tecnico_id;
     
@@ -553,8 +553,7 @@ export async function POST(request: NextRequest) {
         if (comissaoExistente) {
           console.log('⚠️ Comissão já existe para esta OS');
           // Notificar só se a OS acabou de ser finalizada nesta requisição (evita duplicata ao reabrir/editar)
-          const statusEraFinalAntes = normalizeStatus(String((osAnterior as any).status || '')) === 'ENTREGUE' ||
-            isStatusTecnicoFinal(String((osAnterior as any).status_tecnico || ''));
+          const statusEraFinalAntes = normalizeStatus(String((osAnterior as any).status || '')) === 'ENTREGUE';
           if (!statusEraFinalAntes) {
             const tecnicoIdNotif = osAtualizada?.tecnico_id || (osAnterior as any)?.tecnico_id;
             if (tecnicoIdNotif) {
