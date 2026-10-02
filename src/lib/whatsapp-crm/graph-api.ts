@@ -1,4 +1,5 @@
 import type { WhatsAppEmpresaConfig } from './types';
+import { isWhatsAppSistemaPhoneNumber } from '@/lib/whatsapp-sistema/phone';
 
 const GRAPH_API_VERSION = 'v21.0';
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
@@ -32,9 +33,13 @@ function humanizeWhatsAppError(raw: string): string {
   return raw;
 }
 
+/** CRM só envia com a credencial da empresa. O número do sistema fica nas env e não serve de fallback. */
 function resolveCredentials(config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null) {
-  const phoneNumberId = config?.phone_number_id || process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = config?.access_token || process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = config?.phone_number_id?.trim() || '';
+  const accessToken = config?.access_token?.trim() || '';
+  if (!phoneNumberId || !accessToken || isWhatsAppSistemaPhoneNumber(phoneNumberId)) {
+    return { phoneNumberId: '', accessToken: '' };
+  }
   return { phoneNumberId, accessToken };
 }
 
@@ -154,6 +159,8 @@ export interface SendTemplateMessageParams {
   bodyParams?: string[];
   /** Sufixo da URL dinâmica de um botão (índice do botão no template) */
   urlButtons?: { index: number; param: string }[];
+  /** Documento do cabeçalho, para templates com header do tipo DOCUMENT */
+  headerDocument?: { mediaId: string; filename: string };
   config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null;
 }
 
@@ -177,6 +184,17 @@ export async function sendWhatsAppTemplateMessage(
   const phoneWithCountry = to.startsWith('55') ? to : `55${to}`;
 
   const components: Record<string, unknown>[] = [];
+  if (params.headerDocument) {
+    components.push({
+      type: 'header',
+      parameters: [
+        {
+          type: 'document',
+          document: { id: params.headerDocument.mediaId, filename: params.headerDocument.filename },
+        },
+      ],
+    });
+  }
   if (params.bodyParams?.length) {
     components.push({
       type: 'body',
@@ -229,6 +247,90 @@ export async function sendWhatsAppTemplateMessage(
       success: false,
       error: err instanceof Error ? err.message : 'Erro ao enviar template',
     };
+  }
+}
+
+/** Sobe um arquivo para a Meta e devolve o media id (válido por 30 dias) */
+export async function uploadWhatsAppMedia(params: {
+  buffer: Buffer;
+  mimeType: string;
+  filename: string;
+  config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null;
+}): Promise<{ success: boolean; mediaId?: string; error?: string }> {
+  const { phoneNumberId, accessToken } = resolveCredentials(params.config);
+  if (!phoneNumberId || !accessToken) {
+    return { success: false, error: 'Credenciais WhatsApp não configuradas' };
+  }
+
+  try {
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', params.mimeType);
+    form.append(
+      'file',
+      new Blob([new Uint8Array(params.buffer)], { type: params.mimeType }),
+      params.filename
+    );
+
+    const response = await fetch(`${GRAPH_BASE}/${phoneNumberId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.id) {
+      return { success: false, error: data?.error?.message || `HTTP ${response.status}` };
+    }
+    return { success: true, mediaId: data.id as string };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Erro ao enviar arquivo' };
+  }
+}
+
+/** Envia documento já enviado à Meta (só dentro da janela de 24h) */
+export async function sendWhatsAppDocumentMessage(params: {
+  to: string;
+  mediaId: string;
+  filename: string;
+  caption?: string;
+  config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null;
+}): Promise<SendTextMessageResult> {
+  const { phoneNumberId, accessToken } = resolveCredentials(params.config);
+  if (!phoneNumberId || !accessToken) {
+    return { success: false, error: humanizeWhatsAppError('Credenciais WhatsApp não configuradas') };
+  }
+
+  const to = params.to.replace(/\D/g, '');
+  const phoneWithCountry = to.startsWith('55') ? to : `55${to}`;
+
+  try {
+    const response = await fetch(`${GRAPH_BASE}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phoneWithCountry,
+        type: 'document',
+        document: {
+          id: params.mediaId,
+          filename: params.filename,
+          ...(params.caption ? { caption: params.caption.slice(0, 1024) } : {}),
+        },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const errMsg = data?.error?.message || `HTTP ${response.status}`;
+      const errCode = data?.error?.code ? ` (#${data.error.code})` : '';
+      return { success: false, error: humanizeWhatsAppError(`${errMsg}${errCode}`) };
+    }
+    return { success: true, messageId: data?.messages?.[0]?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Erro ao enviar documento' };
   }
 }
 

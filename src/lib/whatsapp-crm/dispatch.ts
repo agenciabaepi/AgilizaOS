@@ -1,12 +1,20 @@
 import { createAdminClient } from '@/lib/supabaseClient';
 import { WHATSAPP_AUTOMATION_ENABLED } from '@/config/whatsapp-config';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
-import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from './graph-api';
+import {
+  sendWhatsAppDocumentMessage,
+  sendWhatsAppTemplateMessage,
+  sendWhatsAppTextMessage,
+  uploadWhatsAppMedia,
+  type SendTextMessageResult,
+} from './graph-api';
 import {
   buildMetaTemplate,
   ensureMetaTemplatesOnWaba,
   isTemplateIndisponivelError,
+  templateComPdf,
 } from './meta-templates';
+import { gerarPdfOsBuffer } from './os-pdf';
 import { getOrCreateConversa, appendMensagem, getEmpresaConfig } from './conversations';
 import { syncOsContexto } from './os-context';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
@@ -41,6 +49,33 @@ function formatDataMsg(dateString: string | null | undefined): string {
   if (soData) return soData.toLocaleDateString('pt-BR');
   const parsed = new Date(dateString);
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('pt-BR');
+}
+
+/** Gera o PDF da O.S. e sobe na Meta; falha aqui não impede o aviso de texto/template */
+async function prepararPdfOs(
+  supabase: SupabaseAdmin,
+  osId: string,
+  empresaId: string,
+  config: Parameters<typeof uploadWhatsAppMedia>[0]['config']
+): Promise<{ mediaId: string; filename: string } | null> {
+  try {
+    const gerado = await gerarPdfOsBuffer(supabase, osId, empresaId);
+    if (!gerado) return null;
+    const upload = await uploadWhatsAppMedia({
+      buffer: gerado.buffer,
+      mimeType: 'application/pdf',
+      filename: gerado.filename,
+      config,
+    });
+    if (!upload.success || !upload.mediaId) {
+      console.warn('[CRM dispatch] Falha ao enviar PDF da O.S. para a Meta:', upload.error);
+      return null;
+    }
+    return { mediaId: upload.mediaId, filename: gerado.filename };
+  } catch (e) {
+    console.warn('[CRM dispatch] Falha ao gerar PDF da O.S.:', e);
+    return null;
+  }
 }
 
 /**
@@ -82,7 +117,12 @@ export async function dispatchAutomacaoOs(
     return { sent: false, reason: 'os_not_found' };
   }
 
-  const cliente = os.clientes as { id: string; nome: string; telefone?: string; celular?: string } | null;
+  const cliente = os.clientes as unknown as {
+    id: string;
+    nome: string;
+    telefone?: string;
+    celular?: string;
+  } | null;
   const telefone = cliente?.celular || cliente?.telefone;
   if (!telefone) {
     return { sent: false, reason: 'cliente_sem_telefone' };
@@ -175,36 +215,79 @@ export async function dispatchAutomacaoOs(
     empresa_id: payload.empresa_id,
   });
 
-  let enviadoComoTemplate = !!metaTemplate;
-  let sendResult = metaTemplate
-    ? await sendWhatsAppTemplateMessage({
-        to: telefone,
-        templateName: metaTemplate.templateName,
-        languageCode: metaTemplate.languageCode,
-        bodyParams: metaTemplate.bodyParams,
-        urlButtons: metaTemplate.urlButtons,
-        config,
-      })
-    : await sendWhatsAppTextMessage({
-        to: telefone,
-        message: mensagem,
-        config,
-      });
+  const pdfTemplateName =
+    metaTemplate && evento === 'os_criada' ? templateComPdf(metaTemplate.templateName) : null;
+  const pdf = pdfTemplateName ? await prepararPdfOs(supabase, os.id, payload.empresa_id, config) : null;
 
-  // Template ainda não existe/aprovado na WABA da loja: cria em segundo plano e tenta como texto
-  // (texto livre só é entregue se o cliente falou com a loja nas últimas 24h).
-  if (metaTemplate && !sendResult.success && isTemplateIndisponivelError(sendResult.error)) {
+  let enviadoComoTemplate = false;
+  let pdfEnviado = false;
+  let templateIndisponivel = false;
+  let sendResult: SendTextMessageResult | null = null;
+
+  if (metaTemplate && pdf && pdfTemplateName) {
+    sendResult = await sendWhatsAppTemplateMessage({
+      to: telefone,
+      templateName: pdfTemplateName,
+      languageCode: metaTemplate.languageCode,
+      bodyParams: metaTemplate.bodyParams,
+      urlButtons: metaTemplate.urlButtons,
+      headerDocument: pdf,
+      config,
+    });
+    if (sendResult.success) {
+      enviadoComoTemplate = true;
+      pdfEnviado = true;
+    } else if (isTemplateIndisponivelError(sendResult.error)) {
+      templateIndisponivel = true;
+    }
+  }
+
+  if (metaTemplate && !sendResult?.success) {
+    sendResult = await sendWhatsAppTemplateMessage({
+      to: telefone,
+      templateName: metaTemplate.templateName,
+      languageCode: metaTemplate.languageCode,
+      bodyParams: metaTemplate.bodyParams,
+      urlButtons: metaTemplate.urlButtons,
+      config,
+    });
+    if (sendResult.success) enviadoComoTemplate = true;
+    else if (isTemplateIndisponivelError(sendResult.error)) templateIndisponivel = true;
+  }
+
+  if (!metaTemplate) {
+    sendResult = await sendWhatsAppTextMessage({ to: telefone, message: mensagem, config });
+  }
+
+  // Template ainda não existe/aprovado na WABA da loja: cria em segundo plano
+  if (templateIndisponivel) {
     const wabaId = config.waba_id || config.business_account_id;
     if (wabaId && config.access_token) {
       void ensureMetaTemplatesOnWaba(wabaId, config.access_token).catch((e) =>
         console.warn('[CRM dispatch] Falha ao criar templates Meta:', e)
       );
     }
+  }
+
+  // Sem template disponível, tenta como texto (só é entregue se o cliente falou com a loja nas últimas 24h)
+  if (metaTemplate && !sendResult?.success && templateIndisponivel) {
     const textoResult = await sendWhatsAppTextMessage({ to: telefone, message: mensagem, config });
-    if (textoResult.success) {
-      sendResult = textoResult;
-      enviadoComoTemplate = false;
-    }
+    if (textoResult.success) sendResult = textoResult;
+  }
+
+  // Aviso saiu sem o PDF no cabeçalho: manda o PDF como documento (também depende da janela de 24h)
+  if (pdf && sendResult?.success && !pdfEnviado) {
+    const docResult = await sendWhatsAppDocumentMessage({
+      to: telefone,
+      mediaId: pdf.mediaId,
+      filename: pdf.filename,
+      config,
+    });
+    pdfEnviado = docResult.success;
+  }
+
+  if (!sendResult) {
+    return { sent: false, reason: 'send_failed' };
   }
 
   await appendMensagem(supabase, {
@@ -212,7 +295,7 @@ export async function dispatchAutomacaoOs(
     empresa_id: payload.empresa_id,
     direcao: 'saida',
     tipo: enviadoComoTemplate ? 'template' : 'texto',
-    conteudo: mensagem,
+    conteudo: pdfEnviado && pdf ? `${mensagem}\n\n📎 ${pdf.filename}` : mensagem,
     meta_message_id: sendResult.messageId,
     status_entrega: sendResult.success ? 'enviada' : 'falha',
     erro_entrega: sendResult.success ? undefined : sendResult.error ?? 'Falha ao enviar',

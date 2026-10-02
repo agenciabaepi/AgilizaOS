@@ -8,6 +8,7 @@ import { stripHTML } from './utils';
 const M = 20; // margem mm
 const LW = 175; // largura útil (A4 210 - 2*M)
 const LINE = 6;
+const VALUE_X = M + 30; // coluna dos valores, depois do rótulo
 
 function safeStr(v: unknown): string {
   if (v == null) return '';
@@ -20,6 +21,14 @@ export async function generateOSPDF(osData: any): Promise<Buffer> {
   let y = M;
 
   // Header
+  if (os?.empresa_nome) {
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(safeStr(os.empresa_nome), 105, y, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    y += 8;
+  }
   doc.setFontSize(16);
   doc.setTextColor(0, 123, 255);
   doc.text(`ORDEM DE SERVIÇO #${safeStr(os?.numero_os) || '-'}`, 105, y, { align: 'center' });
@@ -39,7 +48,7 @@ export async function generateOSPDF(osData: any): Promise<Buffer> {
     doc.setTextColor(0, 0, 0);
     doc.text(title, M + 6, y + 5.5);
     doc.setFont('helvetica', 'normal');
-    y += 10;
+    y += 14;
     doc.setFontSize(9);
     doc.setTextColor(102, 102, 102);
     for (const [l, v] of rows) {
@@ -47,7 +56,7 @@ export async function generateOSPDF(osData: any): Promise<Buffer> {
       doc.text(l, M, y);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-      doc.text(safeStr(v) || 'Não informado', M + 2, y, { maxWidth: LW - 2 });
+      doc.text(safeStr(v) || 'Não informado', VALUE_X, y, { maxWidth: LW - (VALUE_X - M) });
       y += LINE;
       doc.setTextColor(102, 102, 102);
     }
@@ -75,6 +84,7 @@ export async function generateOSPDF(osData: any): Promise<Buffer> {
   ]);
 
   sec('Dados do Equipamento', [
+    ...(os?.equipamento ? ([['Equipamento:', os.equipamento]] as [string, string][]) : []),
     ['Marca:', os?.marca],
     ['Modelo:', os?.modelo],
   ], { label: 'Problema Relatado:', value: safeStr(os?.problema_relatado) });
