@@ -101,6 +101,21 @@ function extractStatusText(value: unknown): string {
   return String(value).trim();
 }
 
+/** Texto do laudo sem HTML: o editor reformata o conteúdo (ex.: envolve em <p>) sem o usuário alterar nada. */
+function textoPlanoLaudo(valor: unknown): string {
+  if (typeof valor !== 'string') return '';
+  return valor
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function extractMissingColumn(message: string): string | null {
   if (!message) return null;
   const pgMatch = message.match(/column\s+[^\s.]+\.(\w+)\s+does not exist/i);
@@ -168,7 +183,8 @@ export async function POST(request: NextRequest) {
           'prazo_entrega',
           'acessorios',
           'condicoes_equipamento',
-          'videos_tecnico'
+          'videos_tecnico',
+          'laudo'
         ].join(', ')
       )
       .limit(1);
@@ -283,12 +299,8 @@ export async function POST(request: NextRequest) {
     const novoStatusRaw = body.newStatus !== undefined ? String(body.newStatus).trim() : (newStatus ? String(newStatus).trim() : '');
     const novoStatusTecnicoRaw = body.newStatusTecnico !== undefined ? String(body.newStatusTecnico).trim() : (newStatusTecnico ? String(newStatusTecnico).trim() : '');
 
-    const laudoTexto =
-      typeof updateData.laudo === 'string' ? updateData.laudo.trim() : '';
-    const laudoAnterior =
-      typeof (osAnterior as { laudo?: string }).laudo === 'string'
-        ? (osAnterior as { laudo: string }).laudo.trim()
-        : '';
+    const laudoTexto = textoPlanoLaudo(updateData.laudo);
+    const laudoAnterior = textoPlanoLaudo((osAnterior as { laudo?: string }).laudo);
     const laudoNovoPreenchido = laudoTexto.length > 0 && laudoTexto !== laudoAnterior;
 
     const nomesStatusIguaisLocal = (a: string, b: string) => {
