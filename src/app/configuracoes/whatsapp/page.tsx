@@ -48,6 +48,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
     ativo?: boolean;
     connection_mode?: 'cloud_api' | 'coexistence' | null;
     is_on_biz_app?: boolean;
+    embedded_signup_at?: string | null;
   } | null>(null);
   const [automacoes, setAutomacoes] = useState<WhatsAppAutomacao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -282,14 +283,18 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
               <div className="rounded-xl border border-green-200 bg-green-50 p-5 flex items-start gap-3">
                 <CheckCircle2 size={22} className="text-green-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-green-900">WhatsApp conectado</p>
+                  <p className="font-semibold text-green-900">
+                    {config.embedded_signup_at ? 'WhatsApp conectado' : 'Número de teste conectado'}
+                  </p>
                   {config.display_phone_number && (
                     <p className="text-sm text-green-800 mt-1">{config.display_phone_number}</p>
                   )}
                   <p className="text-sm text-green-800/90 mt-1">
-                    {config.connection_mode === 'coexistence' || config.is_on_biz_app
-                      ? 'Você continua usando o app no celular. As conversas também aparecem no Consert.'
-                      : 'Pronto para receber e enviar mensagens pelo Consert.'}
+                    {!config.embedded_signup_at
+                      ? 'Este é o número de teste da Meta. Conecte o WhatsApp Business da loja abaixo para atender seus clientes.'
+                      : config.connection_mode === 'coexistence' || config.is_on_biz_app
+                        ? 'Você continua usando o app no celular. As conversas também aparecem no Consert.'
+                        : 'Pronto para receber e enviar mensagens pelo Consert.'}
                   </p>
                   <Link
                     href="/whatsapp"
@@ -300,6 +305,10 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
                   </Link>
                 </div>
               </div>
+
+              {!config.embedded_signup_at && (
+                <EmbeddedSignupConnect onConnected={() => void carregarDados()} />
+              )}
 
               {modoTesteForm}
 

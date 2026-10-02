@@ -48,7 +48,11 @@ export async function subscribeWabaWebhooks(wabaId: string, accessToken: string)
 }
 
 /** Registra número para Cloud API (se ainda não registrado) */
-export async function registerPhoneNumber(phoneNumberId: string, accessToken: string) {
+export async function registerPhoneNumber(
+  phoneNumberId: string,
+  accessToken: string,
+  opts?: { skipRegister?: boolean }
+) {
   const statusRes = await fetch(
     `${GRAPH_BASE}/${phoneNumberId}?fields=status,display_phone_number,verified_name,is_on_biz_app,platform_type`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -58,7 +62,8 @@ export async function registerPhoneNumber(phoneNumberId: string, accessToken: st
     throw new Error(statusData.error?.message || 'Falha ao consultar número');
   }
 
-  if (statusData.status === 'CONNECTED') {
+  // Coexistência: o número já está ativo no app WhatsApp Business e não deve ser registrado
+  if (statusData.status === 'CONNECTED' || opts?.skipRegister || statusData.is_on_biz_app) {
     return statusData;
   }
 
@@ -99,7 +104,9 @@ export async function completeEmbeddedSignup(params: CompleteEmbeddedSignupParam
 
   await subscribeWabaWebhooks(params.wabaId, accessToken);
 
-  const phoneDetails = await registerPhoneNumber(params.phoneNumberId, accessToken);
+  const phoneDetails = await registerPhoneNumber(params.phoneNumberId, accessToken, {
+    skipRegister: params.connectionMode === 'coexistence',
+  });
 
   const isCoexistence =
     params.connectionMode === 'coexistence' ||
