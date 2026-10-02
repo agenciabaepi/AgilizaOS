@@ -36,6 +36,11 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
   const [sdkReady, setSdkReady] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [insecure, setInsecure] = useState(false);
+
+  useEffect(() => {
+    setInsecure(window.location.protocol !== 'https:');
+  }, []);
 
   const sessionRef = useRef<SessionFinishData>({});
   const codeRef = useRef<string | null>(null);
@@ -142,7 +147,7 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
   }, [appId]);
 
   function launchSignup() {
-    if (!sdkReady || !window.FB || !configId) return;
+    if (insecure || !sdkReady || !window.FB || !configId) return;
 
     setError(null);
     setConnecting(true);
@@ -216,6 +221,13 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
           <li>• Tenha a conta Facebook/Meta da loja em mãos para autorizar</li>
         </ul>
 
+        {insecure && (
+          <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            A Meta só permite conectar o WhatsApp em páginas seguras (HTTPS). Acesse o Consert pelo
+            endereço com <strong>https://</strong> para continuar.
+          </p>
+        )}
+
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
             {error}
@@ -225,7 +237,7 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
         <button
           type="button"
           onClick={launchSignup}
-          disabled={!sdkReady || connecting}
+          disabled={insecure || !sdkReady || connecting}
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
         >
           {connecting ? (
