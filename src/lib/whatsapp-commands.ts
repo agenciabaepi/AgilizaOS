@@ -1,6 +1,6 @@
 import { createAdminClient } from './supabaseClient';
 import { filterUsuariosTecnicos, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
-import { textoDetalhesOs } from '@/lib/whatsapp-crm/os-detalhes';
+import { laudoTexto, textoDetalhesOs } from '@/lib/whatsapp-crm/os-detalhes';
 import { formatChecklistItemLabel } from '@/lib/checklist-values';
 
 export const LIMITE_FOTOS_OS = 5;
@@ -506,9 +506,11 @@ function dataOs(valor: string | null, comHora = false): string | null {
 
 function textoChecklist(checklist: ChecklistEntradaOs | null): string | null {
   if (!checklist) return null;
-  if (checklist.aparelhoNaoLiga) return '*Checklist de entrada:* aparelho não liga (itens não testados)';
+  if (checklist.aparelhoNaoLiga) {
+    return '*Checklist de entrada (recepção):* aparelho chegou sem ligar, itens não testados';
+  }
   return [
-    '*Checklist de entrada:*',
+    '*Checklist de entrada (recepção):*',
     `❌ Não funciona: ${checklist.naoFunciona.length ? checklist.naoFunciona.join(', ') : 'nenhum item'}`,
     checklist.funciona.length ? `✅ Funciona: ${checklist.funciona.join(', ')}` : null,
   ]
@@ -541,6 +543,7 @@ export function formatResumoOsMessage(os: OsDoTecnico): string {
     problema ? `\n*Relato do cliente:*\n${problema}` : null,
     os.observacao ? `\n*Observação:*\n${os.observacao.slice(0, 400)}` : null,
     textoChecklist(os.checklist) ? `\n${textoChecklist(os.checklist)}` : null,
+    laudoTexto(os.laudo) ? null : '\n📝 *Laudo do técnico:* ainda não preenchido',
     detalhes ? `\n${detalhes}` : null,
   ];
   return linhas.filter((linha) => linha !== null).join('\n');
