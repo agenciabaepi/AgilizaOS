@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { sendWhatsAppButtonsMessage, sendWhatsAppTextMessage } from './graph-api';
 import { appendMensagem, getEmpresaConfig, updateMensagemEntrega } from './conversations';
 import type { WhatsAppIaConfig, WhatsAppIaFaqItem } from './types';
+import { resumoOrcamentoIA, textoDetalhesOs, type OsOrcamentoCampos } from './os-detalhes';
 import {
   BOTAO_ATENDENTE,
   TEXTOS_VERIFICACAO,
@@ -90,7 +91,7 @@ export interface EmpresaBasica {
   timezone: string | null;
 }
 
-export interface OsResumoIA {
+export interface OsResumoIA extends OsOrcamentoCampos {
   numero_os: number;
   status: string | null;
   status_tecnico: string | null;
@@ -107,7 +108,9 @@ export type ConsultaOsIA =
   | { numero: number; resultado: 'verificar'; os: OsResumoIA; osId: string; nomeCliente: string | null }
   | { numero: number; resultado: 'nao_encontrada' };
 
-const OS_CAMPOS_IA = 'numero_os, status, status_tecnico, equipamento, marca, modelo, prazo_entrega, data_entrega';
+const OS_CAMPOS_IA =
+  'numero_os, status, status_tecnico, equipamento, marca, modelo, prazo_entrega, data_entrega, ' +
+  'laudo, servico, qtd_servico, valor_servico, peca, qtd_peca, valor_peca, desconto, valor_faturado';
 
 export interface MensagemHistoricoIA {
   direcao: 'entrada' | 'saida';
@@ -283,7 +286,11 @@ function comSignificado(status: string): string {
   return s ? `${status} (= ${s[1]})` : status;
 }
 
-function descreverOs(os: OsResumoIA, timezone: string | null | undefined): string {
+function descreverOs(
+  os: OsResumoIA,
+  timezone: string | null | undefined,
+  opts?: { comOrcamento?: boolean }
+): string {
   return [
     `O.S. nº ${os.numero_os}`,
     [os.equipamento, os.marca, os.modelo].filter(Boolean).join(' ') || null,
@@ -296,6 +303,7 @@ function descreverOs(os: OsResumoIA, timezone: string | null | undefined): strin
         : os.prazo_entrega
           ? 'previsão de entrega já passou (não informe data; diga que a equipe vai atualizar o prazo)'
           : null,
+    opts?.comOrcamento ? resumoOrcamentoIA(os) : null,
   ]
     .filter(Boolean)
     .join(' | ');
@@ -352,9 +360,11 @@ export function montarPromptSistema(params: {
   empresa: EmpresaBasica | null;
   os?: OsResumoIA | null;
   consultas?: ConsultaOsIA[];
+  /** O.S. cujo laudo, valores e link o sistema envia logo depois da resposta */
+  detalhesAutomaticos?: string[];
   primeiraResposta: boolean;
 }): string {
-  const { config, empresa, os, consultas = [] } = params;
+  const { config, empresa, os, consultas = [], detalhesAutomaticos = [] } = params;
   const nomeLoja = empresa?.nome?.trim() || 'a assistência técnica';
   const { saudacao, agora } = saudacaoAgora(empresa?.timezone);
   const endereco =
@@ -384,7 +394,12 @@ export function montarPromptSistema(params: {
 
   const consultasTexto = consultas
     .map((c) => {
-      if (c.resultado === 'encontrada') return `- ${descreverOs(c.os, empresa?.timezone)}`;
+      if (c.resultado === 'encontrada') {
+        const auto = detalhesAutomaticos.includes(c.osId)
+          ? ' (o sistema envia o laudo, os valores e o link de acompanhamento logo depois da sua resposta: informe só o status e o aparelho, sem repetir laudo nem valores, e não termine com pergunta)'
+          : '';
+        return `- ${descreverOs(c.os, empresa?.timezone, { comOrcamento: true })}${auto}`;
+      }
       if (c.resultado === 'verificar') {
         return `- O.S. nº ${c.numero}: dados do cliente NÃO confirmados. Por segurança, não informe nada sobre ela (nem se existe); diga que um atendente vai confirmar os dados e marque "transferir": true.`;
       }
@@ -410,8 +425,8 @@ COMO RESPONDER
 - Se o cliente perguntar sobre um aparelho que deixou na loja e não houver O.S. consultada abaixo, peça o número da ordem de serviço (fica no comprovante entregue na loja).
 - Status, situação ou previsão de uma O.S. só podem vir das seções de O.S. abaixo, preenchidas pelo sistema. Se o cliente informou um número e não há resultado do sistema para ele, NÃO deduza nada: diga que um atendente vai verificar e marque "transferir": true.
 - Depois de informar o status de uma O.S. encontrada, NÃO transfira para atendente (a menos que o cliente peça ou faça uma pergunta que você não sabe responder); pergunte se pode ajudar em algo mais.
-- Ao informar uma O.S., escreva de forma natural (sem copiar o formato do sistema nem os status em maiúsculas), citando o aparelho e explicando a situação em palavras simples, sem mudar o sentido do status (ex.: "sem reparo" significa que não foi possível consertar o aparelho, não que ele não precisava de conserto). Nunca informe valores, mesmo que o cliente peça.
-- Se você não tiver a informação, se o cliente pedir para falar com uma pessoa/atendente, reclamar, quiser negociar valores ou precisar de orçamento, marque "transferir": true e termine a resposta avisando claramente que um atendente vai continuar o atendimento por aqui em breve.
+- Ao informar uma O.S., escreva de forma natural (sem copiar o formato do sistema nem os status em maiúsculas), citando o aparelho e explicando a situação em palavras simples, sem mudar o sentido do status (ex.: "sem reparo" significa que não foi possível consertar o aparelho, não que ele não precisava de conserto). Valores: informe somente os que constam no orçamento da O.S. consultada abaixo; nunca invente, estime, arredonde ou negocie valores.
+- Se você não tiver a informação, se o cliente pedir para falar com uma pessoa/atendente, reclamar, quiser negociar valores ou precisar de um orçamento novo (que não esteja em uma O.S. consultada), marque "transferir": true e termine a resposta avisando claramente que um atendente vai continuar o atendimento por aqui em breve.
 
 DADOS DA LOJA
 ${dados || '- (nenhum dado cadastrado)'}
@@ -429,6 +444,7 @@ export async function gerarRespostaIA(params: {
   empresa: EmpresaBasica | null;
   os?: OsResumoIA | null;
   consultas?: ConsultaOsIA[];
+  detalhesAutomaticos?: string[];
   historico: MensagemHistoricoIA[];
 }): Promise<RespostaIA | null> {
   const client = getOpenAI();
@@ -440,6 +456,7 @@ export async function gerarRespostaIA(params: {
     empresa: params.empresa,
     os: params.os,
     consultas: params.consultas,
+    detalhesAutomaticos: params.detalhesAutomaticos,
     primeiraResposta,
   });
 
@@ -708,10 +725,23 @@ export async function responderComIA(params: {
     return enviar(abertura + pergunta);
   }
 
-  const resultado = await gerarRespostaIA({ config, empresa, os, consultas, historico });
-  if (!resultado) return 'sem_resposta';
+  const osEncontrada = consultas.find(
+    (c): c is Extract<ConsultaOsIA, { resultado: 'encontrada' }> => c.resultado === 'encontrada'
+  );
+  const enviarDetalhes = !!osEncontrada && !(estado.links_enviados ?? []).includes(osEncontrada.osId);
 
-  const osEncontrada = consultas.find((c) => c.resultado === 'encontrada');
+  const resultado = await gerarRespostaIA({
+    config,
+    empresa,
+    os,
+    consultas,
+    historico,
+    detalhesAutomaticos: enviarDetalhes && osEncontrada ? [osEncontrada.osId] : [],
+  });
+  if (!resultado) return 'sem_resposta';
+  // O follow-up já oferece o botão "Falar com atendente"
+  if (enviarDetalhes) resultado.transferir = false;
+
   if (osEncontrada && !conversa.os_id) {
     await supabase
       .from('whatsapp_conversas')
@@ -721,8 +751,7 @@ export async function responderComIA(params: {
   }
 
   const envio = await enviar(resultado.resposta, { transferir: resultado.transferir });
-  if (envio !== 'respondido' || !osEncontrada || resultado.transferir) return envio;
-  if ((estado.links_enviados ?? []).includes(osEncontrada.osId)) return envio;
+  if (envio !== 'respondido' || !osEncontrada || !enviarDetalhes || resultado.transferir) return envio;
 
   const [{ data: ordem }, { data: empresaLink }] = await Promise.all([
     supabase
@@ -740,12 +769,19 @@ export async function responderComIA(params: {
     ...estado,
     links_enviados: [...new Set([...(estado.links_enviados ?? []), osEncontrada.osId])],
   });
-  return enviar(
-    TEXTOS_VERIFICACAO.acompanhamento(
-      osEncontrada.numero,
-      linkAtivo && senha ? linkAcompanhamentoOs(osEncontrada.osId) : null,
-      senha
-    ),
-    { osId: osEncontrada.osId, botoes: [BOTAO_ATENDENTE] }
+  const detalhes = textoDetalhesOs(osEncontrada.os);
+  const acompanhamento = TEXTOS_VERIFICACAO.acompanhamento(
+    osEncontrada.numero,
+    linkAtivo && senha ? linkAcompanhamentoOs(osEncontrada.osId) : null,
+    senha
   );
+  // Corpo de mensagem com botão aceita no máximo 1024 caracteres
+  if (detalhes && detalhes.length + acompanhamento.length > 900) {
+    await enviar(detalhes, { osId: osEncontrada.osId });
+    return enviar(acompanhamento, { osId: osEncontrada.osId, botoes: [BOTAO_ATENDENTE] });
+  }
+  return enviar(detalhes ? `${detalhes}\n\n${acompanhamento}` : acompanhamento, {
+    osId: osEncontrada.osId,
+    botoes: [BOTAO_ATENDENTE],
+  });
 }
