@@ -27,30 +27,13 @@ function parseValorMonetarioBR(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function statusOsConsideradaFechada(os: { status?: unknown; status_tecnico?: unknown }): boolean {
+/** Fechada = entregue pela recepção. CONCLUIDO / REPARO CONCLUÍDO é só aviso do técnico, o aparelho ainda está na loja. */
+function statusOsConsideradaFechada(os: { status?: unknown }): boolean {
   const s = normStatusVal(os.status)
     .toUpperCase()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '');
-  const st = normStatusVal(os.status_tecnico)
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-  return (
-    s === 'ENTREGUE' ||
-    s === 'CONCLUIDO' ||
-    s === 'FATURADO' ||
-    st === 'REPARO CONCLUIDO' ||
-    st.includes('REPARO CONCLUIDO')
-  );
-}
-
-function statusOsEntregueOuConcluido(os: { status?: unknown }): boolean {
-  const s = normStatusVal(os.status)
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-  return s === 'ENTREGUE' || s === 'CONCLUIDO' || s === 'FATURADO';
+  return s === 'ENTREGUE' || s === 'FATURADO';
 }
 
 function parseOsDataLocal(dataStr: string | null | undefined): Date | null {
@@ -871,8 +854,7 @@ export default function ListaOrdensPage() {
               !item.cliente_recusou &&
               !aparelhoSemConserto &&
               statusOsConsideradaFechada(item) &&
-              !vendaOS &&
-              (valorFaturado > 0 || statusOsEntregueOuConcluido(item)),
+              !vendaOS,
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
             problema_relatado: item.problema_relatado || null,
