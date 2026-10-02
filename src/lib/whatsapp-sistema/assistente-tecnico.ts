@@ -12,6 +12,15 @@ import {
   LIMITE_FOTOS_OS,
 } from '@/lib/whatsapp-commands';
 import { baixarMidiaSistema } from './send';
+import { atualizarSessao, carregarSessao } from './sessao';
+import {
+  ehCancelamento,
+  ehConfirmacao,
+  executarAcao,
+  listarStatusTecnico,
+  prepararLaudo,
+  prepararStatus,
+} from './acoes';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -127,6 +136,48 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'preparar_laudo',
+      description:
+        'Prepara o laudo técnico de uma O.S. para salvar: o sistema corrige o texto e pede confirmação ao técnico (SIM/NÃO). Nada é salvo sem a confirmação dele. Chame de novo com o texto ajustado se ele pedir mudança.',
+      parameters: {
+        type: 'object',
+        properties: {
+          numero_os: { type: 'string' },
+          texto: {
+            type: 'string',
+            description: 'Texto do laudo com o que o técnico escreveu/ditou (pode juntar várias mensagens dele). Não invente testes nem conclusões.',
+          },
+          modo: {
+            type: 'string',
+            enum: ['substituir', 'acrescentar'],
+            description: 'Só quando a O.S. já tem laudo: substituir o atual ou acrescentar ao final.',
+          },
+        },
+        required: ['numero_os', 'texto'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'preparar_status',
+      description:
+        'Prepara a mudança do status técnico de uma O.S.; o sistema pede confirmação ao técnico (SIM/NÃO) antes de alterar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          numero_os: { type: 'string' },
+          status: { type: 'string', description: 'Um dos status técnicos válidos listados nas instruções.' },
+        },
+        required: ['numero_os', 'status'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'comissoes',
       description: 'Resumo das comissões do técnico (total, pagas, pendentes e últimas).',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
@@ -134,7 +185,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   },
 ];
 
-function promptSistema(usuario: Usuario, minhasOs: string): string {
+function promptSistema(usuario: Usuario, minhasOs: string, statusValidos: string[], pendente: string | null): string {
   const primeiroNome = usuario.nome?.trim().split(/\s+/)[0] || 'técnico';
   const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' });
   return `Você é o assistente do sistema Gestão Consert no WhatsApp, conversando com o técnico ${usuario.nome} (chame de ${primeiroNome}). Agora é ${agora}.
@@ -155,6 +206,12 @@ Contexto:
 - Blocos <contexto>...</contexto> no histórico são dados que você já consultou; use-os para responder perguntas de acompanhamento sem chamar a ferramenta de novo, a menos que precise de dado atualizado ou que não esteja ali. Nunca escreva esses blocos.
 - Linhas "[Entregue: ...]" registram senhas/fotos já enviadas. Não reenvie a menos que ele peça de novo e não escreva essas linhas.
 - Só existem as O.S. atribuídas a este técnico. Se a ferramenta não encontrar, diga que a O.S. não existe ou não está com ele.
+
+Laudo e status pelo chat:
+- Quando ele escrever ou ditar um laudo para uma O.S. (ou pedir "coloca no laudo", "salva o laudo"), chame preparar_laudo com o texto dele. Se não ficar claro de qual O.S. é, pergunte antes. Se ele mandar o laudo em partes, junte o que ele disse.
+- Quando ele pedir para mudar o status ("passa a 1891 para em execução", "terminei a 1891"), chame preparar_status com um destes status: ${statusValidos.join(', ')}. Se não der para saber qual status, pergunte.
+- Você nunca salva nada direto: o sistema mostra a prévia e pede SIM/NÃO. Não diga que salvou; quem confirma é o sistema depois do SIM.
+${pendente ? `- Aguardando confirmação agora: ${pendente}. Se ele pedir ajuste, chame a ferramenta de novo com a versão ajustada.` : ''}
 
 Senha e fotos:
 - A senha chega ao técnico pela própria ferramenta: não escreva a senha nem confirme o envio. Depois de enviar fotos, no máximo uma frase curta.
@@ -336,6 +393,8 @@ export async function responderTecnicoComIA(
   const imagens: string[] = [];
   const entregues: string[] = [];
   const contextos: string[] = [];
+  /** Prévias de laudo/status: vão ao técnico e ao histórico (a senha do aparelho não vai ao histórico) */
+  const confirmacoes: string[] = [];
   let pesquisas = 0;
 
   const continuacao = /^\s*(e|e\s+a|e\s+da|e\s+do|agora)\b/i.test(texto) && texto.length <= 40;
@@ -398,6 +457,21 @@ export async function responderTecnicoComIA(
         return `Senha da OS #${numero} entregue ao técnico.`;
       }
 
+      case 'preparar_laudo': {
+        if (!numero) return 'Número da O.S. não informado; pergunte de qual O.S. é o laudo.';
+        const modo = args.modo === 'substituir' || args.modo === 'acrescentar' ? args.modo : undefined;
+        const r = await prepararLaudo(usuario, telefone, numero, String(args.texto ?? ''), modo);
+        if (r.paraTecnico) confirmacoes.splice(0, confirmacoes.length, r.paraTecnico);
+        return r.paraModelo;
+      }
+
+      case 'preparar_status': {
+        if (!numero) return 'Número da O.S. não informado; pergunte de qual O.S. é.';
+        const r = await prepararStatus(usuario, telefone, numero, String(args.status ?? ''));
+        if (r.paraTecnico) confirmacoes.splice(0, confirmacoes.length, r.paraTecnico);
+        return r.paraModelo;
+      }
+
       case 'pesquisar_internet': {
         const consulta = String(args.consulta ?? '').trim();
         if (!consulta) return 'Consulta vazia.';
@@ -426,9 +500,36 @@ export async function responderTecnicoComIA(
   }
 
   try {
-    const [historico, minhasOs] = await Promise.all([
+    const sessao = await carregarSessao(telefone);
+    const pendente =
+      sessao?.acao_pendente && sessao.acao_expira_em && new Date(sessao.acao_expira_em).getTime() > Date.now()
+        ? sessao.acao_pendente
+        : null;
+
+    // SIM/NÃO de uma ação pendente é decidido pelo código, não pelo modelo
+    if (pendente && !entrada.foto && (ehConfirmacao(texto) || ehCancelamento(texto))) {
+      const confirmou = ehConfirmacao(texto);
+      await atualizarSessao(telefone, usuario.id, { acao_pendente: null, acao_expira_em: null });
+      const message = confirmou
+        ? await executarAcao(usuario, pendente)
+        : `Ok, cancelado. Nada foi alterado na OS #${pendente.numero_os}.`;
+      await salvarHistorico(supabase, telefone, usuario.id, [
+        { papel: 'user', conteudo: texto },
+        { papel: 'assistant', conteudo: message },
+      ]);
+      return { message, images: [] };
+    }
+
+    const descricaoPendente = pendente
+      ? pendente.tipo === 'laudo'
+        ? `laudo da OS #${pendente.numero_os}`
+        : `mudança de status da OS #${pendente.numero_os} para ${pendente.status}`
+      : null;
+
+    const [historico, minhasOs, statusValidos] = await Promise.all([
       carregarHistorico(supabase, telefone),
       listarMinhasOs(supabase, empresaId, authUserId),
+      listarStatusTecnico(empresaId),
     ]);
     const anterior = [...historico].reverse().find((m) => m.role === 'assistant');
     const conteudoAnterior = typeof anterior?.content === 'string' ? anterior.content : '';
@@ -443,7 +544,7 @@ export async function responderTecnicoComIA(
       if (/foto|imagem/i.test(ultimaFala) && /\?/.test(ultimaFala)) pediuFotos = true;
     }
     const mensagens: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: promptSistema(usuario, minhasOs) },
+      { role: 'system', content: promptSistema(usuario, minhasOs, statusValidos, descricaoPendente) },
       ...historico,
       {
         role: 'user',
@@ -501,7 +602,9 @@ export async function responderTecnicoComIA(
         .trim();
     }
 
-    const message = [...mensagensDiretas, resposta].filter(Boolean).join('\n\n');
+    // Com prévia de laudo/status, a fala do modelo é só ruído ("Pronto.", "Beleza")
+    if (confirmacoes.length) resposta = '';
+    const message = [...mensagensDiretas, resposta, ...confirmacoes].filter(Boolean).join('\n\n');
     if (!message && !imagens.length) return null;
 
     await salvarHistorico(supabase, telefone, usuario.id, [
@@ -523,6 +626,7 @@ export async function responderTecnicoComIA(
                 .join(', ')}]`
             : '',
           resposta,
+          ...confirmacoes,
         ]
           .filter(Boolean)
           .join('\n'),

@@ -18,6 +18,7 @@ import { isWhatsAppSistemaPhoneNumber } from './phone';
 import { baixarMidiaSistema, sendSistemaImagem, sendSistemaTexto } from './send';
 import { responderTecnicoComIA, type EntradaTecnico } from './assistente-tecnico';
 import { transcreverAudioLaudo } from '@/lib/chatgpt';
+import { AVISO_APAGAR_SENHA, verificarSessao } from './sessao';
 
 type RespostaAssistente = { message: string | null; images?: string[] };
 
@@ -225,7 +226,25 @@ export async function processarWebhookSistema(body: MetaWebhookBody): Promise<nu
             continue;
           }
 
-          const resposta = await responderMensagem(usuario, telefone, message);
+          const textoRecebido = message.type === 'text' ? message.text?.body?.trim() || null : null;
+          const verificacao = await verificarSessao(usuario, telefone, textoRecebido, message.id);
+          if (!verificacao.liberado) {
+            if (verificacao.resposta) await sendSistemaTexto(from, verificacao.resposta);
+            continue;
+          }
+
+          let mensagemParaResponder: MetaMensagem = message;
+          if (verificacao.acabouDeVerificar) {
+            // A mensagem atual é a senha: nunca segue para a IA nem para o histórico
+            if (!verificacao.textoPendente) {
+              await sendSistemaTexto(from, `${AVISO_APAGAR_SENHA}\n\nPode mandar o que precisa 🙂`);
+              continue;
+            }
+            await sendSistemaTexto(from, AVISO_APAGAR_SENHA);
+            mensagemParaResponder = { ...message, type: 'text', text: { body: verificacao.textoPendente } };
+          }
+
+          const resposta = await responderMensagem(usuario, telefone, mensagemParaResponder);
           if (!resposta) continue;
           await enviarResposta(from, resposta);
           respondidas += 1;
