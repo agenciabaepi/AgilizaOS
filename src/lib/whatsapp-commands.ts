@@ -1,6 +1,7 @@
 import { createAdminClient } from './supabaseClient';
 import { filterUsuariosTecnicos, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 import { textoDetalhesOs } from '@/lib/whatsapp-crm/os-detalhes';
+import { formatChecklistItemLabel } from '@/lib/checklist-values';
 
 export const LIMITE_FOTOS_OS = 5;
 
@@ -321,6 +322,60 @@ export interface OsDoTecnico {
   valor_faturado: number | null;
   imagens: string | null;
   imagens_tecnico: string | null;
+  categoria: string | null;
+  cor: string | null;
+  numero_serie: string | null;
+  acessorios: string | null;
+  condicoes_equipamento: string | null;
+  observacao: string | null;
+  tipo: string | null;
+  atendente: string | null;
+  data_cadastro: string | null;
+  prazo_entrega: string | null;
+  data_entrega: string | null;
+  vencimento_garantia: string | null;
+  checklist: ChecklistEntradaOs | null;
+}
+
+export interface ChecklistEntradaOs {
+  aparelhoNaoLiga: boolean;
+  funciona: string[];
+  naoFunciona: string[];
+}
+
+async function checklistEntradaOs(
+  supabase: ReturnType<typeof createAdminClient>,
+  bruto: unknown
+): Promise<ChecklistEntradaOs | null> {
+  let dados: Record<string, unknown>;
+  try {
+    dados = typeof bruto === 'string' ? JSON.parse(bruto) : (bruto as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+  if (!dados || typeof dados !== 'object') return null;
+
+  const ids = Object.keys(dados).filter((k) => k !== 'aparelhoNaoLiga');
+  const nomes = new Map<string, string>();
+  const uuids = ids.filter((k) => /^[0-9a-f-]{36}$/i.test(k));
+  if (uuids.length) {
+    const { data } = await supabase.from('checklist_itens').select('id, nome').in('id', uuids);
+    for (const item of data ?? []) nomes.set(item.id, formatChecklistItemLabel(item.nome));
+  }
+
+  const funciona: string[] = [];
+  const naoFunciona: string[] = [];
+  for (const id of ids) {
+    const nome = nomes.get(id) ?? (uuids.includes(id) ? null : id);
+    if (!nome) continue;
+    const valor = dados[id];
+    if (valor === true || valor === 'true' || valor === 'aprovado' || valor === 1) funciona.push(nome);
+    else if (valor === false || valor === 'false' || valor === 'reprovado' || valor === 0) naoFunciona.push(nome);
+  }
+
+  const aparelhoNaoLiga = dados.aparelhoNaoLiga === true;
+  if (!aparelhoNaoLiga && !funciona.length && !naoFunciona.length) return null;
+  return { aparelhoNaoLiga, funciona, naoFunciona };
 }
 
 export function listarFotosOs(os: Pick<OsDoTecnico, 'imagens' | 'imagens_tecnico'>): string[] {
@@ -362,6 +417,19 @@ export async function getOsDoTecnico(
         valor_faturado,
         imagens,
         imagens_tecnico,
+        categoria,
+        cor,
+        numero_serie,
+        acessorios,
+        condicoes_equipamento,
+        observacao,
+        tipo,
+        atendente,
+        data_cadastro,
+        prazo_entrega,
+        data_entrega,
+        vencimento_garantia,
+        checklist_entrada,
         tecnico_id,
         cliente:cliente_id ( nome )
       `)
@@ -400,6 +468,19 @@ export async function getOsDoTecnico(
       valor_faturado: os.valor_faturado,
       imagens: os.imagens || null,
       imagens_tecnico: os.imagens_tecnico || null,
+      categoria: os.categoria?.trim() || null,
+      cor: os.cor?.trim() || null,
+      numero_serie: os.numero_serie?.trim() || null,
+      acessorios: os.acessorios?.trim() || null,
+      condicoes_equipamento: os.condicoes_equipamento?.trim() || null,
+      observacao: os.observacao?.trim() || null,
+      tipo: os.tipo || null,
+      atendente: os.atendente || null,
+      data_cadastro: os.data_cadastro || null,
+      prazo_entrega: os.prazo_entrega || null,
+      data_entrega: os.data_entrega || null,
+      vencimento_garantia: os.vencimento_garantia || null,
+      checklist: await checklistEntradaOs(supabase, os.checklist_entrada),
     };
   } catch (error) {
     console.error('Erro interno ao buscar OS do técnico:', error);
@@ -407,18 +488,59 @@ export async function getOsDoTecnico(
   }
 }
 
+/** Datas da O.S. vêm como data pura, timestamp sem fuso (hora local) ou com fuso. */
+function dataOs(valor: string | null, comHora = false): string | null {
+  if (!valor) return null;
+  const pura = valor.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (pura) return `${pura[3]}/${pura[2]}/${pura[1]}`;
+  const local = valor.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::[\d.]+)?$/);
+  if (local) return `${local[3]}/${local[2]}/${local[1]}${comHora ? ` ${local[4]}:${local[5]}` : ''}`;
+  const d = new Date(valor);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    dateStyle: 'short',
+    ...(comHora ? { timeStyle: 'short' as const } : {}),
+  });
+}
+
+function textoChecklist(checklist: ChecklistEntradaOs | null): string | null {
+  if (!checklist) return null;
+  if (checklist.aparelhoNaoLiga) return '*Checklist de entrada:* aparelho não liga (itens não testados)';
+  return [
+    '*Checklist de entrada:*',
+    `❌ Não funciona: ${checklist.naoFunciona.length ? checklist.naoFunciona.join(', ') : 'nenhum item'}`,
+    checklist.funciona.length ? `✅ Funciona: ${checklist.funciona.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function formatResumoOsMessage(os: OsDoTecnico): string {
-  const aparelho = [os.equipamento, os.marca, os.modelo].filter(Boolean).join(' · ');
+  const aparelho = [os.equipamento || os.categoria, os.marca?.trim(), os.modelo?.trim()].filter(Boolean).join(' · ');
   const problema = os.problema_relatado?.trim().slice(0, 500);
   const detalhes = textoDetalhesOs(os);
+  const garantia = os.tipo && !/^normal$/i.test(os.tipo) ? os.tipo : null;
   const linhas = [
-    `📋 *OS #${os.numero_os}*`,
+    `📋 *OS #${os.numero_os}*${garantia ? ` (${garantia})` : ''}`,
     '',
     `Cliente: ${os.cliente_nome}`,
-    aparelho ? `Aparelho: ${aparelho}` : null,
     os.status ? `Status: ${os.status}` : null,
     os.status_tecnico ? `Status técnico: ${os.status_tecnico}` : null,
-    problema ? `\n*Problema:*\n${problema}` : null,
+    dataOs(os.data_cadastro, true) ? `Entrada: ${dataOs(os.data_cadastro, true)}${os.atendente ? ` (atendente: ${os.atendente})` : ''}` : null,
+    dataOs(os.prazo_entrega, true) ? `Prazo: ${dataOs(os.prazo_entrega, true)}` : null,
+    dataOs(os.data_entrega) ? `Entregue em: ${dataOs(os.data_entrega)}` : null,
+    dataOs(os.vencimento_garantia) ? `Garantia até: ${dataOs(os.vencimento_garantia)}` : null,
+    '',
+    '*Aparelho:*',
+    aparelho ? aparelho : null,
+    os.cor ? `Cor: ${os.cor}` : null,
+    os.numero_serie ? `Nº de série/IMEI: ${os.numero_serie}` : null,
+    os.acessorios ? `Acessórios: ${os.acessorios}` : null,
+    os.condicoes_equipamento ? `Condições: ${os.condicoes_equipamento}` : null,
+    problema ? `\n*Relato do cliente:*\n${problema}` : null,
+    os.observacao ? `\n*Observação:*\n${os.observacao.slice(0, 400)}` : null,
+    textoChecklist(os.checklist) ? `\n${textoChecklist(os.checklist)}` : null,
     detalhes ? `\n${detalhes}` : null,
   ];
   return linhas.filter((linha) => linha !== null).join('\n');

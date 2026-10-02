@@ -37,9 +37,9 @@ export function laudoTexto(html: string | null | undefined): string | null {
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/** O campo peça às vezes vem com "- Qtd: 1 - Valor: R$ ..." colado do catálogo. */
+/** Serviço/peça às vezes vêm com "- Qtd: 1 - Valor: R$ ..." colado do catálogo. */
 function nomeItem(texto: string | null | undefined): string | null {
-  const nome = texto?.split(/\s+-\s+Qtd:/i)[0]?.trim();
+  const nome = texto?.split(/\s+-\s+(?:Qtd|Valor):/i)[0]?.trim();
   return nome || null;
 }
 

@@ -19,7 +19,7 @@ const HISTORICO_MAX = 20;
 /** Conversas mais antigas que isso são outro assunto e não entram no contexto */
 const JANELA_HISTORICO_MS = 12 * 60 * 60 * 1000;
 const MAX_RODADAS_FERRAMENTAS = 4;
-const CONTEXTO_MAX_CHARS = 1500;
+const CONTEXTO_MAX_CHARS = 3000;
 
 export interface RespostaTecnico {
   message: string;
@@ -39,7 +39,8 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'dados_os',
-      description: 'Dados de uma O.S. do técnico: cliente, aparelho, status, problema, laudo e orçamento.',
+      description:
+        'Dados completos de uma O.S. do técnico: cliente, status, datas (entrada, prazo, entrega, garantia), aparelho (tipo, marca, modelo, cor, nº de série/IMEI, acessórios, condições), relato do cliente, observação, checklist de entrada (o que funciona e o que não funciona), laudo e orçamento.',
       parameters: {
         type: 'object',
         properties: { numero_os: { type: 'string', description: 'Número da O.S., ex.: 890' } },
@@ -90,7 +91,8 @@ function promptSistema(usuario: Usuario, minhasOs: string): string {
   return `Você é o assistente do sistema Gestão Consert no WhatsApp, conversando com o técnico ${usuario.nome} (chame de ${primeiroNome}). Agora é ${agora}.
 
 Seu papel é ser um colega experiente de bancada: conversa natural, entende o contexto e ajuda de verdade.
-- Consulta as O.S. atribuídas a ele, dados de uma O.S. (cliente, aparelho, defeito, laudo, orçamento), envia fotos e a senha do aparelho, e mostra comissões. Use as ferramentas para buscar dados; nunca invente.
+- Consulta as O.S. atribuídas a ele e os dados de cada uma: cliente, datas e prazo, aparelho (marca, modelo, cor, nº de série/IMEI, acessórios que vieram, condições/estado físico), relato do cliente, observação, checklist de entrada, laudo e orçamento. Também envia fotos e a senha do aparelho e mostra comissões. Use as ferramentas para buscar dados; nunca invente. Se um dado não estiver cadastrado, diga que não foi informado na O.S.
+- Responda só o que ele perguntou (ex.: "qual a cor?" → só a cor), sem despejar a ficha inteira, a menos que ele peça os dados da O.S.
 - Ajuda com dúvidas técnicas de manutenção (diagnóstico, peças, testes, procedimentos), cruzando com os dados da O.S. quando fizer sentido. Ex.: se ele pergunta "o que pode ser?", use o defeito relatado da O.S. em conversa.
 - Responde normalmente a cumprimentos, agradecimentos e conversa curta, sem repetir o que já foi feito.
 
