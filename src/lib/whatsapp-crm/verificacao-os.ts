@@ -11,6 +11,24 @@ export interface VerificacaoOsEstado {
   pendente?: VerificacaoOsPendente | null;
   verificadas?: string[];
   tentativas?: string[];
+  /** O.S. cujo link de acompanhamento já foi enviado nesta conversa */
+  links_enviados?: string[];
+}
+
+export const BOTAO_ATENDENTE = { id: 'falar_atendente', title: 'Falar com atendente' };
+
+const REGEX_PEDIDO_ATENDENTE =
+  /^(quero )?(falar com )?(um |uma |o |a )?(atendente|atendimento humano|humano|pessoa|alguem|vendedor|tecnico)( por favor)?$/;
+
+/** Mensagem que é só um pedido de atendente (inclui o toque no botão "Falar com atendente"). */
+export function pedidoDeAtendente(texto: string): boolean {
+  return REGEX_PEDIDO_ATENDENTE.test(normalizar(texto));
+}
+
+export function linkAcompanhamentoOs(osId: string): string {
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const base = site && !/localhost|127\.0\.0\.1/.test(site) ? site : 'https://gestaoconsert.com.br';
+  return `${base.replace(/\/+$/, '')}/os/${osId}/status`;
 }
 
 export const VERIFICACAO_EXPIRA_MS = 30 * 60 * 1000;
@@ -86,4 +104,14 @@ export const TEXTOS_VERIFICACAO = {
   naoConfirmado:
     'Não consegui confirmar os dados dessa O.S. Por segurança, um atendente vai continuar o seu atendimento por aqui em breve.',
   limite: 'Por segurança, um atendente vai continuar a consulta da sua O.S. por aqui em breve.',
+  acompanhamento: (numero: number, link: string | null, senha: string | null) =>
+    [
+      link && senha
+        ? `📲 Você pode acompanhar o status da sua O.S. nº ${numero} ao vivo por aqui:\n${link}\n🔑 *Senha:* ${senha}`
+        : null,
+      'Se quiser tirar alguma dúvida com a nossa equipe, toque em *Falar com atendente*.',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+  transferenciaPedida: 'Certo! Um atendente vai continuar o seu atendimento por aqui em breve. 😊',
 };

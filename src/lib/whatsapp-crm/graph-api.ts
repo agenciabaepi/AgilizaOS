@@ -87,6 +87,66 @@ export async function sendWhatsAppTextMessage(
   }
 }
 
+export interface SendButtonsMessageParams extends SendTextMessageParams {
+  /** Até 3 botões de resposta rápida; título com no máximo 20 caracteres */
+  buttons: { id: string; title: string }[];
+}
+
+/** Envia texto com botões de resposta rápida (só dentro da janela de 24h) */
+export async function sendWhatsAppButtonsMessage(
+  params: SendButtonsMessageParams
+): Promise<SendTextMessageResult> {
+  const { phoneNumberId, accessToken } = resolveCredentials(params.config);
+
+  if (!phoneNumberId || !accessToken) {
+    return { success: false, error: humanizeWhatsAppError('Credenciais WhatsApp não configuradas') };
+  }
+
+  const to = params.to.replace(/\D/g, '');
+  const phoneWithCountry = to.startsWith('55') ? to : `55${to}`;
+
+  try {
+    const response = await fetch(`${GRAPH_BASE}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phoneWithCountry,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: params.message.slice(0, 1024) },
+          action: {
+            buttons: params.buttons.slice(0, 3).map((b) => ({
+              type: 'reply',
+              reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
+            })),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errMsg = data?.error?.message || `HTTP ${response.status}`;
+      const errCode = data?.error?.code ? ` (#${data.error.code})` : '';
+      return { success: false, error: humanizeWhatsAppError(`${errMsg}${errCode}`) };
+    }
+
+    return { success: true, messageId: data?.messages?.[0]?.id };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Erro ao enviar mensagem',
+    };
+  }
+}
+
 export interface SendTemplateMessageParams {
   to: string;
   templateName: string;

@@ -1,13 +1,16 @@
 import OpenAI from 'openai';
 import { createAdminClient } from '@/lib/supabaseClient';
-import { sendWhatsAppTextMessage } from './graph-api';
+import { sendWhatsAppButtonsMessage, sendWhatsAppTextMessage } from './graph-api';
 import { appendMensagem, getEmpresaConfig, updateMensagemEntrega } from './conversations';
 import type { WhatsAppIaConfig, WhatsAppIaFaqItem } from './types';
 import {
+  BOTAO_ATENDENTE,
   TEXTOS_VERIFICACAO,
   VERIFICACAO_MAX_TENTATIVAS,
   classificarSimNao,
   descricaoAparelho,
+  linkAcompanhamentoOs,
+  pedidoDeAtendente,
   pendenteAtiva,
   primeiroNome,
   tentativasRecentes,
@@ -533,7 +536,10 @@ export async function responderComIA(params: {
 
   const nomeAssistente = config.nome_assistente.replace(/[*_~`]/g, '').trim() || 'Assistente virtual';
 
-  async function enviar(texto: string, opts: { transferir?: boolean; osId?: string | null } = {}) {
+  async function enviar(
+    texto: string,
+    opts: { transferir?: boolean; osId?: string | null; botoes?: { id: string; title: string }[] } = {}
+  ) {
     const waConfig = await getEmpresaConfig(supabase, params.empresaId);
     if (!waConfig?.ativo) return 'inativo' as const;
 
@@ -543,17 +549,30 @@ export async function responderComIA(params: {
       empresa_id: params.empresaId,
       direcao: 'saida',
       tipo: 'texto',
-      conteudo: texto,
+      conteudo: opts.botoes?.length
+        ? `${texto}\n\n${opts.botoes.map((b) => `[ ${b.title} ]`).join(' ')}`
+        : texto,
       status_entrega: 'enviada',
       os_id: osId ?? undefined,
       enviado_por_ia: true,
     });
 
-    const envio = await sendWhatsAppTextMessage({
-      to: conversa!.telefone,
-      message: `*${nomeAssistente}:*\n${texto}`,
-      config: waConfig,
-    });
+    const mensagem = `*${nomeAssistente}:*\n${texto}`;
+    let envio = opts.botoes?.length
+      ? await sendWhatsAppButtonsMessage({
+          to: conversa!.telefone,
+          message: mensagem,
+          buttons: opts.botoes,
+          config: waConfig,
+        })
+      : await sendWhatsAppTextMessage({ to: conversa!.telefone, message: mensagem, config: waConfig });
+    if (!envio.success && opts.botoes?.length) {
+      envio = await sendWhatsAppTextMessage({
+        to: conversa!.telefone,
+        message: `${mensagem.replace(/toque em \*Falar com atendente\*/i, 'responda *atendente*')}`,
+        config: waConfig,
+      });
+    }
 
     await updateMensagemEntrega(supabase, msg.id, {
       meta_message_id: envio.messageId ?? null,
@@ -578,8 +597,14 @@ export async function responderComIA(params: {
     await supabase.from('whatsapp_conversas').update({ ia_verificacao: estado }).eq('id', params.conversaId);
   }
 
-  const empresa = await getEmpresaBasica(supabase, params.empresaId);
   const estado: VerificacaoOsEstado = (conversa.ia_verificacao as VerificacaoOsEstado | null) ?? {};
+
+  if (pedidoDeAtendente(ultima.conteudo ?? '')) {
+    if (estado.pendente) await salvarVerificacao({ ...estado, pendente: null });
+    return enviar(TEXTOS_VERIFICACAO.transferenciaPedida, { transferir: true });
+  }
+
+  const empresa = await getEmpresaBasica(supabase, params.empresaId);
   const pendente = pendenteAtiva(estado);
   const incluirNumeros: number[] = [];
 
@@ -695,5 +720,32 @@ export async function responderComIA(params: {
     conversa.os_id = osEncontrada.osId;
   }
 
-  return enviar(resultado.resposta, { transferir: resultado.transferir });
+  const envio = await enviar(resultado.resposta, { transferir: resultado.transferir });
+  if (envio !== 'respondido' || !osEncontrada || resultado.transferir) return envio;
+  if ((estado.links_enviados ?? []).includes(osEncontrada.osId)) return envio;
+
+  const [{ data: ordem }, { data: empresaLink }] = await Promise.all([
+    supabase
+      .from('ordens_servico')
+      .select('senha_acesso')
+      .eq('id', osEncontrada.osId)
+      .eq('empresa_id', params.empresaId)
+      .maybeSingle(),
+    supabase.from('empresas').select('link_publico_ativo').eq('id', params.empresaId).maybeSingle(),
+  ]);
+  const linkAtivo = (empresaLink as { link_publico_ativo?: boolean | null } | null)?.link_publico_ativo !== false;
+  const senha = ordem?.senha_acesso ? String(ordem.senha_acesso).trim() : null;
+
+  await salvarVerificacao({
+    ...estado,
+    links_enviados: [...new Set([...(estado.links_enviados ?? []), osEncontrada.osId])],
+  });
+  return enviar(
+    TEXTOS_VERIFICACAO.acompanhamento(
+      osEncontrada.numero,
+      linkAtivo && senha ? linkAcompanhamentoOs(osEncontrada.osId) : null,
+      senha
+    ),
+    { osId: osEncontrada.osId, botoes: [BOTAO_ATENDENTE] }
+  );
 }

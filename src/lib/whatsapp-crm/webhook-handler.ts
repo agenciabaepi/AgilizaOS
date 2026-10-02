@@ -12,7 +12,22 @@ type MetaMessage = {
   from?: string;
   type?: string;
   text?: { body?: string };
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string };
+  };
+  /** Resposta a botão de template */
+  button?: { text?: string; payload?: string };
 };
+
+function respostaDeBotao(message: MetaMessage): string | null {
+  if (message.type === 'interactive') {
+    return message.interactive?.button_reply?.title ?? message.interactive?.list_reply?.title ?? null;
+  }
+  if (message.type === 'button') return message.button?.text ?? null;
+  return null;
+}
 
 type MetaStatus = {
   id?: string;
@@ -99,6 +114,8 @@ function extractContent(message: MetaMessage): string {
   if (message.type === 'text') {
     return message.text?.body ?? '';
   }
+  const botao = respostaDeBotao(message);
+  if (botao) return botao;
   if (message.type === 'image' && message.text?.body) {
     return message.text.body;
   }
@@ -118,7 +135,7 @@ async function processInboundMessage(
   const waId = toWhatsAppId(from);
   const contactName = value.contacts?.[0]?.profile?.name;
   const conteudo = extractContent(message);
-  const tipo = mapMessageType(message.type ?? 'text');
+  const tipo = respostaDeBotao(message) ? 'texto' : mapMessageType(message.type ?? 'text');
 
   const cliente = await findClienteByPhone(supabase, config.empresa_id, from);
 
@@ -257,7 +274,7 @@ export async function processWhatsAppCrmWebhook(body: {
           try {
             const salva = await processInboundMessage(supabase, config, value, message);
             processed += 1;
-            if (salva && message.id && message.type === 'text') {
+            if (salva && message.id && (message.type === 'text' || respostaDeBotao(message))) {
               const lista = candidatasIA.get(message.id) ?? [];
               lista.push(salva);
               candidatasIA.set(message.id, lista);
