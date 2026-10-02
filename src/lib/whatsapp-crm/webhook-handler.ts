@@ -4,6 +4,7 @@ import { getOrCreateConversa, appendMensagem, findClienteByPhone } from './conve
 import { responderComIA } from './assistente-ia';
 import { syncOsContexto } from './os-context';
 import { toWhatsAppId } from './normalize-phone';
+import { isWhatsAppSistemaPhoneNumber } from '@/lib/whatsapp-sistema/phone';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -63,10 +64,10 @@ const STATUS_RANK: Record<StatusEntrega, number> = {
 function descreverErroMeta(status: MetaStatus): string {
   const err = status.errors?.[0];
   if (!err) return 'Falha na entrega';
-  const detalhe = err.error_data?.details || err.message || err.title || 'Falha na entrega';
   if (err.code === 131042) {
     return 'A conta do WhatsApp Business está sem moeda ou forma de pagamento. Configure em business.facebook.com > Faturamento e pagamentos (mensagens automáticas são cobradas pela Meta). (código 131042)';
   }
+  const detalhe = err.error_data?.details || err.message || err.title || 'Falha na entrega';
   return err.code ? `${detalhe} (código ${err.code})` : detalhe;
 }
 
@@ -206,6 +207,10 @@ async function resolveConfigs(
 
   const id = String(phoneNumberId);
 
+  if (isWhatsAppSistemaPhoneNumber(id)) {
+    return [];
+  }
+
   // Várias empresas de teste podem compartilhar o mesmo Phone Number ID da Meta.
   // `.maybeSingle()` quebra nesse caso e o webhook descartava todas as mensagens.
   const { data: matched, error } = await supabase
@@ -218,21 +223,9 @@ async function resolveConfigs(
     console.warn('[CRM webhook] Erro ao buscar config:', error.message);
   }
 
-  if (matched && matched.length > 0) return matched;
+  const daEmpresa = (matched ?? []).filter((c) => !isWhatsAppSistemaPhoneNumber(c.phone_number_id));
+  if (daEmpresa.length > 0) return daEmpresa;
 
-  const { data: configs } = await supabase
-    .from('whatsapp_empresa_config')
-    .select('empresa_id, phone_number_id, ativo')
-    .eq('ativo', true);
-
-  if (configs?.length === 1) {
-    console.warn(
-      `[CRM webhook] phone_number_id ${id} não encontrado; usando única config ativa (${configs[0].phone_number_id})`
-    );
-    return configs;
-  }
-
-  console.warn(`[CRM webhook] Nenhuma config ativa para phone_number_id ${id}`);
   return [];
 }
 

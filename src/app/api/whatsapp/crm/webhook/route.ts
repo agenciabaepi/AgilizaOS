@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
 import { processWhatsAppCrmWebhook } from '@/lib/whatsapp-crm/webhook-handler';
+import { processarWebhookSistema, temMensagemParaSistema } from '@/lib/whatsapp-sistema/webhook';
 
 /** O assistente IA responde depois do 200 (via `after`), dentro deste limite */
 export const maxDuration = 60;
 
 /**
- * Webhook CRM — processa mensagens inbound da Cloud API.
+ * Webhook da Meta — CRM das empresas e o WhatsApp do sistema (assistente dos técnicos).
  * Configure em Meta Developer: POST /api/whatsapp/crm/webhook
  * (Também processado via /api/webhook se a Meta apontar para a URL antiga.)
  */
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    if (temMensagemParaSistema(body)) {
+      after(() => processarWebhookSistema(body).catch((err) => console.error('Webhook sistema error:', err)));
+    }
     const result = await processWhatsAppCrmWebhook(body);
     return NextResponse.json({ success: true, ...result });
   } catch (err) {

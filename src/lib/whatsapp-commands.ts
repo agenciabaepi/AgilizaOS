@@ -1,5 +1,8 @@
 import { createAdminClient } from './supabaseClient';
 import { filterUsuariosTecnicos, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { textoDetalhesOs } from '@/lib/whatsapp-crm/os-detalhes';
+
+export const LIMITE_FOTOS_OS = 5;
 
 interface ComissaoResumo {
   id: string;
@@ -273,5 +276,151 @@ export function formatSenhaOSMessage(dadosOS: {
   message += `📱 Equipamento: ${dadosOS.equipamento}\n`;
   
   return message;
+}
+
+export function extrairNumeroOs(texto: string): string | null {
+  const numeros = texto.match(/\d+/g);
+  if (!numeros?.length) return null;
+  const candidatos = numeros.filter((n) => n.length >= 2 && n.length <= 5);
+  return candidatos[0] ?? numeros[0];
+}
+
+export function pedidoDeFotos(texto: string): boolean {
+  return /foto|imagem|picture/i.test(texto);
+}
+
+/** Resumo da O.S. Pedido de foto sem pedir dados não entra aqui. */
+export function pedidoDeResumoOs(texto: string): boolean {
+  if (!/(?:\bos\b|ordem)/i.test(texto)) return false;
+  if (/senha|password/i.test(texto)) return false;
+  if (pedidoDeFotos(texto) && !/dados|informa|status|resumo|detalh|situa|laudo|or[cç]amento|problema/i.test(texto)) {
+    return false;
+  }
+  const palavras = texto.trim().split(/\s+/).length;
+  const explicito = /dados|informa|status|resumo|detalh|situa|andamento|laudo|or[cç]amento/i.test(texto);
+  return explicito || palavras <= 8;
+}
+
+export interface OsDoTecnico {
+  numero_os: string;
+  status: string | null;
+  status_tecnico: string | null;
+  equipamento: string | null;
+  marca: string | null;
+  modelo: string | null;
+  problema_relatado: string | null;
+  cliente_nome: string;
+  laudo: string | null;
+  servico: string | null;
+  qtd_servico: number | null;
+  valor_servico: number | null;
+  peca: string | null;
+  qtd_peca: number | null;
+  valor_peca: number | null;
+  desconto: number | null;
+  valor_faturado: number | null;
+  imagens: string | null;
+  imagens_tecnico: string | null;
+}
+
+export function listarFotosOs(os: Pick<OsDoTecnico, 'imagens' | 'imagens_tecnico'>): string[] {
+  const urls = [os.imagens, os.imagens_tecnico]
+    .flatMap((campo) => (campo || '').split(','))
+    .map((url) => url.trim())
+    .filter((url) => /^https:\/\//i.test(url));
+  return [...new Set(urls)];
+}
+
+/**
+ * O.S. da empresa atribuída a este técnico. Null se não existe ou é de outro técnico.
+ */
+export async function getOsDoTecnico(
+  numeroOS: string | number,
+  empresaId: string,
+  tecnicoAuthUserId: string
+): Promise<OsDoTecnico | null> {
+  try {
+    const supabase = createAdminClient();
+    const { data: os, error } = await supabase
+      .from('ordens_servico')
+      .select(`
+        numero_os,
+        status,
+        status_tecnico,
+        equipamento,
+        marca,
+        modelo,
+        problema_relatado,
+        laudo,
+        servico,
+        qtd_servico,
+        valor_servico,
+        peca,
+        qtd_peca,
+        valor_peca,
+        desconto,
+        valor_faturado,
+        imagens,
+        imagens_tecnico,
+        tecnico_id,
+        cliente:cliente_id ( nome )
+      `)
+      .eq('numero_os', String(numeroOS))
+      .eq('empresa_id', empresaId)
+      .eq('tecnico_id', tecnicoAuthUserId)
+      .maybeSingle();
+
+    if (error || !os) {
+      console.error('Erro ao buscar OS do técnico:', error);
+      return null;
+    }
+
+    if (os.tecnico_id !== tecnicoAuthUserId) return null;
+
+    const cliente = os.cliente as { nome?: string } | { nome?: string }[] | null;
+    const clienteNome = Array.isArray(cliente) ? cliente[0]?.nome : cliente?.nome;
+
+    return {
+      numero_os: String(os.numero_os),
+      status: os.status || null,
+      status_tecnico: os.status_tecnico || null,
+      equipamento: os.equipamento || null,
+      marca: os.marca || null,
+      modelo: os.modelo || null,
+      problema_relatado: os.problema_relatado || null,
+      cliente_nome: clienteNome || 'N/A',
+      laudo: os.laudo || null,
+      servico: os.servico || null,
+      qtd_servico: os.qtd_servico,
+      valor_servico: os.valor_servico,
+      peca: os.peca || null,
+      qtd_peca: os.qtd_peca,
+      valor_peca: os.valor_peca,
+      desconto: os.desconto,
+      valor_faturado: os.valor_faturado,
+      imagens: os.imagens || null,
+      imagens_tecnico: os.imagens_tecnico || null,
+    };
+  } catch (error) {
+    console.error('Erro interno ao buscar OS do técnico:', error);
+    return null;
+  }
+}
+
+export function formatResumoOsMessage(os: OsDoTecnico): string {
+  const aparelho = [os.equipamento, os.marca, os.modelo].filter(Boolean).join(' · ');
+  const problema = os.problema_relatado?.trim().slice(0, 500);
+  const detalhes = textoDetalhesOs(os);
+  const linhas = [
+    `📋 *OS #${os.numero_os}*`,
+    '',
+    `Cliente: ${os.cliente_nome}`,
+    aparelho ? `Aparelho: ${aparelho}` : null,
+    os.status ? `Status: ${os.status}` : null,
+    os.status_tecnico ? `Status técnico: ${os.status_tecnico}` : null,
+    problema ? `\n*Problema:*\n${problema}` : null,
+    detalhes ? `\n${detalhes}` : null,
+  ];
+  return linhas.filter((linha) => linha !== null).join('\n');
 }
 
