@@ -97,6 +97,7 @@ function labelStatusTecnicoOrdem(os: {
 }
 
 const SUPABASE_IN_CHUNK_SIZE = 150;
+const TAB_TECNICO_PREFIX = 'tecnico:';
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -1135,6 +1136,8 @@ export default function ListaOrdensPage() {
                      stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
       } else if (activeTab === 'garantia_vencida') {
         matchesTab = isGarantiaVencidaOs(os);
+      } else if (activeTab.startsWith(TAB_TECNICO_PREFIX)) {
+        matchesTab = os.tecnico === activeTab.slice(TAB_TECNICO_PREFIX.length);
       }
       // activeTab === 'todas' não filtra nada - mostra todas as OSs
 
@@ -1239,6 +1242,19 @@ export default function ListaOrdensPage() {
     const garantiaVencida = ordens.filter((os) => isGarantiaVencidaOs(os)).length;
     
     return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, garantiaVencida, todas: ordens.length };
+  }, [ordens]);
+
+  const contadoresPorTecnico = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const os of ordens) {
+      const nome = os.tecnico || 'Sem técnico';
+      mapa.set(nome, (mapa.get(nome) || 0) + 1);
+    }
+    const semTecnico = (nome: string) => nome === 'Sem técnico' || nome === 'Técnico não encontrado';
+    return Array.from(mapa, ([nome, total]) => ({ nome, total })).sort((a, b) => {
+      if (semTecnico(a.nome) !== semTecnico(b.nome)) return semTecnico(a.nome) ? 1 : -1;
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+    });
   }, [ordens]);
 
   // ✅ OTIMIZADO: Loading states mais inteligentes
@@ -1569,6 +1585,35 @@ export default function ListaOrdensPage() {
                   {contadores.garantiaVencida}
                 </span>
               </button>
+              {contadoresPorTecnico.length > 0 && (
+                <span className="flex items-center gap-1.5 border-l border-gray-200 dark:border-zinc-600 ml-2 pl-4 pr-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-zinc-500 whitespace-nowrap">
+                  <FiUser className="w-3.5 h-3.5" />
+                  Por técnico
+                </span>
+              )}
+              {contadoresPorTecnico.map(({ nome, total }) => {
+                const tabId = `${TAB_TECNICO_PREFIX}${nome}`;
+                const ativa = activeTab === tabId;
+                return (
+                  <button
+                    key={tabId}
+                    onClick={() => handleTabChange(tabId)}
+                    aria-pressed={ativa}
+                    className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                      ativa
+                        ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                        : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    {nome}
+                    <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                      ativa ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
+                    }`}>
+                      {total}
+                    </span>
+                  </button>
+                );
+              })}
               </div>
             </div>
           </div>

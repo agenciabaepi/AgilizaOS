@@ -20,6 +20,9 @@ export interface OsEditarDraftPayload {
   numeroSerie: string;
   acessorios: string;
   condicoesEquipamento: string;
+  senhaAparelho?: string;
+  senhaPadrao?: number[];
+  prazoEntrega?: string;
   equipamento: string;
   relato: string;
   observacao: string;
@@ -124,7 +127,9 @@ export function isOsEditarDraftMeaningful(data: OsEditarDraftPayload): boolean {
     hasText(data.marca) ||
     hasText(data.modelo) ||
     hasText(data.cor) ||
-    hasText(data.numeroSerie)
+    hasText(data.numeroSerie) ||
+    hasText(data.senhaAparelho) ||
+    (data.senhaPadrao?.length ?? 0) > 0
   ) {
     return true;
   }

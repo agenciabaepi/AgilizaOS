@@ -246,6 +246,11 @@ const VisualizarOrdemServicoPage = () => {
               .then(({ data: emp }) => { if (typeof emp?.link_publico_ativo === 'boolean') setLinkPublicoAtivo(emp.link_publico_ativo); })
               .catch(() => { /* mantém true se coluna não existir ou der erro */ });
           }
+          void Promise.resolve(supabase.from('ordens_servico').select('videos_recepcao').eq('id', String(id)).single())
+            .then(({ data: v }) => {
+              if (v?.videos_recepcao) setOrdem((prev: any) => (prev ? { ...prev, videos_recepcao: v.videos_recepcao } : prev));
+            })
+            .catch(() => { /* coluna pode não existir ainda */ });
         }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -1577,7 +1582,7 @@ const VisualizarOrdemServicoPage = () => {
           </div>
 
           {/* Seção de Imagens e Vídeos - Full Width */}
-          {(ordem.imagens || ordem.imagens_tecnico || (ordem as any).videos_tecnico) && (
+          {(ordem.imagens || ordem.imagens_tecnico || (ordem as any).videos_tecnico || ordem.videos_recepcao) && (
             <div className="mt-6 sm:mt-8 space-y-6">
               {/* Grid de 2 colunas para imagens em telas maiores */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1603,6 +1608,16 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                 )}
               </div>
+
+              {ordem.videos_recepcao && (
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
+                  <VideosOS
+                    videos={ordem.videos_recepcao}
+                    ordemId={ordem.numero_os || ordem.id}
+                    titulo="Vídeos do Equipamento"
+                  />
+                </div>
+              )}
 
               {/* Vídeos do Técnico - linha separada */}
               {(ordem as any).videos_tecnico && (

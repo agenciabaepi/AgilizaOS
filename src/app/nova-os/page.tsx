@@ -39,6 +39,8 @@ import DynamicChecklist from '@/components/DynamicChecklist';
 import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os/NovaOSWizardLayout';
 import NovaOSSection from '@/components/nova-os/NovaOSSection';
 import NovaOSPendenciasFinalizar from '@/components/nova-os/NovaOSPendenciasFinalizar';
+import UploadCelularQRCode from '@/components/UploadCelularQRCode';
+import { UPLOAD_CELULAR_MAX_ARQUIVOS, type ArquivoCelular } from '@/lib/uploadCelular';
 import TrialLimitGuard from '@/components/TrialLimitGuard';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { AparelhoCatalogoCor, CorCatalogo } from '@/types/cores';
@@ -578,6 +580,9 @@ function NovaOS2Content() {
   // Estado para etapa 6 - Imagens
   const [imagens, setImagens] = useState<File[]>([]);
   const [previewImagens, setPreviewImagens] = useState<string[]>([]);
+  const [uploadCelularToken, setUploadCelularToken] = useState<string | null>(null);
+  const [arquivosCelular, setArquivosCelular] = useState<ArquivoCelular[]>([]);
+  const limiteImagensLocais = Math.max(0, UPLOAD_CELULAR_MAX_ARQUIVOS - arquivosCelular.length);
   
   // Estado de loading
   const [salvando, setSalvando] = useState(false);
@@ -585,6 +590,19 @@ function NovaOS2Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
+
+  const adicionarImagensLocais = (arquivos: File[]) => {
+    const soImagens = arquivos.filter((file) => file.type.startsWith('image/'));
+    const disponivel = Math.max(0, limiteImagensLocais - imagens.length);
+    const aceitos = soImagens.slice(0, disponivel);
+    if (aceitos.length < soImagens.length) {
+      addToast('warning', `Limite de ${UPLOAD_CELULAR_MAX_ARQUIVOS} fotos/vídeos por aparelho (computador + celular).`);
+    }
+    if (aceitos.length === 0) return;
+    setImagens((prev) => [...prev, ...aceitos]);
+    setPreviewImagens((prev) => [...prev, ...aceitos.map((file) => URL.createObjectURL(file))]);
+  };
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
 
   const draftRestoredRef = useRef(false);
@@ -623,6 +641,7 @@ function NovaOS2Content() {
       prazoEntrega,
       observacoes,
       condicoesEquipamento,
+      uploadCelularToken,
     };
     return {
       ...base,
@@ -650,6 +669,7 @@ function NovaOS2Content() {
     prazoEntrega,
     observacoes,
     condicoesEquipamento,
+    uploadCelularToken,
   ]);
 
   const resetFormularioNovaOS = useCallback(() => {
@@ -687,6 +707,8 @@ function NovaOS2Content() {
     setCondicoesEquipamento('');
     setImagens([]);
     setPreviewImagens([]);
+    setUploadCelularToken(null);
+    setArquivosCelular([]);
     draftRestoredRef.current = false;
     skipUrlClienteRef.current = false;
     tipoEntradaInicialRef.current = true;
@@ -725,6 +747,7 @@ function NovaOS2Content() {
     setPrazoEntrega(draft.prazoEntrega || '');
     setObservacoes(draft.observacoes || '');
     setCondicoesEquipamento(draft.condicoesEquipamento || '');
+    setUploadCelularToken(draft.uploadCelularToken ?? null);
   }, []);
 
   const { draftRestored, draftUpdatedAt, clearDraft, persistDraft } = useNovaOSDraft({
@@ -1286,6 +1309,14 @@ function NovaOS2Content() {
       return;
     }
 
+    if (imagens.length + arquivosCelular.length > UPLOAD_CELULAR_MAX_ARQUIVOS) {
+      addToast(
+        'error',
+        `Máximo de ${UPLOAD_CELULAR_MAX_ARQUIVOS} fotos/vídeos por aparelho. Remova ${imagens.length + arquivosCelular.length - UPLOAD_CELULAR_MAX_ARQUIVOS} para continuar.`
+      );
+      return;
+    }
+
     setSalvando(true);
 
     try {
@@ -1394,6 +1425,7 @@ function NovaOS2Content() {
       }
 
       // Upload das imagens (se houver)
+      const urlsImagens: string[] = [];
       if (imagens.length > 0) {
         try {
           const formData = new FormData();
@@ -1415,23 +1447,35 @@ function NovaOS2Content() {
             console.error('Erro no upload das imagens:', uploadResult.error);
             // Não falhar a criação da OS por erro no upload
           } else {
-            // Salvar URLs das imagens na OS
-            const urlsImagens = uploadResult.files.map((file: any) => file.url).join(',');
-            
-            const { error: updateError } = await supabase
-              .from('ordens_servico')
-              .update({ 
-                imagens: urlsImagens 
-              })
-              .eq('id', osData.id);
-
-            if (updateError) {
-              console.error('Erro ao salvar URLs das imagens:', updateError);
-            }
+            urlsImagens.push(...uploadResult.files.map((file: any) => file.url));
           }
         } catch (uploadError) {
           console.error('Erro no upload das imagens:', uploadError);
           // Não falhar a criação da OS por erro no upload
+        }
+      }
+
+      urlsImagens.push(...arquivosCelular.filter((a) => a.tipo === 'imagem').map((a) => a.url));
+      const urlsVideosCelular = arquivosCelular.filter((a) => a.tipo === 'video').map((a) => a.url);
+
+      if (urlsImagens.length > 0) {
+        const { error: updateError } = await supabase
+          .from('ordens_servico')
+          .update({ imagens: urlsImagens.join(',') })
+          .eq('id', osData.id);
+        if (updateError) {
+          console.error('Erro ao salvar URLs das imagens:', updateError);
+        }
+      }
+
+      if (urlsVideosCelular.length > 0) {
+        const { error: videosError } = await supabase
+          .from('ordens_servico')
+          .update({ videos_recepcao: urlsVideosCelular.join(',') })
+          .eq('id', osData.id);
+        if (videosError) {
+          console.error('Erro ao salvar vídeos do celular:', videosError);
+          addToast('warning', 'Os vídeos enviados pelo celular não puderam ser vinculados à O.S.');
         }
       }
 
@@ -2753,6 +2797,12 @@ function NovaOS2Content() {
               <div className="w-full flex flex-col gap-6">
                 <h3 className="text-lg font-medium text-gray-700 mb-4 text-left">Imagens do Equipamento</h3>
                 
+                <UploadCelularQRCode
+                  token={uploadCelularToken}
+                  onTokenChange={setUploadCelularToken}
+                  onArquivosChange={setArquivosCelular}
+                />
+
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700 text-left">Fotos do Equipamento</label>
                   <div 
@@ -2768,16 +2818,7 @@ function NovaOS2Content() {
                     onDrop={(e) => {
                       e.preventDefault();
                       e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
-                      
-                      const files = Array.from(e.dataTransfer.files).filter(file => 
-                        file.type.startsWith('image/')
-                      );
-                      
-                      if (files.length > 0) {
-                        setImagens(prev => [...prev, ...files]);
-                        const previews = files.map(file => URL.createObjectURL(file));
-                        setPreviewImagens(prev => [...prev, ...previews]);
-                      }
+                      adicionarImagensLocais(Array.from(e.dataTransfer.files));
                     }}
                   >
                     <input
@@ -2787,12 +2828,8 @@ function NovaOS2Content() {
                       className="hidden"
                       id="image-upload"
                       onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        setImagens(prev => [...prev, ...files]);
-                        
-                        // Criar previews
-                        const previews = files.map(file => URL.createObjectURL(file));
-                        setPreviewImagens(prev => [...prev, ...previews]);
+                        adicionarImagensLocais(Array.from(e.target.files || []));
+                        e.target.value = '';
                       }}
                     />
                     <label htmlFor="image-upload" className="cursor-pointer">
@@ -2802,11 +2839,16 @@ function NovaOS2Content() {
                           Clique para selecionar imagens ou arraste aqui
                         </p>
                         <p className="text-xs text-gray-500">
-                          PNG, JPG até 5MB cada • Máximo 10 imagens
+                          PNG, JPG até 5MB cada • Máximo {UPLOAD_CELULAR_MAX_ARQUIVOS} arquivos no total (computador + celular)
                         </p>
                         {imagens.length > 0 && (
                           <p className="text-xs text-green-600 font-medium">
                             {imagens.length} imagem{imagens.length !== 1 ? 'ns' : ''} selecionada{imagens.length !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                        {imagens.length + arquivosCelular.length > UPLOAD_CELULAR_MAX_ARQUIVOS && (
+                          <p className="text-xs text-red-600 font-medium">
+                            Total acima de {UPLOAD_CELULAR_MAX_ARQUIVOS}. Remova {imagens.length + arquivosCelular.length - UPLOAD_CELULAR_MAX_ARQUIVOS} arquivo(s).
                           </p>
                         )}
                       </div>

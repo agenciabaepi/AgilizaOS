@@ -59,6 +59,7 @@ export interface NovaOSDraftData {
   prazoEntrega: string;
   observacoes: string;
   condicoesEquipamento: string;
+  uploadCelularToken?: string | null;
 }
 
 function draftStorageKey(empresaId: string, usuarioAuthId?: string | null): string {

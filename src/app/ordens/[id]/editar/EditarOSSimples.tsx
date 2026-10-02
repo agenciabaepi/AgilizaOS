@@ -9,6 +9,7 @@ import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
 import AparelhoSelector from '@/components/AparelhoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
+import PatternLock from '@/components/PatternLock';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 import ImageEditor from '@/components/ImageEditor';
@@ -26,7 +27,7 @@ import {
   formatOsDraftUpdatedAt,
   type OsEditarDraftPayload,
 } from '@/lib/osEditDraft';
-import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock, FiKey, FiEye, FiEyeOff, FiCalendar } from 'react-icons/fi';
 import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
 import { calcularVencimentoGarantia, osElegivelParaGarantia, toDateOnlyLocal } from '@/lib/garantiaOs';
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
@@ -65,6 +66,8 @@ interface Ordem {
   imagens?: string;
   acessorios?: string;
   condicoes_equipamento?: string;
+  senha_aparelho?: string | null;
+  senha_padrao?: string | null;
   termo_garantia_id?: string;
   tecnico_id?: string;
   clientes?: {
@@ -85,6 +88,24 @@ interface Tecnico {
   nome: string;
   tecnico_id?: string;
   auth_user_id: string;
+}
+
+function parseSenhaPadrao(valor: unknown): number[] {
+  if (!valor) return [];
+  try {
+    const parsed = typeof valor === 'string' ? JSON.parse(valor) : valor;
+    return Array.isArray(parsed) ? parsed.map(Number).filter((n) => !isNaN(n)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function isoParaDatetimeLocal(iso?: string | null): string {
+  if (!iso) return '';
+  const data = new Date(iso);
+  if (isNaN(data.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}T${pad(data.getHours())}:${pad(data.getMinutes())}`;
 }
 
 export default function EditarOSSimples() {
@@ -115,6 +136,9 @@ export default function EditarOSSimples() {
   const [numeroSerie, setNumeroSerie] = useState('');
   const [acessorios, setAcessorios] = useState('');
   const [condicoesEquipamento, setCondicoesEquipamento] = useState('');
+  const [senhaAparelho, setSenhaAparelho] = useState('');
+  const [senhaPadrao, setSenhaPadrao] = useState<number[]>([]);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [equipamento, setEquipamento] = useState('');
   const [tipoEquipamentoSelecionado, setTipoEquipamentoSelecionado] =
     useState<TipoEquipamentoSelecionado | null>(null);
@@ -127,8 +151,6 @@ export default function EditarOSSimples() {
   const [laudo, setLaudo] = useState('');
   
   // Estados de datas e termo
-  const [dataEntrada, setDataEntrada] = useState('');
-  const [dataSaida, setDataSaida] = useState('');
   const [prazoEntrega, setPrazoEntrega] = useState('');
   const [termoGarantiaId, setTermoGarantiaId] = useState('');
   
@@ -169,6 +191,9 @@ export default function EditarOSSimples() {
     numeroSerie,
     acessorios,
     condicoesEquipamento,
+    senhaAparelho,
+    senhaPadrao,
+    prazoEntrega,
     equipamento,
     relato,
     observacao,
@@ -189,6 +214,9 @@ export default function EditarOSSimples() {
     numeroSerie,
     acessorios,
     condicoesEquipamento,
+    senhaAparelho,
+    senhaPadrao,
+    prazoEntrega,
     equipamento,
     relato,
     observacao,
@@ -211,6 +239,9 @@ export default function EditarOSSimples() {
     setNumeroSerie(draft.numeroSerie);
     setAcessorios(draft.acessorios);
     setCondicoesEquipamento(draft.condicoesEquipamento);
+    if (draft.senhaAparelho !== undefined) setSenhaAparelho(draft.senhaAparelho);
+    if (draft.senhaPadrao !== undefined) setSenhaPadrao(draft.senhaPadrao);
+    if (draft.prazoEntrega !== undefined) setPrazoEntrega(draft.prazoEntrega);
     setEquipamento(draft.equipamento);
     setRelato(draft.relato);
     setObservacao(draft.observacao);
@@ -368,6 +399,9 @@ export default function EditarOSSimples() {
       setNumeroSerie(data.numero_serie || '');
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
+      setSenhaAparelho(data.senha_aparelho || '');
+      setSenhaPadrao(parseSenhaPadrao(data.senha_padrao));
+      setPrazoEntrega(isoParaDatetimeLocal(data.prazo_entrega));
       setEquipamento(data.equipamento || '');
       const aparelhoImg = (data as { aparelho_imagem_url?: string }).aparelho_imagem_url || null;
       setAparelhoImagemUrl(aparelhoImg);
@@ -395,9 +429,6 @@ export default function EditarOSSimples() {
       setRelato(data.problema_relatado || '');
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
-      // setDataEntrada(data.data_entrada ? data.data_entrada.split('T')[0] : '');
-      // setDataSaida(data.data_saida ? data.data_saida.split('T')[0] : '');
-      // setPrazoEntrega(data.prazo_entrega ? data.prazo_entrega.split('T')[0] : '');
       setTermoGarantiaId(data.termo_garantia_id || '');
       // Carregar checklist de entrada se existir na OS (substituir estado para refletir dados da OS)
       try {
@@ -684,6 +715,13 @@ export default function EditarOSSimples() {
       }
       if (acessorios !== ordem?.acessorios) updateData.acessorios = acessorios;
       if (condicoesEquipamento !== ordem?.condicoes_equipamento) updateData.condicoes_equipamento = condicoesEquipamento;
+      if (senhaAparelho !== (ordem?.senha_aparelho || '')) updateData.senha_aparelho = senhaAparelho || null;
+      if (JSON.stringify(senhaPadrao) !== JSON.stringify(parseSenhaPadrao(ordem?.senha_padrao))) {
+        updateData.senha_padrao = senhaPadrao.length > 0 ? JSON.stringify(senhaPadrao) : null;
+      }
+      if (prazoEntrega !== isoParaDatetimeLocal(ordem?.prazo_entrega)) {
+        updateData.prazo_entrega = prazoEntrega ? new Date(prazoEntrega).toISOString() : null;
+      }
       
       // Verificar mudanças nos relatos
       if (relato !== ordem?.problema_relatado) updateData.problema_relatado = relato;
@@ -1578,6 +1616,59 @@ export default function EditarOSSimples() {
             </div>
           </div>
 
+          {/* Acesso ao aparelho */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <FiKey className="w-5 h-5 text-slate-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">Acesso ao aparelho</h3>
+                <p className="text-sm text-gray-500">Senha, PIN ou padrão de desbloqueio (opcional)</p>
+              </div>
+              {(senhaAparelho || senhaPadrao.length > 0) && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <FiCheckCircle className="h-3.5 w-3.5" /> Acesso registrado
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Senha / PIN</label>
+                <div className="relative">
+                  <input
+                    type={mostrarSenha ? 'text' : 'password'}
+                    value={senhaAparelho}
+                    onChange={(e) => setSenhaAparelho(e.target.value)}
+                    autoComplete="off"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Ex: 1234"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenha((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-gray-400 hover:text-gray-600"
+                  >
+                    {mostrarSenha ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center">
+                <label className="block w-full text-sm font-medium text-gray-700 mb-2">Padrão Android</label>
+                <PatternLock
+                  onPatternComplete={setSenhaPadrao}
+                  onPatternClear={() => setSenhaPadrao([])}
+                  value={senhaPadrao}
+                  className="w-full max-w-[220px]"
+                  showCoordinates={false}
+                  centered
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Checklist de entrada */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -1626,49 +1717,26 @@ export default function EditarOSSimples() {
             </div>
           </div>
 
-          {/* Datas e Prazos - TEMPORARIAMENTE OCULTO (colunas não existem) */}
-          {false && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FiUser className="w-5 h-5 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Datas e Prazos</h3>
+          {/* Prazo de Entrega */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FiCalendar className="w-5 h-5 text-blue-600" />
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Data de Entrada</label>
-                  <input
-                    type="date"
-                    value={dataEntrada}
-                    onChange={(e) => setDataEntrada(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Data de Saída</label>
-                  <input
-                    type="date"
-                    value={dataSaida}
-                    onChange={(e) => setDataSaida(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prazo de Entrega</label>
-                  <input
-                    type="date"
-                    value={prazoEntrega}
-                    onChange={(e) => setPrazoEntrega(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Prazo de Entrega</h3>
             </div>
-          )}
+            <div className="max-w-sm">
+              <input
+                type="datetime-local"
+                value={prazoEntrega}
+                onChange={(e) => setPrazoEntrega(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Quando o aparelho deve ser entregue ao cliente.
+              </p>
+            </div>
+          </div>
 
           {/* Gerenciadores de Produtos e Serviços */}
           <div className="space-y-6">

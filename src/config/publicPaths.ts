@@ -21,6 +21,7 @@ const PUBLIC_PATH_LIST = [
   '/os',
   '/os/buscar',
   '/pecas',
+  '/enviar-fotos',
 ] as const;
 
 /**
