@@ -64,6 +64,9 @@ function descreverErroMeta(status: MetaStatus): string {
   const err = status.errors?.[0];
   if (!err) return 'Falha na entrega';
   const detalhe = err.error_data?.details || err.message || err.title || 'Falha na entrega';
+  if (err.code === 131042) {
+    return 'A conta do WhatsApp Business está sem moeda ou forma de pagamento. Configure em business.facebook.com > Faturamento e pagamentos (mensagens automáticas são cobradas pela Meta). (código 131042)';
+  }
   return err.code ? `${detalhe} (código ${err.code})` : detalhe;
 }
 
