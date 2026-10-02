@@ -2,7 +2,11 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { WHATSAPP_AUTOMATION_ENABLED } from '@/config/whatsapp-config';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from './graph-api';
-import { buildMetaTemplate } from './meta-templates';
+import {
+  buildMetaTemplate,
+  ensureMetaTemplatesOnWaba,
+  isTemplateIndisponivelError,
+} from './meta-templates';
 import { getOrCreateConversa, appendMensagem, getEmpresaConfig } from './conversations';
 import { syncOsContexto } from './os-context';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
@@ -171,7 +175,8 @@ export async function dispatchAutomacaoOs(
     empresa_id: payload.empresa_id,
   });
 
-  const sendResult = metaTemplate
+  let enviadoComoTemplate = !!metaTemplate;
+  let sendResult = metaTemplate
     ? await sendWhatsAppTemplateMessage({
         to: telefone,
         templateName: metaTemplate.templateName,
@@ -186,11 +191,27 @@ export async function dispatchAutomacaoOs(
         config,
       });
 
+  // Template ainda não existe/aprovado na WABA da loja: cria em segundo plano e tenta como texto
+  // (texto livre só é entregue se o cliente falou com a loja nas últimas 24h).
+  if (metaTemplate && !sendResult.success && isTemplateIndisponivelError(sendResult.error)) {
+    const wabaId = config.waba_id || config.business_account_id;
+    if (wabaId && config.access_token) {
+      void ensureMetaTemplatesOnWaba(wabaId, config.access_token).catch((e) =>
+        console.warn('[CRM dispatch] Falha ao criar templates Meta:', e)
+      );
+    }
+    const textoResult = await sendWhatsAppTextMessage({ to: telefone, message: mensagem, config });
+    if (textoResult.success) {
+      sendResult = textoResult;
+      enviadoComoTemplate = false;
+    }
+  }
+
   await appendMensagem(supabase, {
     conversa_id: conversa.id,
     empresa_id: payload.empresa_id,
     direcao: 'saida',
-    tipo: metaTemplate ? 'template' : 'texto',
+    tipo: enviadoComoTemplate ? 'template' : 'texto',
     conteudo: mensagem,
     meta_message_id: sendResult.messageId,
     status_entrega: sendResult.success ? 'enviada' : 'falha',

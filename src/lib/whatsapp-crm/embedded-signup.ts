@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabaseClient';
 import { upsertEmpresaConfig, seedAutomacoesPadrao } from './conversations';
+import { ensureMetaTemplatesOnWaba } from './meta-templates';
 
 const GRAPH_VERSION = 'v21.0';
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
@@ -129,6 +130,13 @@ export async function completeEmbeddedSignup(params: CompleteEmbeddedSignupParam
   } as Parameters<typeof upsertEmpresaConfig>[2]);
 
   await seedAutomacoesPadrao(supabase, params.empresaId);
+
+  try {
+    const tpl = await ensureMetaTemplatesOnWaba(params.wabaId, accessToken, GRAPH_BASE);
+    if (tpl.errors.length) console.warn('[Embedded Signup] Templates Meta:', tpl.errors);
+  } catch (e) {
+    console.warn('[Embedded Signup] Falha ao criar templates Meta:', e);
+  }
 
   return {
     config,
