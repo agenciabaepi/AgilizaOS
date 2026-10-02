@@ -13,7 +13,11 @@ const nextConfig = {
   },
 
   // Configuração para pacotes ESM
-  transpilePackages: ['@react-pdf/renderer', '@splinetool/react-spline', '@splinetool/runtime'],
+  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime'],
+
+  // Empacotados pelo webpack no servidor, o pdfkit do react-pdf quebra ("reading 'S'")
+  // e o libheif-js não acha o WASM; carregar direto do node_modules.
+  serverExternalPackages: ['@react-pdf/renderer', 'heic-convert', 'heic-decode', 'libheif-js', 'sharp'],
 
   // Cache estratégico para melhor performance
   async headers() {

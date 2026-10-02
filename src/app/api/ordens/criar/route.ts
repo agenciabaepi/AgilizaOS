@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { dispatchAutomacaoOs } from '@/lib/whatsapp-crm/dispatch';
@@ -129,16 +129,20 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao enviar notificação WhatsApp (não crítico):', notifError);
     }
 
-    try {
-      if (ordemCriada.empresa_id) {
-        await dispatchAutomacaoOs({
-          empresa_id: ordemCriada.empresa_id,
-          os_id: ordemCriada.id,
-          evento: 'os_criada',
-        });
-      }
-    } catch (crmError) {
-      console.warn('⚠️ Erro ao disparar automação CRM WhatsApp (não crítico):', crmError);
+    if (ordemCriada.empresa_id) {
+      const empresaIdCrm = ordemCriada.empresa_id;
+      // Gerar o PDF completo leva alguns segundos; não segurar a resposta da criação.
+      after(async () => {
+        try {
+          await dispatchAutomacaoOs({
+            empresa_id: empresaIdCrm,
+            os_id: ordemCriada.id,
+            evento: 'os_criada',
+          });
+        } catch (crmError) {
+          console.warn('⚠️ Erro ao disparar automação CRM WhatsApp (não crítico):', crmError);
+        }
+      });
     }
 
     // Enviar push para o técnico quando a O.S. é criada já com técnico atribuído

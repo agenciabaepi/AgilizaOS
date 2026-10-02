@@ -1,10 +1,26 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { createAdminClient } from '@/lib/supabaseClient';
 import { generateOSPDF } from '@/lib/pdfOS';
+import { gerarPdfOsCompleto } from '@/lib/ordem-pdf/gerar-pdf-completo';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
-/** Gera o PDF da O.S. no servidor (mesmo documento de /api/pdf/gerar-os). */
+/** Gera no servidor o PDF completo da O.S. (igual ao da impressão); cai no resumo se o render falhar. */
 export async function gerarPdfOsBuffer(
+  supabase: SupabaseAdmin,
+  osId: string,
+  empresaId?: string
+): Promise<{ buffer: Buffer; filename: string } | null> {
+  try {
+    const completo = await gerarPdfOsCompleto(supabase as unknown as SupabaseClient, osId, empresaId);
+    if (completo) return completo;
+  } catch (err) {
+    console.error('[pdf-os] PDF completo falhou, usando resumo:', err);
+  }
+  return gerarPdfOsResumo(supabase, osId, empresaId);
+}
+
+async function gerarPdfOsResumo(
   supabase: SupabaseAdmin,
   osId: string,
   empresaId?: string
