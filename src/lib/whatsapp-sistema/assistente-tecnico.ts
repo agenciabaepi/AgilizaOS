@@ -14,11 +14,12 @@ import {
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
-const MODELO = 'gpt-4o-mini';
-const HISTORICO_MAX = 12;
+const MODELO = process.env.OPENAI_ASSISTENTE_TECNICO_MODEL?.trim() || 'gpt-5.4-mini';
+const HISTORICO_MAX = 20;
 /** Conversas mais antigas que isso são outro assunto e não entram no contexto */
-const JANELA_HISTORICO_MS = 6 * 60 * 60 * 1000;
+const JANELA_HISTORICO_MS = 12 * 60 * 60 * 1000;
 const MAX_RODADAS_FERRAMENTAS = 4;
+const CONTEXTO_MAX_CHARS = 1500;
 
 export interface RespostaTecnico {
   message: string;
@@ -83,22 +84,31 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   },
 ];
 
-function promptSistema(usuario: Usuario): string {
+function promptSistema(usuario: Usuario, minhasOs: string): string {
   const primeiroNome = usuario.nome?.trim().split(/\s+/)[0] || 'técnico';
-  return `Você é o assistente do sistema Gestão Consert no WhatsApp, falando com o técnico ${usuario.nome} (chame de ${primeiroNome}).
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' });
+  return `Você é o assistente do sistema Gestão Consert no WhatsApp, conversando com o técnico ${usuario.nome} (chame de ${primeiroNome}). Agora é ${agora}.
 
-O que você faz:
-- Consultar as O.S. atribuídas a ele, dados de uma O.S., enviar fotos e senha do aparelho, e mostrar comissões. Use sempre as ferramentas; nunca invente dados.
-- Tirar dúvidas técnicas rápidas de bancada (diagnóstico, peças, testes).
+Seu papel é ser um colega experiente de bancada: conversa natural, entende o contexto e ajuda de verdade.
+- Consulta as O.S. atribuídas a ele, dados de uma O.S. (cliente, aparelho, defeito, laudo, orçamento), envia fotos e a senha do aparelho, e mostra comissões. Use as ferramentas para buscar dados; nunca invente.
+- Ajuda com dúvidas técnicas de manutenção (diagnóstico, peças, testes, procedimentos), cruzando com os dados da O.S. quando fizer sentido. Ex.: se ele pergunta "o que pode ser?", use o defeito relatado da O.S. em conversa.
+- Responde normalmente a cumprimentos, agradecimentos e conversa curta, sem repetir o que já foi feito.
 
-Regras:
-- Só existem as O.S. atribuídas a este técnico. Se a ferramenta disser que não encontrou, diga que a O.S. não existe ou não está atribuída a ele.
-- Se faltar o número da O.S., pergunte. Se ele disser "essa", "ela", use a O.S. da conversa.
-- Atenda só o pedido da última mensagem; o histórico serve para entender "essa", "ela", "e da OS X". Linhas "[Entregue: ...]" no histórico registram o que já foi entregue: não repita isso e não escreva essas linhas.
-- A senha chega ao técnico pela própria ferramenta: não escreva a senha nem confirme o envio dela. Depois de enviar fotos, no máximo uma frase curta.
-- Ao listar O.S., mostre as em aberto; entregues só se ele pedir.
-- Recuse assuntos sem relação com o trabalho na assistência.
-- Português do Brasil, tom de colega, respostas curtas para WhatsApp. Use *negrito* do WhatsApp com moderação.`;
+Contexto:
+- O histórico é a conversa real com ele. Use para entender referências como "essa", "ela", "o cliente", "e a outra", "e o laudo?". Se ficar ambíguo qual O.S., pergunte.
+- Blocos <contexto>...</contexto> no histórico são dados que você já consultou; use-os para responder perguntas de acompanhamento sem chamar a ferramenta de novo, a menos que precise de dado atualizado ou que não esteja ali. Nunca escreva esses blocos.
+- Linhas "[Entregue: ...]" registram senhas/fotos já enviadas. Não reenvie a menos que ele peça de novo e não escreva essas linhas.
+- Só existem as O.S. atribuídas a este técnico. Se a ferramenta não encontrar, diga que a O.S. não existe ou não está com ele.
+
+Senha e fotos:
+- A senha chega ao técnico pela própria ferramenta: não escreva a senha nem confirme o envio. Depois de enviar fotos, no máximo uma frase curta.
+
+Estilo:
+- Português do Brasil, tom de colega, direto e curto para WhatsApp (sem textão). *Negrito* do WhatsApp com moderação, sem títulos markdown.
+- Assuntos sem nenhuma relação com trabalho de assistência técnica: recuse com educação em uma frase.
+
+O.S. em aberto deste técnico agora:
+${minhasOs}`;
 }
 
 async function carregarHistorico(
@@ -130,8 +140,16 @@ async function salvarHistorico(
   usuarioId: string,
   linhas: { papel: 'user' | 'assistant'; conteudo: string }[]
 ) {
+  // Mesmo insert = mesmo now(); sem horários distintos a ordem pergunta/resposta se perde.
+  const base = Date.now() - linhas.length;
   const { error } = await supabase.from('whatsapp_sistema_mensagens').insert(
-    linhas.map((l) => ({ telefone, usuario_id: usuarioId, papel: l.papel, conteudo: l.conteudo.slice(0, 4000) }))
+    linhas.map((l, i) => ({
+      telefone,
+      usuario_id: usuarioId,
+      papel: l.papel,
+      conteudo: l.conteudo.slice(0, 6000),
+      created_at: new Date(base + i).toISOString(),
+    }))
   );
   if (error) console.warn('[Assistente técnico] Falha ao salvar histórico:', error.message);
 }
@@ -170,9 +188,12 @@ async function listarMinhasOs(supabase: SupabaseAdmin, empresaId: string, authUs
 /** WhatsApp usa *negrito* simples; o modelo às vezes manda **markdown**. */
 function formatoWhatsApp(texto: string): string {
   return texto
+    .replace(/<contexto>[\s\S]*?<\/contexto>/g, '')
     .replace(/^\[Entregue:.*\]\s*$/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '*$1*')
-    .replace(/^#{1,6}\s+/gm, '');
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
@@ -200,6 +221,7 @@ export async function responderTecnicoComIA(
   const mensagensDiretas: string[] = [];
   const imagens: string[] = [];
   const entregues: string[] = [];
+  const contextos: string[] = [];
 
   const continuacao = /^\s*(e|e\s+a|e\s+da|e\s+do|agora)\b/i.test(texto) && texto.length <= 40;
   let pediuSenha = /senha|password|padr[aã]o|desbloq/i.test(texto);
@@ -230,7 +252,9 @@ export async function responderTecnicoComIA(
         if (!numero) return 'Número da O.S. não informado.';
         const os = await getOsDoTecnico(numero, empresaId, authUserId);
         if (!os) return `OS #${numero} não encontrada entre as O.S. deste técnico.`;
-        return formatResumoOsMessage(os);
+        const resumo = formatResumoOsMessage(os);
+        contextos.push(`Dados da OS #${numero}:\n${resumo}`.slice(0, CONTEXTO_MAX_CHARS));
+        return resumo;
       }
 
       case 'enviar_fotos_os': {
@@ -267,15 +291,24 @@ export async function responderTecnicoComIA(
   }
 
   try {
-    const historico = await carregarHistorico(supabase, telefone);
+    const [historico, minhasOs] = await Promise.all([
+      carregarHistorico(supabase, telefone),
+      listarMinhasOs(supabase, empresaId, authUserId),
+    ]);
+    const anterior = [...historico].reverse().find((m) => m.role === 'assistant');
+    const conteudoAnterior = typeof anterior?.content === 'string' ? anterior.content : '';
     if (continuacao) {
-      const anterior = [...historico].reverse().find((m) => m.role === 'assistant');
-      const conteudo = typeof anterior?.content === 'string' ? anterior.content : '';
-      if (/\[Entregue:[^\]]*senha/i.test(conteudo)) pediuSenha = true;
-      if (/\[Entregue:[^\]]*fotos/i.test(conteudo)) pediuFotos = true;
+      if (/\[Entregue:[^\]]*senha/i.test(conteudoAnterior)) pediuSenha = true;
+      if (/\[Entregue:[^\]]*fotos/i.test(conteudoAnterior)) pediuFotos = true;
+    }
+    const afirmativa = /^\s*(sim|s|isso|manda|pode|quero|pode mandar|manda a[ií]|ok|blz|beleza)\b/i.test(texto) && texto.length <= 40;
+    if (afirmativa) {
+      const ultimaFala = formatoWhatsApp(conteudoAnterior);
+      if (/senha|padr[aã]o/i.test(ultimaFala) && /\?/.test(ultimaFala)) pediuSenha = true;
+      if (/foto|imagem/i.test(ultimaFala) && /\?/.test(ultimaFala)) pediuFotos = true;
     }
     const mensagens: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: promptSistema(usuario) },
+      { role: 'system', content: promptSistema(usuario, minhasOs) },
       ...historico,
       { role: 'user', content: texto },
     ];
@@ -287,8 +320,10 @@ export async function responderTecnicoComIA(
         messages: mensagens,
         tools: FERRAMENTAS,
         tool_choice: rodada === MAX_RODADAS_FERRAMENTAS ? 'none' : 'auto',
-        temperature: 0.3,
-        max_tokens: 600,
+        ...(MODELO.startsWith('gpt-5')
+          ? // Chat Completions só aceita tools na família gpt-5 sem raciocínio
+            { reasoning_effort: 'none' as unknown as 'low', max_completion_tokens: 1200 }
+          : { temperature: 0.4, max_tokens: 800 }),
       });
 
       const msg = completion.choices[0]?.message;
@@ -329,6 +364,7 @@ export async function responderTecnicoComIA(
       {
         papel: 'assistant',
         conteudo: [
+          contextos.length ? `<contexto>\n${contextos.join('\n\n')}\n</contexto>` : '',
           entregues.length
             ? `[Entregue: ${entregues
                 .map((e) => e.replace('enviar_senha_os:', 'senha da OS #').replace('enviar_fotos_os:', 'fotos da OS #'))
