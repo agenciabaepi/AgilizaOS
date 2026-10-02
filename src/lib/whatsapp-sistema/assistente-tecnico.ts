@@ -20,6 +20,9 @@ const HISTORICO_MAX = 20;
 const JANELA_HISTORICO_MS = 12 * 60 * 60 * 1000;
 const MAX_RODADAS_FERRAMENTAS = 4;
 const CONTEXTO_MAX_CHARS = 3000;
+const MODELO_PESQUISA = process.env.OPENAI_PESQUISA_MODEL?.trim() || 'gpt-5.4-mini';
+const MAX_PESQUISAS_POR_MENSAGEM = 2;
+const MAX_FONTES = 3;
 
 export interface RespostaTecnico {
   message: string;
@@ -78,6 +81,26 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'pesquisar_internet',
+      description:
+        'Pesquisa na internet informação técnica de manutenção: defeitos comuns de um modelo, causas de um sintoma, procedimento de reparo/teste, código/compatibilidade de peça, esquema, boletim do fabricante. Use quando precisar de informação externa ou atual; não use para dados da O.S.',
+      parameters: {
+        type: 'object',
+        properties: {
+          consulta: {
+            type: 'string',
+            description:
+              'O que pesquisar, com marca, modelo exato e sintoma. Ex.: "DualShock 4 CUH-ZCT2 analógico com drift causa e peça de reposição"',
+          },
+        },
+        required: ['consulta'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'comissoes',
       description: 'Resumo das comissões do técnico (total, pagas, pendentes e últimas).',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
@@ -95,6 +118,8 @@ Seu papel é ser um colega experiente de bancada: conversa natural, entende o co
 - Cada campo da O.S. é uma coisa diferente; não use um no lugar do outro. *Laudo* é o diagnóstico escrito pelo técnico (campo "Laudo do técnico"). *Checklist de entrada* é a triagem da recepção ao receber o aparelho. *Relato do cliente* é o que o cliente disse. Se perguntarem do laudo e ele estiver "ainda não preenchido", diga que ainda não tem laudo.
 - Responda só o que ele perguntou (ex.: "qual a cor?" → só a cor), sem despejar a ficha inteira, a menos que ele peça os dados da O.S.
 - Ajuda com dúvidas técnicas de manutenção (diagnóstico, peças, testes, procedimentos), cruzando com os dados da O.S. quando fizer sentido. Ex.: se ele pergunta "o que pode ser?", use o defeito relatado da O.S. em conversa.
+- Pode pesquisar na internet (ferramenta pesquisar_internet) para achar defeitos comuns, causas de sintomas, procedimentos, peças e compatibilidade. Pesquise quando a dúvida depender de modelo específico, de informação que você não tem certeza ou quando ele pedir; para dúvida básica, responda direto. Monte a consulta com marca, modelo e sintoma da O.S. em conversa.
+- Ao usar a pesquisa: resuma para WhatsApp (causas prováveis em ordem, testes antes de trocar peça, peça indicada) e termine com até 2 links de fonte, em linha própria, URL pura. Não invente links.
 - Responde normalmente a cumprimentos, agradecimentos e conversa curta, sem repetir o que já foi feito.
 
 Contexto:
@@ -188,10 +213,50 @@ async function listarMinhasOs(supabase: SupabaseAdmin, empresaId: string, authUs
   ].join('\n');
 }
 
+function limparUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    [...u.searchParams.keys()].filter((k) => k.startsWith('utm_')).forEach((k) => u.searchParams.delete(k));
+    return u.toString().replace(/\?$/, '');
+  } catch {
+    return url;
+  }
+}
+
+async function pesquisarInternet(client: OpenAI, consulta: string): Promise<string> {
+  const resposta = await client.responses.create({
+    model: MODELO_PESQUISA,
+    tools: [{ type: 'web_search' }],
+    instructions:
+      'Você pesquisa para um técnico de assistência técnica de eletrônicos no Brasil. Responda em português, direto e técnico, em no máximo 12 linhas: causas prováveis em ordem de probabilidade, testes antes de trocar peça, peça/código quando houver. Prefira fontes do fabricante, fóruns técnicos e iFixit. Não invente; se não achar, diga.',
+    input: consulta,
+    max_output_tokens: 1200,
+  });
+
+  const fontes = new Set<string>();
+  for (const item of resposta.output) {
+    if (item.type !== 'message') continue;
+    for (const parte of item.content) {
+      if (parte.type !== 'output_text') continue;
+      for (const a of parte.annotations ?? []) {
+        if (a.type === 'url_citation') fontes.add(limparUrl(a.url));
+      }
+    }
+  }
+
+  const texto = resposta.output_text?.replace(/\s*\(\[[^\]]+\]\([^)]+\)\)/g, '').trim();
+  if (!texto) return 'A pesquisa não trouxe resultado.';
+  const links = [...fontes].slice(0, MAX_FONTES);
+  return `${texto}${links.length ? `\n\nFontes:\n${links.join('\n')}` : ''}`;
+}
+
 /** WhatsApp usa *negrito* simples; o modelo às vezes manda **markdown**. */
 function formatoWhatsApp(texto: string): string {
   return texto
     .replace(/<contexto>[\s\S]*?<\/contexto>/g, '')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, rotulo: string, url: string) =>
+      rotulo.trim() === url.trim() || /^https?:/.test(rotulo) ? url : `${rotulo}: ${url}`
+    )
     .replace(/^\[Entregue:.*\]\s*$/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '*$1*')
     .replace(/^#{1,6}\s+/gm, '')
@@ -225,6 +290,7 @@ export async function responderTecnicoComIA(
   const imagens: string[] = [];
   const entregues: string[] = [];
   const contextos: string[] = [];
+  let pesquisas = 0;
 
   const continuacao = /^\s*(e|e\s+a|e\s+da|e\s+do|agora)\b/i.test(texto) && texto.length <= 40;
   let pediuSenha = /senha|password|padr[aã]o|desbloq/i.test(texto);
@@ -281,6 +347,23 @@ export async function responderTecnicoComIA(
         mensagensDiretas.push(formatSenhaOSMessage(dados));
         entregues.push(`enviar_senha_os:${numero}`);
         return `Senha da OS #${numero} entregue ao técnico.`;
+      }
+
+      case 'pesquisar_internet': {
+        const consulta = String(args.consulta ?? '').trim();
+        if (!consulta) return 'Consulta vazia.';
+        if (pesquisas >= MAX_PESQUISAS_POR_MENSAGEM) {
+          return 'Limite de pesquisas desta mensagem atingido; responda com o que já tem.';
+        }
+        pesquisas++;
+        try {
+          const resultado = await pesquisarInternet(client, consulta);
+          contextos.push(`Pesquisa na internet: "${consulta}"\n${resultado}`.slice(0, CONTEXTO_MAX_CHARS));
+          return resultado;
+        } catch (err) {
+          console.error('[Assistente técnico] Falha na pesquisa:', err instanceof Error ? err.message : err);
+          return 'A pesquisa na internet falhou agora; responda com seu conhecimento e avise que não conseguiu pesquisar.';
+        }
       }
 
       case 'comissoes': {
