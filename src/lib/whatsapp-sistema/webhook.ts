@@ -15,10 +15,13 @@ import {
 import { getUsuarioByWhatsApp } from '@/lib/user-data';
 import { isUsuarioTecnico } from '@/lib/tecnicos';
 import { isWhatsAppSistemaPhoneNumber } from './phone';
-import { sendSistemaImagem, sendSistemaTexto } from './send';
-import { responderTecnicoComIA } from './assistente-tecnico';
+import { baixarMidiaSistema, sendSistemaImagem, sendSistemaTexto } from './send';
+import { responderTecnicoComIA, type EntradaTecnico } from './assistente-tecnico';
+import { transcreverAudioLaudo } from '@/lib/chatgpt';
 
 type RespostaAssistente = { message: string | null; images?: string[] };
+
+type MetaMidia = { id?: string; mime_type?: string; caption?: string };
 
 type MetaMensagem = {
   id?: string;
@@ -26,7 +29,14 @@ type MetaMensagem = {
   type?: string;
   timestamp?: string;
   text?: { body?: string };
+  image?: MetaMidia;
+  audio?: MetaMidia;
+  document?: MetaMidia & { filename?: string };
 };
+
+type Usuario = NonNullable<Awaited<ReturnType<typeof getUsuarioByWhatsApp>>>;
+
+const TIPOS_ACEITOS = 'Eu leio texto, fotos e áudios. Manda por um desses que eu te ajudo 🙂';
 
 type MetaWebhookBody = {
   object?: string;
@@ -62,7 +72,7 @@ export function temMensagemParaSistema(body: MetaWebhookBody): boolean {
 
 /** Comandos fixos, usados quando a OpenAI não está disponível ou falha. */
 async function responderSemIA(
-  usuario: NonNullable<Awaited<ReturnType<typeof getUsuarioByWhatsApp>>>,
+  usuario: Usuario,
   telefone: string,
   texto: string
 ): Promise<RespostaAssistente> {
@@ -115,19 +125,50 @@ async function responderSemIA(
   };
 }
 
-async function responderMensagem(from: string, texto: string): Promise<RespostaAssistente> {
-  const telefone = from.replace(/\D/g, '');
-  const usuario = await getUsuarioByWhatsApp(telefone);
-
-  if (!usuario || !isUsuarioTecnico(usuario)) {
-    console.log('[WhatsApp sistema] Acesso negado:', telefone);
-    return { message: MENSAGEM_BLOQUEIO };
+/** Texto + mídia da mensagem, já baixada/transcrita. Mensagem de texto direto quando não dá para atender. */
+async function lerEntrada(
+  message: MetaMensagem
+): Promise<{ texto: string; entrada: EntradaTecnico } | { aviso: string } | null> {
+  if (message.type === 'text') {
+    const texto = message.text?.body?.trim();
+    return texto ? { texto, entrada: {} } : null;
   }
 
-  const respostaIA = await responderTecnicoComIA(usuario, telefone, texto);
+  const imagem =
+    message.type === 'image'
+      ? message.image
+      : message.type === 'document' && message.document?.mime_type?.startsWith('image/')
+        ? message.document
+        : null;
+  if (imagem?.id) {
+    const midia = await baixarMidiaSistema(imagem.id);
+    if (!midia) return { aviso: 'Não consegui abrir a foto. Manda de novo, por favor.' };
+    return {
+      texto: imagem.caption?.trim() || '',
+      entrada: { foto: { mediaId: imagem.id, buffer: midia.buffer, mimeType: midia.mimeType } },
+    };
+  }
+
+  if (message.type === 'audio' && message.audio?.id) {
+    const midia = await baixarMidiaSistema(message.audio.id);
+    const texto = midia ? await transcreverAudioLaudo(midia.buffer, midia.mimeType, false) : null;
+    if (!texto) return { aviso: 'Não consegui entender o áudio. Pode mandar de novo ou escrever?' };
+    return { texto, entrada: { audio: true } };
+  }
+
+  return { aviso: TIPOS_ACEITOS };
+}
+
+async function responderMensagem(usuario: Usuario, telefone: string, message: MetaMensagem): Promise<RespostaAssistente | null> {
+  const lida = await lerEntrada(message);
+  if (!lida) return null;
+  if ('aviso' in lida) return { message: lida.aviso };
+
+  const respostaIA = await responderTecnicoComIA(usuario, telefone, lida.texto, lida.entrada);
   if (respostaIA) return respostaIA;
 
-  return responderSemIA(usuario, telefone, texto);
+  if (lida.entrada.foto) return { message: 'Não consegui analisar a foto agora. Tenta de novo em instantes.' };
+  return responderSemIA(usuario, telefone, lida.texto);
 }
 
 async function enviarResposta(to: string, resposta: RespostaAssistente) {
@@ -172,22 +213,20 @@ export async function processarWebhookSistema(body: MetaWebhookBody): Promise<nu
         const enviadaEm = message.timestamp ? Number(message.timestamp) * 1000 : Date.now();
         if (Date.now() - enviadaEm > IDADE_MAXIMA_MS) continue;
 
-        if (message.type !== 'text') {
-          const usuario = await getUsuarioByWhatsApp(from.replace(/\D/g, ''));
-          await sendSistemaTexto(
-            from,
-            usuario && isUsuarioTecnico(usuario)
-              ? 'Por enquanto eu só leio mensagens de texto. Escreva o que precisa 🙂'
-              : MENSAGEM_BLOQUEIO
-          );
-          continue;
-        }
-
-        const texto = message.text?.body?.trim();
-        if (!texto) continue;
+        // Reações, status etc. não pedem resposta
+        if (!['text', 'image', 'audio', 'document', 'video', 'sticker'].includes(message.type ?? '')) continue;
 
         try {
-          const resposta = await responderMensagem(from, texto);
+          const telefone = from.replace(/\D/g, '');
+          const usuario = await getUsuarioByWhatsApp(telefone);
+          if (!usuario || !isUsuarioTecnico(usuario)) {
+            console.log('[WhatsApp sistema] Acesso negado:', telefone);
+            await sendSistemaTexto(from, MENSAGEM_BLOQUEIO);
+            continue;
+          }
+
+          const resposta = await responderMensagem(usuario, telefone, message);
+          if (!resposta) continue;
           await enviarResposta(from, resposta);
           respondidas += 1;
         } catch (err) {

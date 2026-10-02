@@ -11,6 +11,7 @@ import {
   listarFotosOs,
   LIMITE_FOTOS_OS,
 } from '@/lib/whatsapp-commands';
+import { baixarMidiaSistema } from './send';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -24,9 +25,34 @@ const MODELO_PESQUISA = process.env.OPENAI_PESQUISA_MODEL?.trim() || 'gpt-5.4-mi
 const MAX_PESQUISAS_POR_MENSAGEM = 2;
 const MAX_FONTES = 3;
 
+/** Só a foto mais recente volta a ser enviada ao modelo, e só se a conversa ainda estiver nela. */
+const FOTO_RECENTE_MAX_MENSAGENS = 6;
+const MARCADOR_FOTO = /^\[Foto mídia:([^\]]+)\]\s*/;
+
 export interface RespostaTecnico {
   message: string;
   images: string[];
+}
+
+export interface EntradaTecnico {
+  /** Foto enviada pelo técnico nesta mensagem */
+  foto?: { mediaId: string; buffer: Buffer; mimeType: string };
+  /** O texto veio da transcrição de um áudio */
+  audio?: boolean;
+}
+
+function dataUrl(buffer: Buffer, mimeType: string): string {
+  return `data:${mimeType.split(';')[0] || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+}
+
+function conteudoComFoto(
+  texto: string,
+  url: string
+): OpenAI.Chat.Completions.ChatCompletionContentPart[] {
+  return [
+    { type: 'text', text: texto },
+    { type: 'image_url', image_url: { url, detail: 'high' } },
+  ];
 }
 
 const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
@@ -120,6 +146,8 @@ Seu papel é ser um colega experiente de bancada: conversa natural, entende o co
 - Ajuda com dúvidas técnicas de manutenção (diagnóstico, peças, testes, procedimentos), cruzando com os dados da O.S. quando fizer sentido. Ex.: se ele pergunta "o que pode ser?", use o defeito relatado da O.S. em conversa.
 - Pode pesquisar na internet (ferramenta pesquisar_internet) para achar defeitos comuns, causas de sintomas, procedimentos, peças e compatibilidade. Pesquise quando a dúvida depender de modelo específico, de informação que você não tem certeza ou quando ele pedir; para dúvida básica, responda direto. Monte a consulta com marca, modelo e sintoma da O.S. em conversa.
 - Ao usar a pesquisa: resuma para WhatsApp (causas prováveis em ordem, testes antes de trocar peça, peça indicada) e termine com até 2 links de fonte, em linha própria, URL pura. Não invente links.
+- Analisa fotos que ele manda ("[Foto enviada]"): placas, componentes, conectores, etiquetas, telas de erro, danos. Leia serigrafia, códigos de CI, números de peça, modelos e etiquetas; identifique componentes pela função provável (PMIC, CI de carga, regulador, bobina, capacitor, conector, flat); aponte danos visíveis (oxidação, componente queimado/estufado, trilha rompida, solda fria, impacto). Traduza textos em outros idiomas quando pedido. Diga o que conseguiu ler com segurança e o que está ilegível ou é suposição — nunca diga só "não consigo identificar"; liste o que viu e dê uma hipótese fundamentada. Se a foto não permitir conclusão, peça outra mais próxima, com luz ou de outro ângulo. Se ler um código de CI ou peça, pode pesquisar na internet o que é.
+- Mensagens "[Áudio transcrito]" vieram de áudio e podem ter erro de transcrição: interprete o sentido técnico.
 - Responde normalmente a cumprimentos, agradecimentos e conversa curta, sem repetir o que já foi feito.
 
 Contexto:
@@ -157,9 +185,26 @@ async function carregarHistorico(
     return [];
   }
 
-  return (data ?? [])
-    .reverse()
-    .map((m) => ({ role: m.papel as 'user' | 'assistant', content: m.conteudo }));
+  const linhas = (data ?? []).reverse();
+  let indiceFoto = -1;
+  linhas.forEach((m, i) => {
+    if (m.papel === 'user' && MARCADOR_FOTO.test(m.conteudo)) indiceFoto = i;
+  });
+  const reenviarFoto = indiceFoto >= 0 && linhas.length - indiceFoto <= FOTO_RECENTE_MAX_MENSAGENS;
+  const fotoAnterior = reenviarFoto
+    ? await baixarMidiaSistema(linhas[indiceFoto].conteudo.match(MARCADOR_FOTO)![1])
+    : null;
+
+  return linhas.map((m, i): OpenAI.Chat.Completions.ChatCompletionMessageParam => {
+    if (m.papel === 'assistant') return { role: 'assistant', content: m.conteudo };
+    const foto = m.conteudo.match(MARCADOR_FOTO);
+    if (!foto) return { role: 'user', content: m.conteudo };
+    const texto = `[Foto enviada] ${m.conteudo.replace(MARCADOR_FOTO, '')}`.trim();
+    if (i === indiceFoto && fotoAnterior) {
+      return { role: 'user', content: conteudoComFoto(texto, dataUrl(fotoAnterior.buffer, fotoAnterior.mimeType)) };
+    }
+    return { role: 'user', content: texto };
+  });
 }
 
 async function salvarHistorico(
@@ -271,7 +316,8 @@ function formatoWhatsApp(texto: string): string {
 export async function responderTecnicoComIA(
   usuario: Usuario,
   telefone: string,
-  texto: string
+  texto: string,
+  entrada: EntradaTecnico = {}
 ): Promise<RespostaTecnico | null> {
   if (!process.env.OPENAI_API_KEY) return null;
   if (!usuario.empresa_id || !usuario.auth_user_id) {
@@ -294,7 +340,10 @@ export async function responderTecnicoComIA(
 
   const continuacao = /^\s*(e|e\s+a|e\s+da|e\s+do|agora)\b/i.test(texto) && texto.length <= 40;
   let pediuSenha = /senha|password|padr[aã]o|desbloq/i.test(texto);
-  let pediuFotos = /foto|imagem|imagens|pic/i.test(texto);
+  // Com foto anexada, "essa imagem" fala da foto enviada, não das fotos da O.S.
+  let pediuFotos = entrada.foto
+    ? /fotos?\s+(da|de)\s+o\.?s/i.test(texto)
+    : /foto|imagem|imagens|pic/i.test(texto);
   const numerosNoTexto = (texto.match(/\d+/g) ?? []).map((n) => n.replace(/^0+(?=\d)/, ''));
 
   async function executar(nome: string, args: Record<string, unknown>): Promise<string> {
@@ -396,7 +445,17 @@ export async function responderTecnicoComIA(
     const mensagens: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: promptSistema(usuario, minhasOs) },
       ...historico,
-      { role: 'user', content: texto },
+      {
+        role: 'user',
+        content: entrada.foto
+          ? conteudoComFoto(
+              `[Foto enviada] ${texto || '(sem legenda: analise a imagem no contexto da conversa)'}`,
+              dataUrl(entrada.foto.buffer, entrada.foto.mimeType)
+            )
+          : entrada.audio
+            ? `[Áudio transcrito] ${texto}`
+            : texto,
+      },
     ];
 
     let resposta = '';
@@ -446,7 +505,14 @@ export async function responderTecnicoComIA(
     if (!message && !imagens.length) return null;
 
     await salvarHistorico(supabase, telefone, usuario.id, [
-      { papel: 'user', conteudo: texto },
+      {
+        papel: 'user',
+        conteudo: entrada.foto
+          ? `[Foto mídia:${entrada.foto.mediaId}] ${texto}`.trim()
+          : entrada.audio
+            ? `[Áudio transcrito] ${texto}`
+            : texto,
+      },
       {
         papel: 'assistant',
         conteudo: [

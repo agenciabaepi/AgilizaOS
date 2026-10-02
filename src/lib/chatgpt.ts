@@ -879,6 +879,7 @@ export async function transcreverAudioLaudo(
     if (!client) return null;
 
     const ext =
+      mimeType.includes('ogg') || mimeType.includes('opus') ? 'ogg' :
       mimeType.includes('webm') ? 'webm' :
       mimeType.includes('wav') ? 'wav' :
       mimeType.includes('mp3') || mimeType.includes('mpeg') ? 'mp3' :

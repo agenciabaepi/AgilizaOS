@@ -56,6 +56,41 @@ export async function sendSistemaTexto(to: string, message: string): Promise<boo
   });
 }
 
+export interface MidiaRecebida {
+  buffer: Buffer;
+  mimeType: string;
+}
+
+/** Baixa mídia recebida (foto, áudio) pelo id da Meta; a URL dela exige o token. */
+export async function baixarMidiaSistema(mediaId: string): Promise<MidiaRecebida | null> {
+  const cred = credenciaisSistema();
+  if (!cred) return null;
+  const headers = { Authorization: `Bearer ${cred.accessToken}` };
+
+  try {
+    const info = await fetch(`${GRAPH_BASE}/${mediaId}`, { headers });
+    if (!info.ok) {
+      console.error('Falha ao localizar mídia do WhatsApp do sistema:', info.status);
+      return null;
+    }
+    const { url, mime_type } = (await info.json()) as { url?: string; mime_type?: string };
+    if (!url) return null;
+
+    const arquivo = await fetch(url, { headers });
+    if (!arquivo.ok) {
+      console.error('Falha ao baixar mídia do WhatsApp do sistema:', arquivo.status);
+      return null;
+    }
+    return {
+      buffer: Buffer.from(await arquivo.arrayBuffer()),
+      mimeType: mime_type || arquivo.headers.get('content-type') || 'application/octet-stream',
+    };
+  } catch (err) {
+    console.error('Erro ao baixar mídia do WhatsApp do sistema:', err);
+    return null;
+  }
+}
+
 /** Imagem por URL pública (Cloud API, janela de 24h). */
 export async function sendSistemaImagem(to: string, link: string, caption?: string): Promise<boolean> {
   return postMensagem({
