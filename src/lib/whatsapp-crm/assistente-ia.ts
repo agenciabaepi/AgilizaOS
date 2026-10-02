@@ -3,6 +3,16 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { sendWhatsAppTextMessage } from './graph-api';
 import { appendMensagem, getEmpresaConfig, updateMensagemEntrega } from './conversations';
 import type { WhatsAppIaConfig, WhatsAppIaFaqItem } from './types';
+import {
+  TEXTOS_VERIFICACAO,
+  VERIFICACAO_MAX_TENTATIVAS,
+  classificarSimNao,
+  descricaoAparelho,
+  pendenteAtiva,
+  primeiroNome,
+  tentativasRecentes,
+  type VerificacaoOsEstado,
+} from './verificacao-os';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -90,7 +100,9 @@ export interface OsResumoIA {
 
 export type ConsultaOsIA =
   | { numero: number; resultado: 'encontrada'; os: OsResumoIA; osId: string }
-  | { numero: number; resultado: 'telefone_diferente' | 'nao_encontrada' };
+  /** Telefone da conversa não é o do cadastro: só libera depois da confirmação de aparelho e nome */
+  | { numero: number; resultado: 'verificar'; os: OsResumoIA; osId: string; nomeCliente: string | null }
+  | { numero: number; resultado: 'nao_encontrada' };
 
 const OS_CAMPOS_IA = 'numero_os, status, status_tecnico, equipamento, marca, modelo, prazo_entrega, data_entrega';
 
@@ -140,22 +152,34 @@ export async function getEmpresaBasica(
 }
 
 const REGEX_OS_EXPLICITA =
-  /(?:\bo\.?\s?s(?![a-zà-ú])\.?|\bordem(?:\s+de\s+servi[cç]o)?|\bn[ºo°]\.?|\bn[uú]mero)\s*(?:d[ae]\s+)?(?:o\.?\s?s\.?\s*)?[:#nº°.\-\s]*(\d{1,7})\b/gi;
+  /(?:\bo\.?\s?s(?![a-zà-ú])\.?|\bordem(?:\s+de\s+servi[cç]o)?|\bn[ºo°]\.?|\bn[uú]mero)\s*(?:d[ae]\s+)?(?:o\.?\s?s\.?\s*)?(?:(?:é|e|eh)\s+)?(?:(?:a|o)\s+)?[:#nº°.\-\s]*(\d{1,7})\b(?!\s+[a-zà-ú]+s\b)/gi;
 const REGEX_SO_NUMERO = /^\s*(?:#|n[ºo°]\.?)?\s*(\d{1,7})\s*[.!]?\s*$/i;
 const REGEX_NUMERO_SOLTO = /(?<![\d.,/])\b(\d{1,7})\b(?![.,/]?\d)/g;
 const REGEX_PEDIU_OS = /ordem de servi[cç]o|\bo\.?\s?s\b/i;
 
-/** Números de O.S. citados nas últimas mensagens do cliente (no máximo 3, mais recentes primeiro). */
-export function extrairNumerosOS(historico: MensagemHistoricoIA[]): number[] {
+/**
+ * Números de O.S. citados nas últimas mensagens do cliente (no máximo 3, mais recentes primeiro).
+ * `somenteNovas`: só as mensagens do cliente depois da última resposta enviada.
+ */
+export function extrairNumerosOS(
+  historico: MensagemHistoricoIA[],
+  opts?: { somenteNovas?: boolean }
+): number[] {
   const entradas: { conteudo: string; respondendoPedidoOs: boolean }[] = [];
   let pediuOs = false;
+  let novasDesde = 0;
   for (const m of historico) {
-    if (m.direcao === 'saida') pediuOs = REGEX_PEDIU_OS.test(m.conteudo);
-    else entradas.push({ conteudo: m.conteudo, respondendoPedidoOs: pediuOs });
+    if (m.direcao === 'saida') {
+      pediuOs = REGEX_PEDIU_OS.test(m.conteudo);
+      novasDesde = entradas.length;
+    } else {
+      entradas.push({ conteudo: m.conteudo, respondendoPedidoOs: pediuOs });
+    }
   }
 
   const numeros: number[] = [];
-  for (const m of entradas.slice(-4).reverse()) {
+  const alvo = opts?.somenteNovas ? entradas.slice(novasDesde) : entradas.slice(-4);
+  for (const m of alvo.reverse()) {
     const candidatos: string[] = [];
     const so = m.conteudo.match(REGEX_SO_NUMERO);
     if (so) candidatos.push(so[1]);
@@ -179,17 +203,20 @@ function mesmoTelefone(a: string | null | undefined, b: string | null | undefine
 }
 
 /**
- * Consulta as O.S. citadas pelo cliente. Só libera os dados quando o telefone do cadastro do cliente
- * da O.S. bate com o WhatsApp da conversa; `telefoneConversa` null (teste no painel) libera sempre.
+ * Consulta as O.S. citadas pelo cliente. Libera os dados quando o telefone do cadastro do cliente
+ * da O.S. bate com o WhatsApp da conversa ou quando a O.S. já foi confirmada (aparelho e nome);
+ * `telefoneConversa` null (teste no painel) libera sempre.
  */
 export async function consultarOsCitadas(
   supabase: SupabaseAdmin,
   empresaId: string,
   historico: MensagemHistoricoIA[],
-  telefoneConversa: string | null
+  telefoneConversa: string | null,
+  opts?: { verificadas?: string[]; incluirNumeros?: number[] }
 ): Promise<ConsultaOsIA[]> {
-  const numeros = extrairNumerosOS(historico);
+  const numeros = [...new Set([...(opts?.incluirNumeros ?? []), ...extrairNumerosOS(historico)])];
   if (numeros.length === 0) return [];
+  const verificadas = new Set(opts?.verificadas ?? []);
 
   const { data: ordens } = await supabase
     .from('ordens_servico')
@@ -201,21 +228,24 @@ export async function consultarOsCitadas(
   const { data: clientes } = clienteIds.length
     ? await supabase
         .from('clientes')
-        .select('id, telefone, celular')
+        .select('id, nome, telefone, celular')
         .eq('empresa_id', empresaId)
         .in('id', clienteIds)
-    : { data: [] as { id: string; telefone: string | null; celular: string | null }[] };
+    : { data: [] as { id: string; nome: string | null; telefone: string | null; celular: string | null }[] };
 
   return numeros.map((numero): ConsultaOsIA => {
     const ordem = (ordens ?? []).find((o) => Number(o.numero_os) === numero);
     if (!ordem) return { numero, resultado: 'nao_encontrada' };
     const cliente = (clientes ?? []).find((c) => c.id === ordem.cliente_id);
-    const confere =
+    const { id, cliente_id: _c, ...os } = ordem;
+    const liberada =
       telefoneConversa === null ||
+      verificadas.has(id) ||
       mesmoTelefone(cliente?.celular, telefoneConversa) ||
       mesmoTelefone(cliente?.telefone, telefoneConversa);
-    if (!confere) return { numero, resultado: 'telefone_diferente' };
-    const { id, cliente_id: _c, ...os } = ordem;
+    if (!liberada) {
+      return { numero, resultado: 'verificar', os: os as OsResumoIA, osId: id, nomeCliente: cliente?.nome ?? null };
+    }
     return { numero, resultado: 'encontrada', os: os as OsResumoIA, osId: id };
   });
 }
@@ -352,8 +382,8 @@ export function montarPromptSistema(params: {
   const consultasTexto = consultas
     .map((c) => {
       if (c.resultado === 'encontrada') return `- ${descreverOs(c.os, empresa?.timezone)}`;
-      if (c.resultado === 'telefone_diferente') {
-        return `- O.S. nº ${c.numero}: existe, mas NÃO está no cadastro deste número de WhatsApp. Por segurança, não informe nada sobre ela (nem se existe); diga que um atendente vai confirmar os dados e marque "transferir": true.`;
+      if (c.resultado === 'verificar') {
+        return `- O.S. nº ${c.numero}: dados do cliente NÃO confirmados. Por segurança, não informe nada sobre ela (nem se existe); diga que um atendente vai confirmar os dados e marque "transferir": true.`;
       }
       return `- O.S. nº ${c.numero}: não encontrada nesta loja. Peça para o cliente conferir o número no comprovante da O.S.`;
     })
@@ -376,6 +406,7 @@ COMO RESPONDER
 - Fale apenas de assuntos da assistência técnica. Para qualquer outro assunto, diga educadamente que só pode ajudar com o atendimento da loja.
 - Se o cliente perguntar sobre um aparelho que deixou na loja e não houver O.S. consultada abaixo, peça o número da ordem de serviço (fica no comprovante entregue na loja).
 - Status, situação ou previsão de uma O.S. só podem vir das seções de O.S. abaixo, preenchidas pelo sistema. Se o cliente informou um número e não há resultado do sistema para ele, NÃO deduza nada: diga que um atendente vai verificar e marque "transferir": true.
+- Depois de informar o status de uma O.S. encontrada, NÃO transfira para atendente (a menos que o cliente peça ou faça uma pergunta que você não sabe responder); pergunte se pode ajudar em algo mais.
 - Ao informar uma O.S., escreva de forma natural (sem copiar o formato do sistema nem os status em maiúsculas), citando o aparelho e explicando a situação em palavras simples, sem mudar o sentido do status (ex.: "sem reparo" significa que não foi possível consertar o aparelho, não que ele não precisava de conserto). Nunca informe valores, mesmo que o cliente peça.
 - Se você não tiver a informação, se o cliente pedir para falar com uma pessoa/atendente, reclamar, quiser negociar valores ou precisar de orçamento, marque "transferir": true e termine a resposta avisando claramente que um atendente vai continuar o atendimento por aqui em breve.
 
@@ -426,7 +457,7 @@ export async function gerarRespostaIA(params: {
   const raw = completion.choices[0]?.message?.content;
   if (!raw) return null;
 
-  const osDeOutroCliente = (params.consultas ?? []).some((c) => c.resultado === 'telefone_diferente');
+  const osDeOutroCliente = (params.consultas ?? []).some((c) => c.resultado === 'verificar');
 
   try {
     const parsed = JSON.parse(raw) as Partial<RespostaIA>;
@@ -467,7 +498,7 @@ export async function responderComIA(params: {
 
   const { data: conversa } = await supabase
     .from('whatsapp_conversas')
-    .select('id, telefone, os_id, atribuido_usuario_id, ia_pausada_ate')
+    .select('id, telefone, os_id, atribuido_usuario_id, ia_pausada_ate, ia_verificacao')
     .eq('id', params.conversaId)
     .maybeSingle();
   if (!conversa) return 'sem_resposta';
@@ -500,8 +531,105 @@ export async function responderComIA(params: {
     .reverse()
     .map((m) => ({ direcao: m.direcao, conteudo: m.conteudo }));
 
-  const [empresa, os, consultas] = await Promise.all([
-    getEmpresaBasica(supabase, params.empresaId),
+  const nomeAssistente = config.nome_assistente.replace(/[*_~`]/g, '').trim() || 'Assistente virtual';
+
+  async function enviar(texto: string, opts: { transferir?: boolean; osId?: string | null } = {}) {
+    const waConfig = await getEmpresaConfig(supabase, params.empresaId);
+    if (!waConfig?.ativo) return 'inativo' as const;
+
+    const osId = opts.osId ?? conversa!.os_id ?? null;
+    const msg = await appendMensagem(supabase, {
+      conversa_id: params.conversaId,
+      empresa_id: params.empresaId,
+      direcao: 'saida',
+      tipo: 'texto',
+      conteudo: texto,
+      status_entrega: 'enviada',
+      os_id: osId ?? undefined,
+      enviado_por_ia: true,
+    });
+
+    const envio = await sendWhatsAppTextMessage({
+      to: conversa!.telefone,
+      message: `*${nomeAssistente}:*\n${texto}`,
+      config: waConfig,
+    });
+
+    await updateMensagemEntrega(supabase, msg.id, {
+      meta_message_id: envio.messageId ?? null,
+      status_entrega: envio.success ? 'enviada' : 'falha',
+      erro_entrega: envio.success ? null : envio.error ?? 'Falha ao enviar',
+    });
+
+    if (opts.transferir) {
+      await supabase
+        .from('whatsapp_conversas')
+        .update({
+          ia_pausada_ate: new Date(Date.now() + PAUSA_APOS_TRANSFERENCIA_MS).toISOString(),
+          ia_pausa_motivo: 'transferencia',
+        })
+        .eq('id', params.conversaId);
+    }
+
+    return envio.success ? ('respondido' as const) : ('falha_envio' as const);
+  }
+
+  async function salvarVerificacao(estado: VerificacaoOsEstado) {
+    await supabase.from('whatsapp_conversas').update({ ia_verificacao: estado }).eq('id', params.conversaId);
+  }
+
+  const empresa = await getEmpresaBasica(supabase, params.empresaId);
+  const estado: VerificacaoOsEstado = (conversa.ia_verificacao as VerificacaoOsEstado | null) ?? {};
+  const pendente = pendenteAtiva(estado);
+  const incluirNumeros: number[] = [];
+
+  if (pendente) {
+    const { data: ordem } = await supabase
+      .from('ordens_servico')
+      .select(`cliente_id, ${OS_CAMPOS_IA}`)
+      .eq('id', pendente.os_id)
+      .eq('empresa_id', params.empresaId)
+      .maybeSingle();
+    const { data: cliente } = ordem?.cliente_id
+      ? await supabase.from('clientes').select('nome').eq('id', ordem.cliente_id).maybeSingle()
+      : { data: null };
+    const aparelho = ordem ? descricaoAparelho(ordem) : null;
+    const nomeCliente = primeiroNome(cliente?.nome);
+    const perguntaAtual =
+      pendente.etapa === 'aparelho' && aparelho
+        ? TEXTOS_VERIFICACAO.perguntaAparelho(pendente.numero, aparelho)
+        : nomeCliente
+          ? TEXTOS_VERIFICACAO.perguntaNome(nomeCliente, false)
+          : null;
+
+    const resposta = classificarSimNao(ultima.conteudo ?? '');
+
+    if (resposta === 'nao' || !ordem) {
+      await salvarVerificacao({ ...estado, pendente: null });
+      return enviar(TEXTOS_VERIFICACAO.naoConfirmado, { transferir: true });
+    }
+
+    if (resposta === 'outro') {
+      if (pendente.repeticoes < 1 && perguntaAtual) {
+        await salvarVerificacao({ ...estado, pendente: { ...pendente, repeticoes: pendente.repeticoes + 1 } });
+        return enviar(TEXTOS_VERIFICACAO.repetir(perguntaAtual));
+      }
+      await salvarVerificacao({ ...estado, pendente: null });
+    } else if (pendente.etapa === 'aparelho' && nomeCliente) {
+      await salvarVerificacao({
+        ...estado,
+        pendente: { ...pendente, etapa: 'nome', repeticoes: 0, desde: new Date().toISOString() },
+      });
+      return enviar(TEXTOS_VERIFICACAO.perguntaNome(nomeCliente, true));
+    } else {
+      estado.verificadas = [...new Set([...(estado.verificadas ?? []), pendente.os_id])];
+      estado.pendente = null;
+      await salvarVerificacao(estado);
+      incluirNumeros.push(pendente.numero);
+    }
+  }
+
+  const [os, consultas] = await Promise.all([
     conversa.os_id
       ? supabase
           .from('ordens_servico')
@@ -511,8 +639,49 @@ export async function responderComIA(params: {
           .maybeSingle()
           .then((r) => (r.data as OsResumoIA | null) ?? null)
       : Promise.resolve(null),
-    consultarOsCitadas(supabase, params.empresaId, historico, conversa.telefone),
+    consultarOsCitadas(supabase, params.empresaId, historico, conversa.telefone, {
+      verificadas: estado.verificadas,
+      incluirNumeros,
+    }),
   ]);
+
+  const novos = extrairNumerosOS(historico, { somenteNovas: true });
+  const aVerificar = consultas.find(
+    (c): c is Extract<ConsultaOsIA, { resultado: 'verificar' }> =>
+      c.resultado === 'verificar' && novos.includes(c.numero)
+  );
+  if (aVerificar) {
+    const tentativas = tentativasRecentes(estado);
+    if (tentativas.length >= VERIFICACAO_MAX_TENTATIVAS) {
+      await salvarVerificacao({ ...estado, tentativas, pendente: null });
+      return enviar(TEXTOS_VERIFICACAO.limite, { transferir: true });
+    }
+    const aparelho = descricaoAparelho(aVerificar.os);
+    const nomeCliente = primeiroNome(aVerificar.nomeCliente);
+    if (!aparelho && !nomeCliente) {
+      return enviar(TEXTOS_VERIFICACAO.naoConfirmado, { transferir: true });
+    }
+    await salvarVerificacao({
+      ...estado,
+      tentativas: [...tentativas, new Date().toISOString()],
+      pendente: {
+        os_id: aVerificar.osId,
+        numero: aVerificar.numero,
+        etapa: aparelho ? 'aparelho' : 'nome',
+        repeticoes: 0,
+        desde: new Date().toISOString(),
+      },
+    });
+    const pergunta = aparelho
+      ? TEXTOS_VERIFICACAO.perguntaAparelho(aVerificar.numero, aparelho)
+      : TEXTOS_VERIFICACAO.perguntaNome(nomeCliente!, false);
+    const primeiraResposta = !historico.some((m) => m.direcao === 'saida');
+    const nomeLoja = empresa?.nome?.trim() || 'assistência técnica';
+    const abertura = primeiraResposta
+      ? `${saudacaoAgora(empresa?.timezone).saudacao}! Sou o assistente virtual da ${nomeLoja}. `
+      : '';
+    return enviar(abertura + pergunta);
+  }
 
   const resultado = await gerarRespostaIA({ config, empresa, os, consultas, historico });
   if (!resultado) return 'sem_resposta';
@@ -526,42 +695,5 @@ export async function responderComIA(params: {
     conversa.os_id = osEncontrada.osId;
   }
 
-  const waConfig = await getEmpresaConfig(supabase, params.empresaId);
-  if (!waConfig?.ativo) return 'inativo';
-
-  const msg = await appendMensagem(supabase, {
-    conversa_id: params.conversaId,
-    empresa_id: params.empresaId,
-    direcao: 'saida',
-    tipo: 'texto',
-    conteudo: resultado.resposta,
-    status_entrega: 'enviada',
-    os_id: conversa.os_id ?? undefined,
-    enviado_por_ia: true,
-  });
-
-  const nome = config.nome_assistente.replace(/[*_~`]/g, '').trim() || 'Assistente virtual';
-  const envio = await sendWhatsAppTextMessage({
-    to: conversa.telefone,
-    message: `*${nome}:*\n${resultado.resposta}`,
-    config: waConfig,
-  });
-
-  await updateMensagemEntrega(supabase, msg.id, {
-    meta_message_id: envio.messageId ?? null,
-    status_entrega: envio.success ? 'enviada' : 'falha',
-    erro_entrega: envio.success ? null : envio.error ?? 'Falha ao enviar',
-  });
-
-  if (resultado.transferir) {
-    await supabase
-      .from('whatsapp_conversas')
-      .update({
-        ia_pausada_ate: new Date(Date.now() + PAUSA_APOS_TRANSFERENCIA_MS).toISOString(),
-        ia_pausa_motivo: 'transferencia',
-      })
-      .eq('id', params.conversaId);
-  }
-
-  return envio.success ? 'respondido' : 'falha_envio';
+  return enviar(resultado.resposta, { transferir: resultado.transferir });
 }
