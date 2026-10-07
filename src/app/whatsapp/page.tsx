@@ -63,6 +63,7 @@ export default function WhatsAppCrmPage() {
   const [ia, setIa] = useState<WhatsAppIaResumo | null>(null);
   const [salvandoIa, setSalvandoIa] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
+  const [conectado, setConectado] = useState(true);
   const selectedIdRef = useRef<string | null>(null);
   const filtroRef = useRef(filtro);
   selectedIdRef.current = selectedId;
@@ -100,6 +101,13 @@ export default function WhatsAppCrmPage() {
         const json = await res.json();
         if (gen !== conversasFetchGen.current) return;
         if (json.success) {
+          setConectado(json.conectado !== false);
+          if (json.conectado === false) {
+            setConversas([]);
+            setSelectedId(null);
+            setDetalhe(null);
+            return;
+          }
           if (json.ia) setIa(json.ia as WhatsAppIaResumo);
           const aberta = conversaAbertaId ?? selectedIdRef.current;
           const incoming = json.data as WhatsAppConversa[];
@@ -660,6 +668,7 @@ export default function WhatsAppCrmPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {conectado && (
             <button
               type="button"
               onClick={() => setShowOsSidebar((v) => !v)}
@@ -669,6 +678,7 @@ export default function WhatsAppCrmPage() {
               {showOsSidebar ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
               OS
             </button>
+            )}
             <Link
               href="/configuracoes?tab=11"
               className="inline-flex items-center gap-2 rounded-lg border border-[#d1d7db] dark:border-[#3b4a54] bg-white dark:bg-[#2a3942] px-3 py-1.5 text-xs text-[#54656f] dark:text-[#aebac1] hover:bg-gray-50 dark:hover:bg-[#3b4a54]"
@@ -679,6 +689,26 @@ export default function WhatsAppCrmPage() {
           </div>
         </div>
 
+        {!conectado ? (
+          <div className="flex flex-1 min-h-0 items-center justify-center p-6 wa-crm-chat-bg">
+            <div className="max-w-sm text-center rounded-xl bg-white dark:bg-[#202c33] px-6 py-8 shadow-sm">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#00a884]/10 text-[#00a884]">
+                <MessageCircle size={28} />
+              </div>
+              <h2 className="text-base font-semibold text-[#111b21] dark:text-[#e9edef]">WhatsApp não conectado</h2>
+              <p className="mt-2 text-sm text-[#667781] dark:text-[#8696a0]">
+                Conecte o número da sua empresa para receber e responder os clientes por aqui.
+              </p>
+              <Link
+                href="/configuracoes?tab=11"
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#00a884] px-4 py-2 text-sm font-medium text-white hover:bg-[#008f6f]"
+              >
+                <Settings size={15} />
+                Conectar WhatsApp
+              </Link>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-1 min-h-0">
           <ConversationList
             conversas={conversas}
@@ -715,6 +745,7 @@ export default function WhatsAppCrmPage() {
             <ClientOsSidebar detalhe={detalhe} loading={loadingDetalhe} />
           )}
         </div>
+        )}
       </div>
     </MenuLayout>
   );

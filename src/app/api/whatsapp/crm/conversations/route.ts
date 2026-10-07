@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { createAdminClient } from '@/lib/supabaseClient';
-import { listConversas } from '@/lib/whatsapp-crm/conversations';
+import { getEmpresaConfig, listConversas, whatsappConectado } from '@/lib/whatsapp-crm/conversations';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 import { getIaConfig, iaDisponivel } from '@/lib/whatsapp-crm/assistente-ia';
 import type { WhatsAppIaResumo } from '@/lib/whatsapp-crm/types';
@@ -26,6 +26,13 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') ?? undefined;
 
     const supabase = createAdminClient();
+    if (!whatsappConectado(await getEmpresaConfig(supabase, auth.empresaId))) {
+      return NextResponse.json(
+        { success: true, conectado: false, data: [] },
+        { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      );
+    }
+
     const [conversas, iaConfig] = await Promise.all([
       listConversas(supabase, auth.empresaId, { status }),
       getIaConfig(supabase, auth.empresaId),
@@ -37,7 +44,7 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json(
-      { success: true, data: conversas, ia },
+      { success: true, conectado: true, data: conversas, ia },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   } catch (err) {

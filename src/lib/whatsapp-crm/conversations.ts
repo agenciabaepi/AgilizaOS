@@ -3,6 +3,7 @@ import { phonesMatch, toWhatsAppId } from './normalize-phone';
 import type { WhatsAppConversa, WhatsAppEmpresaConfig } from './types';
 import { AUTOMACOES_PADRAO } from './template-vars';
 import { CONVERSA_USUARIO_JOIN } from './atendentes';
+import { isWhatsAppSistemaPhoneNumber } from '@/lib/whatsapp-sistema/phone';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -16,6 +17,16 @@ export async function getEmpresaConfig(
     .eq('empresa_id', empresaId)
     .maybeSingle();
   return data;
+}
+
+/** Só número próprio ativo conta como conectado; o número do sistema (teste) não. */
+export function whatsappConectado(config: WhatsAppEmpresaConfig | null): boolean {
+  return Boolean(
+    config?.ativo &&
+      config.phone_number_id &&
+      config.access_token &&
+      !isWhatsAppSistemaPhoneNumber(config.phone_number_id)
+  );
 }
 
 export async function upsertEmpresaConfig(

@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { getOsContextoByConversa } from '@/lib/whatsapp-crm/os-context';
 import { listOrdensClienteConversa } from '@/lib/whatsapp-crm/client-orders';
 import { CONVERSA_USUARIO_JOIN } from '@/lib/whatsapp-crm/atendentes';
-import { markConversaLida } from '@/lib/whatsapp-crm/conversations';
+import { getEmpresaConfig, markConversaLida, whatsappConectado } from '@/lib/whatsapp-crm/conversations';
 import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 export const maxDuration = 60;
@@ -31,6 +31,9 @@ export async function GET(
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;
+    if (!whatsappConectado(await getEmpresaConfig(createAdminClient(), auth.empresaId))) {
+      return NextResponse.json({ error: 'WhatsApp não conectado' }, { status: 404 });
+    }
     const { searchParams } = new URL(req.url);
     /** light=1 → só chat (rápido). full → inclui OS/sidebar. */
     const light = searchParams.get('light') === '1';
