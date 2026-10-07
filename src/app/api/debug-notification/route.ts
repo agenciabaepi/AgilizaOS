@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { enviarMensagemWhatsAppMeta } from '@/lib/whatsapp-meta-envio';
 
 export async function POST(req: NextRequest) {
   try {
@@ -110,16 +111,12 @@ _Consert - Sistema de Gestão_`;
     console.log('📱 Tentando enviar mensagem para:', tecnicoData.telefone);
     console.log('📝 Mensagem:', messageBody);
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/whatsapp/send-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        phoneNumber: tecnicoData.telefone, 
-        message: messageBody 
-      }),
+    const envio = await enviarMensagemWhatsAppMeta({
+      phoneNumber: tecnicoData.telefone,
+      message: messageBody,
+      useTemplate: false,
     });
-
-    const result = await response.json();
+    const result = envio.body;
     console.log('📱 Resposta do envio:', result);
 
     return NextResponse.json({
@@ -129,7 +126,7 @@ _Consert - Sistema de Gestão_`;
       tecnicoData: tecnicoData,
       envCheck: envCheck,
       messageSent: result,
-      responseStatus: response.status
+      responseStatus: envio.status
     });
 
   } catch (error: any) {

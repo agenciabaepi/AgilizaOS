@@ -3,6 +3,7 @@
 import { FiX, FiPlayCircle, FiUser, FiPhone, FiCalendar, FiDollarSign, FiPackage, FiTool } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useState } from 'react';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface OrdemServico {
   id: string;
@@ -103,9 +104,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
         // Usar nossa API que envia notificações WhatsApp
         const response = await fetch('/api/ordens/update-status', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             osId: ordem.id,
             newStatus: statusEmAnalise.nome,

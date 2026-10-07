@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { corrigirLaudoTecnico } from '@/lib/chatgpt';
 import { fetchStatusEmpresa, normalizeStatusNome } from '@/lib/statusEmpresa';
 import { laudoTexto } from '@/lib/whatsapp-crm/os-detalhes';
 import type { Usuario } from '@/lib/user-data/types';
-import { POST as atualizarOsNaApi } from '@/app/api/ordens/update-status/route';
+import { atualizarStatusOs } from '@/lib/ordens/atualizarStatusOs';
 import { atualizarSessao, type AcaoPendente } from './sessao';
 
 const CONFIRMACAO_MS = 15 * 60 * 1000;
@@ -201,18 +200,13 @@ export async function executarAcao(usuario: Usuario, acao: AcaoPendente): Promis
   if (acao.tipo === 'laudo') corpo.laudo = acao.laudo_html;
   else corpo.newStatusTecnico = acao.status;
 
-  const resposta = await atualizarOsNaApi(
-    new NextRequest('http://localhost/api/ordens/update-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(corpo),
-    })
-  );
-  const resultado = (await resposta.json().catch(() => ({}))) as {
+  if (!usuario.empresa_id) return `❌ Não consegui salvar: usuário sem empresa vinculada.`;
+  const resposta = await atualizarStatusOs(corpo, { empresaIdAutorizado: usuario.empresa_id });
+  const resultado = resposta.body as {
     error?: string;
     data?: { status_tecnico?: string };
   };
-  if (!resposta.ok) return `❌ Não consegui salvar: ${resultado.error || 'erro desconhecido'}.`;
+  if (resposta.status !== 200) return `❌ Não consegui salvar: ${resultado.error || 'erro desconhecido'}.`;
 
   const statusFinal = resultado.data?.status_tecnico;
   return acao.tipo === 'laudo'

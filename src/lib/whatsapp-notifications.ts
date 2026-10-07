@@ -1,6 +1,7 @@
 import { createAdminClient } from './supabaseClient';
 import { WHATSAPP_NOTIFICATIONS_ENABLED } from '@/config/whatsapp-config';
 import { isUsuarioTecnico } from '@/lib/tecnicos';
+import { enviarMensagemWhatsAppMeta } from '@/lib/whatsapp-meta-envio';
 
 interface TecnicoData {
   id: string;
@@ -52,32 +53,18 @@ async function sendWhatsAppMessageFreeText(
       messageLength: message.length
     });
 
-    // Determinar URL base automaticamente
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-      || process.env.NEXT_PUBLIC_SITE_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-      || 'http://localhost:3000';
-
-    const response = await fetch(`${baseUrl}/api/whatsapp/send-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        to: phoneNumber,
-        message: message,
-        useTemplate: false // Forçar mensagem de texto livre
-      })
+    const resultado = await enviarMensagemWhatsAppMeta({
+      to: phoneNumber,
+      message: message,
+      useTemplate: false // Forçar mensagem de texto livre
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('❌ Erro ao enviar mensagem WhatsApp:', errorData);
+    if (resultado.status !== 200) {
+      console.error('❌ Erro ao enviar mensagem WhatsApp:', resultado.body);
       return false;
     }
 
-    const result = await response.json();
-    console.log('✅ Mensagem WhatsApp enviada com sucesso:', result);
+    console.log('✅ Mensagem WhatsApp enviada com sucesso:', resultado.body);
     return true;
 
   } catch (error) {
@@ -173,31 +160,14 @@ async function sendWhatsAppMessage(
       };
     }
 
-    // Determinar URL base automaticamente (funciona em dev, preview e prod)
-    // Em produção no Vercel, usar a URL do domínio ou VERCEL_URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-      || process.env.NEXT_PUBLIC_SITE_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-      || 'http://localhost:3000';
+    const resultado = await enviarMensagemWhatsAppMeta(body);
 
-    console.log('🌐 Base URL usada para chamada interna:', baseUrl);
-
-    const response = await fetch(`${baseUrl}/api/whatsapp/send-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('❌ Erro ao enviar mensagem WhatsApp:', errorData);
+    if (resultado.status !== 200) {
+      console.error('❌ Erro ao enviar mensagem WhatsApp:', resultado.body);
       return false;
     }
 
-    const result = await response.json();
-    console.log('✅ Mensagem WhatsApp enviada com sucesso:', result);
+    console.log('✅ Mensagem WhatsApp enviada com sucesso:', resultado.body);
     return true;
 
   } catch (error) {
@@ -602,7 +572,8 @@ _Consert - Sistema de Gestão_`;
       whatsapp: tecnicoData.whatsapp
     });
 
-    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
+    // Texto livre: o template os_nova_v5 não aceita a mensagem multilinha como parâmetro (erro 132018)
+    const success = await sendWhatsAppMessageFreeText(tecnicoData.whatsapp, message);
 
     if (!success) {
       console.error('❌ Falha ao enviar notificação de status');

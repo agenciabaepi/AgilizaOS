@@ -34,17 +34,21 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=600' },
+          // Respostas dependem do usuário logado: nunca cachear (nem no browser, nem na CDN).
+          { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
         ],
       },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
+      // Em dev os chunks não têm hash no nome; cache imutável faria o browser rodar código antigo.
+      ...(process.env.NODE_ENV === 'production'
+        ? [{
+            source: '/_next/static/:path*',
+            headers: [
+              { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+            ],
+          }]
+        : []),
       {
         source: '/images/:path*',
         headers: [

@@ -1099,7 +1099,7 @@ export default function ListaOrdensPage() {
         matchesTab = statusConcluidos.includes(os.statusOS.toLowerCase());
       } else if (activeTab === 'orcamentos') {
         // OS com orçamento (status da OS)
-        const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
+        const statusOrcamento = ['orçamento', 'orçamento concluído', 'aguardando aprovação'];
         matchesTab = statusOrcamento.includes(os.statusOS.toLowerCase());
       } else if (activeTab === 'aguardando_retirada') {
         // OS aguardando retirada (status da OS ou técnico)
@@ -1242,57 +1242,63 @@ export default function ListaOrdensPage() {
   // ✅ OTIMIZADO: Loading states mais inteligentes
   if (!empresaId) {
     return (
-      <MenuLayout>
-        <OSFullPageSkeleton />
-      </MenuLayout>
+      <AuthGuardFinal>
+        <MenuLayout>
+          <OSFullPageSkeleton />
+        </MenuLayout>
+      </AuthGuardFinal>
     );
   }
 
   if (loadingOrdens && ordens.length === 0) {
     return (
-      <MenuLayout>
-        <OSFullPageSkeleton />
-        {retryState.isRetrying && (
-          <div className="fixed bottom-4 right-4 bg-blue-100 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-blue-700 font-medium">
-                Tentativa {retryState.currentAttempt} de 3...
-              </span>
+      <AuthGuardFinal>
+        <MenuLayout>
+          <OSFullPageSkeleton />
+          {retryState.isRetrying && (
+            <div className="fixed bottom-4 right-4 bg-blue-100 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-blue-700 font-medium">
+                  Tentativa {retryState.currentAttempt} de 3...
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-      </MenuLayout>
+          )}
+        </MenuLayout>
+      </AuthGuardFinal>
     );
   }
 
   // Estado de erro
   if (error && !loading) {
     return (
-      <MenuLayout>
-        <div className="p-4 md:p-8">
-          <div className="text-center py-12">
-            <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <FiAlertCircle className="w-8 h-8 text-red-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Não foi possível carregar as ordens
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Verifique sua conexão e tente novamente
-            </p>
-            {retryState.isRetrying && (
-              <p className="text-blue-600 text-sm mb-4">
-                Tentativa {retryState.currentAttempt} de 3...
+      <AuthGuardFinal>
+        <MenuLayout>
+          <div className="p-4 md:p-8">
+            <div className="text-center py-12">
+              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <FiAlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Não foi possível carregar as ordens
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Verifique sua conexão e tente novamente
               </p>
-            )}
-            <Button onClick={handleRetry} disabled={retryState.isRetrying}>
-              <FiRefreshCw className={`w-4 h-4 mr-2 ${retryState.isRetrying ? 'animate-spin' : ''}`} />
-              {retryState.isRetrying ? 'Tentando...' : 'Tentar novamente'}
-            </Button>
+              {retryState.isRetrying && (
+                <p className="text-blue-600 text-sm mb-4">
+                  Tentativa {retryState.currentAttempt} de 3...
+                </p>
+              )}
+              <Button onClick={handleRetry} disabled={retryState.isRetrying}>
+                <FiRefreshCw className={`w-4 h-4 mr-2 ${retryState.isRetrying ? 'animate-spin' : ''}`} />
+                {retryState.isRetrying ? 'Tentando...' : 'Tentar novamente'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </MenuLayout>
+        </MenuLayout>
+      </AuthGuardFinal>
     );
   }
 

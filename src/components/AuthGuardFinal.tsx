@@ -98,9 +98,9 @@ export default function AuthGuardFinal({
 
   if (isRedirecting || !isAuthorized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-3">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
-        <p className="text-sm text-gray-500">Carregando...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-zinc-950 gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 dark:border-zinc-100 border-t-transparent" />
+        <p className="text-sm text-gray-500 dark:text-zinc-400">Carregando...</p>
       </div>
     );
   }

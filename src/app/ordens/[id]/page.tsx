@@ -38,6 +38,7 @@ import {
 } from '@/lib/garantiaOs';
 import { isStatusEntregue } from '@/lib/statusEmpresa';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -519,9 +520,7 @@ const VisualizarOrdemServicoPage = () => {
 
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(payloadEntrega),
       });
 

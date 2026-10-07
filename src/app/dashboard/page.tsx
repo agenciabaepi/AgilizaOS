@@ -753,22 +753,26 @@ export default function LembretesPage() {
   // Durante SSR ou enquanto verifica permissão, mostrar loading consistente
   if (!isClient || authLoading || !permissionChecked) {
     return (
-      <MenuLayout>
-        <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
-        </div>
-      </MenuLayout>
+      <AuthGuardFinal>
+        <MenuLayout>
+          <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
+          </div>
+        </MenuLayout>
+      </AuthGuardFinal>
     );
   }
 
   // Checagem de carregamento apenas (após verificação de permissão)
   if (carregando) {
     return (
-      <MenuLayout>
-        <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
-        </div>
-      </MenuLayout>
+      <AuthGuardFinal>
+        <MenuLayout>
+          <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
+          </div>
+        </MenuLayout>
+      </AuthGuardFinal>
     );
   }
 

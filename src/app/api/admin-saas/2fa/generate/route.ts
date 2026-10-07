@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { enviarMensagemWhatsAppMeta } from '@/lib/whatsapp-meta-envio';
 
 // Gerar código de 6 dígitos aleatório
 function generateCode(): string {
@@ -27,21 +28,13 @@ Este código é válido por 10 minutos.
 
 ⚠️ Não compartilhe este código com ninguém.`;
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/whatsapp/send-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        phoneNumber: formattedPhone,
-        message,
-        useTemplate: false, // Mensagem simples sem template
-      }),
+    const resultado = await enviarMensagemWhatsAppMeta({
+      phoneNumber: formattedPhone,
+      message,
+      useTemplate: false, // Mensagem simples sem template
     });
 
-    const result = await response.json();
-    return result.success === true;
+    return resultado.body.success === true;
   } catch (error) {
     console.error('❌ Erro ao enviar código via WhatsApp:', error);
     return false;

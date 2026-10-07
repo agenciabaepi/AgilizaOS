@@ -25,6 +25,7 @@ import LaudoEditor from '@/components/LaudoEditor';
 import CollapsibleSection from '@/components/CollapsibleSection';
 import Lottie from 'lottie-react';
 import uploadingAnimation from '@/assets/animations/Uploading file.json';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 // Etapas da OS para a barra de progresso (status por etapa) — ordem do fluxo
 const OS_STEPS = [
@@ -464,7 +465,7 @@ export default function DetalheBancadaPage() {
       let novoStatus = os?.status;
       const stUpper = (statusTecnicoParaSalvar || '').toUpperCase();
       if (statusTecnicoParaSalvar === 'EM ANÁLISE' || /EM\s*AN[ÁA]LISE|EM_ANALISE/.test(stUpper)) {
-        novoStatus = 'EM_ANALISE';
+        novoStatus = 'EM ANÁLISE';
       } else if (statusTecnicoParaSalvar === 'AGUARDANDO INÍCIO' || /AGUARDANDO\s*IN[IÍ]CIO|AGUARDANDO INICIO/.test(stUpper)) {
         novoStatus = 'ORÇAMENTO';
       } else if (/OR[ÇC]AMENTO CONCLU[IÍ]DO/.test(stUpper)) {
@@ -569,9 +570,7 @@ export default function DetalheBancadaPage() {
       
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(requestBody),
       });
 
@@ -632,12 +631,10 @@ export default function DetalheBancadaPage() {
       // Usar nossa API que registra histórico e envia notificações
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           osId: id,
-          newStatus: 'EM_ANALISE',
+          newStatus: 'EM ANÁLISE',
           newStatusTecnico: 'EM ANÁLISE'
         }),
       });
@@ -653,7 +650,7 @@ export default function DetalheBancadaPage() {
       setMostrarBotaoIniciar(false);
       
       if (os) {
-        setOs({ ...os, status: 'EM_ANALISE', status_tecnico: 'EM ANÁLISE' });
+        setOs({ ...os, status: 'EM ANÁLISE', status_tecnico: 'EM ANÁLISE' });
       }
 
       addToast('success', 'OS iniciada com sucesso!');
@@ -1227,13 +1224,13 @@ export default function DetalheBancadaPage() {
               </div>
               <span className={`shrink-0 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
                 os.status === 'ORÇAMENTO' ? 'bg-yellow-100 text-yellow-800' :
-                os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
+                os.status === 'EM_ANALISE' || os.status === 'EM ANÁLISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
                 os.status === 'SEM REPARO' || os.status === 'SEM_REPARO' ? 'bg-red-100 text-red-800' :
                 os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
-                {os.status === 'ORÇAMENTO' ? 'Orçamento' : os.status === 'EM_ANALISE' ? 'Em Análise' : os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' : os.status === 'SEM REPARO' || os.status === 'SEM_REPARO' ? 'Sem Reparo' : os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
+                {os.status === 'ORÇAMENTO' ? 'Orçamento' : os.status === 'EM_ANALISE' || os.status === 'EM ANÁLISE' ? 'Em Análise' : os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' : os.status === 'SEM REPARO' || os.status === 'SEM_REPARO' ? 'Sem Reparo' : os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
               </span>
             </div>
             {/* Barra de progresso por etapa */}

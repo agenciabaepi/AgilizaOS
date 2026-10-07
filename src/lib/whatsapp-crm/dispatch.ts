@@ -31,9 +31,9 @@ function normalizeStatus(s: string): string {
 function mapStatusToEvento(status: string): WhatsAppAutomacaoEvento | null {
   const n = normalizeStatus(status);
   if (n.includes('APROVADO')) return 'os_aprovada';
-  if (n.includes('CONCLUIDO') || n.includes('REPARO CONCLUIDO')) return 'os_concluida';
-  if (n.includes('ENTREGUE')) return 'os_entregue';
   if (n.includes('ORCAMENTO') && n.includes('CONCLUIDO')) return 'os_orcamento_enviado';
+  if (n.includes('CONCLUIDO')) return 'os_concluida';
+  if (n.includes('ENTREGUE')) return 'os_entregue';
   if (n.includes('AGUARDANDO') && n.includes('PECA')) return 'os_aguardando_peca';
   return 'os_status_alterado';
 }
@@ -133,7 +133,7 @@ export async function dispatchAutomacaoOs(
       ? mapStatusToEvento(payload.status_novo)
       : payload.evento;
 
-  let query = supabase
+  const { data: automacoesDoEvento } = await supabase
     .from('whatsapp_automacoes')
     .select('*')
     .eq('empresa_id', payload.empresa_id)
@@ -141,12 +141,14 @@ export async function dispatchAutomacaoOs(
     .eq('ativo', true)
     .order('ordem');
 
-  if (payload.status_novo) {
-    const statusNorm = normalizeStatus(payload.status_novo);
-    query = query.or(`status_trigger.is.null,status_trigger.ilike.%${statusNorm}%`);
-  }
-
-  const { data: automacoes } = await query;
+  // Comparação sem acento em JS: o ILIKE do Postgres diferencia "PEÇA" de "PECA"
+  const statusNorm = payload.status_novo ? normalizeStatus(payload.status_novo) : '';
+  const automacoes = (automacoesDoEvento ?? []).filter((a) => {
+    const trigger = typeof a.status_trigger === 'string' ? a.status_trigger.trim() : '';
+    if (!trigger || !statusNorm) return true;
+    const triggerNorm = normalizeStatus(trigger);
+    return statusNorm.includes(triggerNorm) || triggerNorm.includes(statusNorm);
+  });
 
   if (!automacoes?.length) {
     return { sent: false, reason: 'no_matching_automation' };

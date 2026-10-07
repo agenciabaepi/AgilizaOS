@@ -5,6 +5,7 @@ import { FiChevronDown, FiCheck, FiClock, FiPackage, FiTool, FiCheckCircle } fro
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { fetchStatusEmpresa, isStatusEntregue, type StatusEmpresa } from '@/lib/statusEmpresa';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface StatusQuickChangeProps {
   ordemId: string;
@@ -92,7 +93,7 @@ export default function StatusQuickChange({
       if (Object.keys(updateData).length > 0) {
         const response = await fetch('/api/ordens/update-status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             osId: ordemId,
             newStatus: updateData.status,

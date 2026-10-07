@@ -34,6 +34,7 @@ import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 import { useEmpresaStatus } from '@/hooks/useEmpresaStatus';
 import { ensureStatusNaLista, findStatusByNome } from '@/lib/statusEmpresa';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface Item {
   id?: string;
@@ -115,7 +116,7 @@ export default function EditarOSSimples() {
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { usuarioData, empresaData } = useAuth();
-  const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
+  const { buscarHistorico } = useStatusHistorico(id);
 
   const pendingStatusIdRef = useRef<string | null>(null);
   const pendingTecnicoKeyRef = useRef<string | null>(null);
@@ -814,9 +815,7 @@ export default function EditarOSSimples() {
       // Usar nosso endpoint que envia notificações WhatsApp
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await bearerAuthHeadersForApi(null, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           osId: osIdParaEnviar, // Usar numero_os se disponível, senão usar UUID
           empresa_id: usuarioData?.empresa_id, // Incluir empresa_id para filtrar corretamente
@@ -850,35 +849,6 @@ export default function EditarOSSimples() {
         addToast('error', 'Comissão não registrada: ' + result.comissaoErro);
       } else if (result.comissaoRegistrada) {
         addToast('success', 'Comissão do técnico registrada.');
-      }
-
-      // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO (opcional - não bloqueia salvamento)
-      try {
-        const statusAnterior = ordem?.status || null;
-        const statusTecnicoAnterior = ordem?.status_tecnico || null;
-        const statusNovo = statusSelecionado?.nome || ordem?.status || '';
-        
-        if (statusAnterior !== statusNovo || statusTecnicoAnterior !== novoStatusTecnico) {
-          const motivo = statusRecusado ? 'Cliente recusou o orçamento' : 
-                       sel === 'ENTREGUE' ? 'OS finalizada e entregue ao cliente' :
-                       sel === 'APROVADO' ? 'Orçamento aprovado pelo cliente' :
-                       'Mudança de status via sistema';
-          
-          const historicoSucesso = await registrarMudancaStatus(
-            id,
-            statusAnterior,
-            statusNovo,
-            statusTecnicoAnterior,
-            novoStatusTecnico,
-            motivo,
-            observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
-          );
-          
-          // Histórico registrado (opcional)
-        }
-      } catch (error) {
-        // Erro ao registrar histórico (não crítico)
-        // Não interrompe o fluxo - histórico é opcional
       }
 
       router.push(`/ordens/${id}`);
