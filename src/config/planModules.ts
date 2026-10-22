@@ -101,6 +101,46 @@ export function isModuleDefaultEnabled(key: PremiumModule): boolean {
   return 'defaultEnabled' in mod && mod.defaultEnabled === true;
 }
 
+/** Estado do formulário admin: módulos defaultEnabled entram explícitos (true) se ausentes. */
+export function normalizeRecursosFormState(
+  raw: Partial<Record<string, boolean>> | null | undefined
+): Partial<Record<PremiumModule, boolean>> {
+  const next: Partial<Record<PremiumModule, boolean>> = {};
+  const src = raw && typeof raw === 'object' ? raw : {};
+  for (const key of Object.keys(PREMIUM_MODULES) as PremiumModule[]) {
+    if (key in src && typeof src[key] === 'boolean') {
+      next[key] = src[key] as boolean;
+    } else if (isModuleDefaultEnabled(key)) {
+      next[key] = true;
+    }
+  }
+  // Preserva overrides de módulos premium já salvos
+  for (const [key, value] of Object.entries(src)) {
+    if (typeof value !== 'boolean') continue;
+    if (key in PREMIUM_MODULES && !(key in next)) {
+      next[key as PremiumModule] = value;
+    }
+  }
+  return next;
+}
+
+/** Payload de save: inclui defaultEnabled sempre; demais só se true (liberar) ou false explícito. */
+export function buildRecursosSavePayload(
+  valores: Partial<Record<PremiumModule, boolean>>
+): Partial<Record<PremiumModule, boolean>> {
+  const out: Partial<Record<PremiumModule, boolean>> = {};
+  for (const key of Object.keys(PREMIUM_MODULES) as PremiumModule[]) {
+    if (isModuleDefaultEnabled(key)) {
+      out[key] = valores[key] !== false;
+    } else if (valores[key] === true) {
+      out[key] = true;
+    } else if (valores[key] === false) {
+      out[key] = false;
+    }
+  }
+  return out;
+}
+
 export const RECURSOS_BASICO: Record<PremiumModule, boolean> = {
   nota_fiscal: false,
   ia: false,

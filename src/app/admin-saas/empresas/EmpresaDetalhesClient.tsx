@@ -12,7 +12,11 @@ import AdminEmpresaPagamentosSection from './AdminEmpresaPagamentosSection';
 import PremiumRecursosForm from '@/components/admin/PremiumRecursosForm';
 import AdminAlterarPlanoModal from '@/components/admin/AdminAlterarPlanoModal';
 import AdminEmpresaValorPorPlano from '@/components/admin/AdminEmpresaValorPorPlano';
-import type { PremiumModule } from '@/config/planModules';
+import {
+  buildRecursosSavePayload,
+  normalizeRecursosFormState,
+  type PremiumModule,
+} from '@/config/planModules';
 import type { PlanoSlug } from '@/config/planModules';
 
 type AbaEmpresa = 'geral' | 'pagamentos';
@@ -80,40 +84,51 @@ type EmpresaDetalhes = {
 // Modal de Gerenciar Recursos (definido antes do componente principal)
 const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDetalhes; onClose: () => void; onSuccess: () => void }) => {
   const [recursosCustomizados, setRecursosCustomizados] = useState<Partial<Record<PremiumModule, boolean>>>({});
+  const [carregandoRecursos, setCarregandoRecursos] = useState(true);
   const [salvandoRecursos, setSalvandoRecursos] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchRecursos() {
+      setCarregandoRecursos(true);
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-        const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/recursos`, { cache: 'no-store', credentials: 'include' });
+        const res = await fetch(`/api/admin-saas/empresas/${empresa.id}/recursos`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
         const json = await res.json();
+        if (cancelled) return;
         if (res.ok && json.ok) {
-          setRecursosCustomizados(json.recursos || {});
+          setRecursosCustomizados(normalizeRecursosFormState(json.recursos));
         } else {
-          setRecursosCustomizados({});
+          setRecursosCustomizados(normalizeRecursosFormState(null));
         }
       } catch (err) {
         console.error('Erro ao buscar recursos:', err);
-        setRecursosCustomizados({});
+        if (!cancelled) setRecursosCustomizados(normalizeRecursosFormState(null));
+      } finally {
+        if (!cancelled) setCarregandoRecursos(false);
       }
     }
     fetchRecursos();
+    return () => {
+      cancelled = true;
+    };
   }, [empresa.id]);
 
   async function confirmarSalvarRecursos() {
     setSalvandoRecursos(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/recursos`, {
+      const payload = buildRecursosSavePayload(recursosCustomizados);
+      const res = await fetch(`/api/admin-saas/empresas/${empresa.id}/recursos`, {
         credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recursos: recursosCustomizados }),
+        body: JSON.stringify({ recursos: payload }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao salvar recursos');
+        throw new Error(json.message || json.error || 'Falha ao salvar recursos');
       }
       onSuccess();
     } catch (err: any) {
@@ -122,6 +137,8 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
       setSalvandoRecursos(false);
     }
   }
+
+  const formBusy = carregandoRecursos || salvandoRecursos;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
@@ -133,17 +150,22 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
 
         <div className="border border-gray-200 rounded-lg p-4 mb-6">
           <h4 className="font-semibold text-gray-900 mb-3">Módulos</h4>
-          <PremiumRecursosForm
-            valores={recursosCustomizados}
-            onChange={setRecursosCustomizados}
-            disabled={salvandoRecursos}
-          />
+          {carregandoRecursos ? (
+            <p className="text-sm text-gray-500 py-4">Carregando recursos…</p>
+          ) : (
+            <PremiumRecursosForm
+              valores={recursosCustomizados}
+              onChange={setRecursosCustomizados}
+              disabled={formBusy}
+            />
+          )}
         </div>
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
           <p className="text-xs text-yellow-800">
-            <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos da assinatura, 
-            desmarque todos os recursos e salve.
+            <strong>Nota:</strong> Desmarque &quot;Contas a Pagar&quot; / &quot;Contas a Receber&quot; e clique em Salvar
+            para desativar nesta empresa. Os demais módulos, se desmarcados, deixam de ter override
+            de liberação manual.
           </p>
         </div>
 
@@ -159,7 +181,7 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
           <Button 
             onClick={confirmarSalvarRecursos}
             className="bg-gray-900 hover:bg-gray-800 text-white"
-            disabled={salvandoRecursos}
+            disabled={formBusy}
           >
             {salvandoRecursos ? 'Salvando...' : 'Salvar Recursos'}
           </Button>
@@ -1162,8 +1184,6 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
       <AdminEmpresaUsuariosSection empresaId={empresaId} empresaNome={empresa.nome} />
 
-      <AdminEmpresaClientesSection empresaId={empresaId} />
-
       {/* Ações Rápidas */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h2>
@@ -1221,6 +1241,8 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           ) : null}
         </div>
       </div>
+
+      <AdminEmpresaClientesSection empresaId={empresaId} />
 
       {/* Zona de perigo — exclusão permanente */}
       <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6">

@@ -6,7 +6,11 @@ import { Button } from '@/components/Button';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import { FiInfo, FiChevronRight, FiUnlock } from 'react-icons/fi';
 import PremiumRecursosForm from '@/components/admin/PremiumRecursosForm';
-import type { PremiumModule } from '@/config/planModules';
+import {
+  buildRecursosSavePayload,
+  normalizeRecursosFormState,
+  type PremiumModule,
+} from '@/config/planModules';
 
 const TRIAL_IMPLICITO_HINT = `Trial implícito: ${DIAS_TRIAL_GRATIS} dias a partir da criação da empresa. Sem registro na tabela assinaturas.`;
 
@@ -120,6 +124,7 @@ export default function EmpresasClient() {
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
   const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(null);
   const [recursosCustomizados, setRecursosCustomizados] = useState<Partial<Record<PremiumModule, boolean>>>({});
+  const [carregandoRecursos, setCarregandoRecursos] = useState(false);
   const [salvandoRecursos, setSalvandoRecursos] = useState(false);
   const safePageSize = Math.max(1, pageSize);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / safePageSize)), [total, safePageSize]);
@@ -230,20 +235,25 @@ export default function EmpresasClient() {
   async function handleGerenciarRecursos(e: Empresa) {
     setEmpresaSelecionada(e);
     setShowGerenciarRecursos(true);
-    
-    // Buscar recursos customizados atuais
+    setCarregandoRecursos(true);
+    setRecursosCustomizados(normalizeRecursosFormState(null));
+
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${e.id}/recursos`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin-saas/empresas/${e.id}/recursos`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       const json = await res.json();
       if (res.ok && json.ok) {
-        setRecursosCustomizados(json.recursos || {});
+        setRecursosCustomizados(normalizeRecursosFormState(json.recursos));
       } else {
-        setRecursosCustomizados({});
+        setRecursosCustomizados(normalizeRecursosFormState(null));
       }
     } catch (err) {
       console.error('Erro ao buscar recursos:', err);
-      setRecursosCustomizados({});
+      setRecursosCustomizados(normalizeRecursosFormState(null));
+    } finally {
+      setCarregandoRecursos(false);
     }
   }
 
@@ -252,15 +262,16 @@ export default function EmpresasClient() {
 
     setSalvandoRecursos(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaSelecionada.id}/recursos`, {
+      const payload = buildRecursosSavePayload(recursosCustomizados);
+      const res = await fetch(`/api/admin-saas/empresas/${empresaSelecionada.id}/recursos`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recursos: recursosCustomizados }),
+        body: JSON.stringify({ recursos: payload }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao salvar recursos');
+        throw new Error(json.message || json.error || 'Falha ao salvar recursos');
       }
       setShowGerenciarRecursos(false);
       setEmpresaSelecionada(null);
@@ -268,6 +279,7 @@ export default function EmpresasClient() {
       await fetchItems({ keepPage: true });
     } catch (err: any) {
       setError(err.message || 'Erro ao salvar recursos');
+      alert(err.message || 'Erro ao salvar recursos');
     } finally {
       setSalvandoRecursos(false);
     }
@@ -586,17 +598,20 @@ export default function EmpresasClient() {
 
             <div className="border border-gray-200 rounded-lg p-4 mb-6">
               <h4 className="font-semibold text-gray-900 mb-3">Módulos</h4>
-              <PremiumRecursosForm
-                valores={recursosCustomizados}
-                onChange={setRecursosCustomizados}
-                disabled={salvandoRecursos}
-              />
+              {carregandoRecursos ? (
+                <p className="text-sm text-gray-500 py-4">Carregando recursos…</p>
+              ) : (
+                <PremiumRecursosForm
+                  valores={recursosCustomizados}
+                  onChange={setRecursosCustomizados}
+                  disabled={salvandoRecursos || carregandoRecursos}
+                />
+              )}
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
               <p className="text-xs text-yellow-800">
-                <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos da assinatura, 
-                desmarque todos os recursos e salve.
+                <strong>Nota:</strong> Desmarque Contas a Pagar / Contas a Receber e salve para desativar nesta empresa.
               </p>
             </div>
 
@@ -616,7 +631,7 @@ export default function EmpresasClient() {
               <Button 
                 onClick={confirmarSalvarRecursos}
                 className="bg-gray-900 hover:bg-gray-800 text-white"
-                disabled={salvandoRecursos}
+                disabled={salvandoRecursos || carregandoRecursos}
               >
                 {salvandoRecursos ? 'Salvando...' : 'Salvar Recursos'}
               </Button>

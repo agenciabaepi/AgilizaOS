@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/Button';
-import { FiEdit2, FiSearch, FiUsers, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiEdit2, FiSearch, FiUsers, FiX } from 'react-icons/fi';
 
 type ClienteLista = {
   id: string;
@@ -89,9 +89,14 @@ function rowToForm(row: Record<string, unknown>): ClienteFormState {
   };
 }
 
+const LIST_LIMIT = 40;
+
 export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: string }) {
+  const [expanded, setExpanded] = useState(false);
   const [clientes, setClientes] = useState<ClienteLista[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [truncated, setTruncated] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -107,11 +112,12 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
   }, [searchInput]);
 
   const carregar = useCallback(async () => {
-    if (!empresaId) return;
+    if (!empresaId || !expanded) return;
     setLoading(true);
     try {
-      const q = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : '';
-      const res = await fetch(`/api/admin-saas/empresas/${empresaId}/clientes${q}`, {
+      const params = new URLSearchParams({ limit: String(LIST_LIMIT) });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      const res = await fetch(`/api/admin-saas/empresas/${empresaId}/clientes?${params}`, {
         cache: 'no-store',
         credentials: 'include',
       });
@@ -120,13 +126,15 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
         throw new Error(json.message || 'Falha ao carregar clientes');
       }
       setClientes(json.clientes || []);
+      setTotal(typeof json.total === 'number' ? json.total : (json.clientes || []).length);
+      setTruncated(!!json.truncated);
     } catch (e: unknown) {
       console.error(e);
       alert(e instanceof Error ? e.message : 'Erro ao carregar clientes');
     } finally {
       setLoading(false);
     }
-  }, [empresaId, debouncedSearch]);
+  }, [empresaId, debouncedSearch, expanded]);
 
   useEffect(() => {
     carregar();
@@ -215,94 +223,133 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
     'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-gray-900 focus:border-transparent';
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center">
-            <FiUsers className="text-teal-700 w-5 h-5" />
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-gray-50 rounded-xl"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+            <FiUsers className="text-teal-700 w-4 h-4" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Clientes da empresa</h2>
-            <p className="text-sm text-gray-500">Editar cadastros de clientes desta empresa</p>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-gray-900">Clientes da empresa</h2>
+            <p className="text-xs text-gray-500 truncate">
+              {expanded
+                ? 'Busque e edite cadastros desta empresa'
+                : 'Recolhido — clique para expandir'}
+            </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Buscar por nome, telefone, e-mail..."
-              className={`${inputClass} pl-9`}
-              aria-label="Buscar clientes"
-            />
-          </div>
-          <Button type="button" variant="outline" onClick={() => carregar()} disabled={loading} className="border-gray-300">
-            Atualizar
-          </Button>
-        </div>
-      </div>
+        {expanded ? (
+          <FiChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
+        ) : (
+          <FiChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+        )}
+      </button>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-        </div>
-      ) : clientes.length === 0 ? (
-        <p className="text-sm text-gray-500 py-4">Nenhum cliente encontrado.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">#</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">Nome</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600 hidden md:table-cell">Telefone</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600 hidden lg:table-cell">E-mail</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600 hidden sm:table-cell">Documento</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-600">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {clientes.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.numero_cliente ?? '—'}</td>
-                  <td className="px-3 py-2 font-medium text-gray-900">{c.nome}</td>
-                  <td className="px-3 py-2 text-gray-700 hidden md:table-cell whitespace-nowrap">
-                    {[c.telefone, c.celular].filter(Boolean).join(' / ') || '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-700 hidden lg:table-cell max-w-[200px] truncate">
-                    {c.email || '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-600 hidden sm:table-cell whitespace-nowrap">
-                    {c.documento || '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        c.status === 'inativo' ? 'bg-gray-100 text-gray-700' : 'bg-green-50 text-green-800'
-                      }`}
-                    >
-                      {c.status || 'ativo'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="border-gray-300"
-                      onClick={() => abrirEdicao(c.id)}
-                    >
-                      <FiEdit2 className="w-4 h-4 mr-1" />
-                      Editar
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[180px] max-w-sm">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Buscar nome, telefone, e-mail..."
+                className={`${inputClass} pl-9 py-1.5`}
+                aria-label="Buscar clientes"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => carregar()}
+              disabled={loading}
+              className="border-gray-300"
+            >
+              Atualizar
+            </Button>
+            {!loading && total > 0 && (
+              <span className="text-xs text-gray-500">
+                {truncated
+                  ? `Mostrando ${clientes.length} de ${total}`
+                  : `${total} cliente${total === 1 ? '' : 's'}`}
+              </span>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-gray-900" />
+            </div>
+          ) : clientes.length === 0 ? (
+            <p className="text-sm text-gray-500 py-2">Nenhum cliente encontrado.</p>
+          ) : (
+            <div className="overflow-auto max-h-64 rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">#</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">Nome</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 hidden md:table-cell">
+                      Telefone
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {clientes.map((c) => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap text-xs">
+                        {c.numero_cliente ?? '—'}
+                      </td>
+                      <td className="px-3 py-1.5 font-medium text-gray-900 max-w-[180px] truncate">
+                        {c.nome}
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-700 hidden md:table-cell whitespace-nowrap text-xs">
+                        {[c.telefone, c.celular].filter(Boolean).join(' / ') || '—'}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            c.status === 'inativo'
+                              ? 'bg-gray-100 text-gray-700'
+                              : 'bg-green-50 text-green-800'
+                          }`}
+                        >
+                          {c.status || 'ativo'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-gray-300 h-7 text-xs"
+                          onClick={() => abrirEdicao(c.id)}
+                        >
+                          <FiEdit2 className="w-3.5 h-3.5 mr-1" />
+                          Editar
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {truncated && !loading && (
+            <p className="text-xs text-amber-700">
+              Lista limitada a {LIST_LIMIT} resultados. Use a busca para localizar um cliente
+              específico.
+            </p>
+          )}
         </div>
       )}
 
@@ -378,7 +425,9 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Documento (CPF/CNPJ)</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Documento (CPF/CNPJ)
+                    </label>
                     <input
                       className={inputClass}
                       value={form.documento}
@@ -410,11 +459,19 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
-                  <input className={inputClass} value={form.cep} onChange={(e) => setForm((f) => ({ ...f, cep: e.target.value }))} />
+                  <input
+                    className={inputClass}
+                    value={form.cep}
+                    onChange={(e) => setForm((f) => ({ ...f, cep: e.target.value }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Rua</label>
-                  <input className={inputClass} value={form.rua} onChange={(e) => setForm((f) => ({ ...f, rua: e.target.value }))} />
+                  <input
+                    className={inputClass}
+                    value={form.rua}
+                    onChange={(e) => setForm((f) => ({ ...f, rua: e.target.value }))}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -488,7 +545,9 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Senha de desbloqueio (se houver)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Senha de desbloqueio (se houver)
+                  </label>
                   <input
                     type="text"
                     className={inputClass}
@@ -507,10 +566,20 @@ export default function AdminEmpresaClientesSection({ empresaId }: { empresaId: 
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
-                  <Button type="button" variant="outline" onClick={fecharModal} className="border-gray-300" disabled={saving}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={fecharModal}
+                    className="border-gray-300"
+                    disabled={saving}
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white" disabled={saving}>
+                  <Button
+                    type="submit"
+                    className="bg-gray-900 hover:bg-gray-800 text-white"
+                    disabled={saving}
+                  >
                     {saving ? 'Salvando...' : 'Salvar'}
                   </Button>
                 </div>

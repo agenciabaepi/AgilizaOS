@@ -68,8 +68,9 @@ export default function PremiumRecursosForm({
         );
       })}
       <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-        Módulos marcados como &quot;Padrão ativo&quot; vêm ligados; desmarque para desativar nesta empresa.
-        Nos demais, marque para liberar manualmente. Desmarque todos os overrides e salve para seguir só o plano.
+        &quot;Padrão ativo&quot;: desmarque para desligar nesta empresa. Demais: marque para liberar
+        manualmente. Para limpar overrides e voltar só ao plano, use o botão correspondente ou
+        remova as customizações ao salvar vazio nos módulos premium.
       </p>
     </div>
   );
