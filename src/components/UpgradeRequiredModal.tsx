@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { FiX, FiLock, FiArrowRight } from 'react-icons/fi';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getPremiumModuleInfo } from '@/lib/billing/planResources';
-import { PLANO_COMPLETO_NOME } from '@/config/planModules';
+import { isModuleDefaultEnabled, PLANO_COMPLETO_NOME, type PremiumModule } from '@/config/planModules';
 
 interface UpgradeRequiredModalProps {
   resource: string;
@@ -19,6 +19,8 @@ export default function UpgradeRequiredModal({ resource, onClose }: UpgradeRequi
   const resourceName = info?.label ?? 'Recurso Premium';
   const resourceDescription =
     info?.description ?? 'Este recurso está disponível apenas no Plano Completo.';
+  const disabledByAdmin =
+    !!info && isModuleDefaultEnabled(resource as PremiumModule);
 
   const handleUpgrade = () => {
     router.push('/assinatura#planos-assinatura');
@@ -31,6 +33,49 @@ export default function UpgradeRequiredModal({ resource, onClose }: UpgradeRequi
       router.push('/dashboard');
     }
   };
+
+  if (disabledByAdmin) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white dark:bg-zinc-900 dark:border dark:border-zinc-600 rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+            type="button"
+          >
+            <FiX size={24} />
+          </button>
+
+          <div className="flex justify-center mb-4">
+            <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
+              <FiLock className="text-gray-600" size={32} />
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Módulo desativado</h2>
+
+          <p className="text-gray-600 text-center mb-6">
+            <span className="font-semibold text-gray-900">{resourceName}</span> não está disponível para
+            esta empresa no momento.
+          </p>
+
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <p className="text-sm text-gray-600">
+              Se você acredita que isso é um engano, fale com o suporte Consert.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

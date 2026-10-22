@@ -318,6 +318,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   const podeVerModulo = podeVer;
   const podeVerLucroDesempenho =
     podeVerModulo('lucro-desempenho', 'financeiro') && temRecurso('lucro_desempenho');
+  const podeVerContasAPagar =
+    podeVerModulo('contas-a-pagar', 'financeiro') && temRecurso('contas_a_pagar');
   const dashboardPath = getDashboardPathForNivel(usuarioData?.nivel);
   const dashboardAtivo = isUserHomePath(pathname || '', usuarioData?.nivel);
 
@@ -487,7 +489,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                       isSubmenu
                     />
                   )}
-                  {podeVerModulo('contas-a-pagar', 'financeiro') && (
+                  {podeVerContasAPagar && (
                     <SidebarButton
                       path="/financeiro/contas-a-pagar"
                       label="Contas a Pagar"
@@ -704,7 +706,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                           isSubmenu
                         />
                       )}
-                      {podeVerModulo('contas-a-pagar', 'financeiro') && (
+                      {podeVerContasAPagar && (
                         <SidebarButton
                           path="/financeiro/contas-a-pagar"
                           label="Contas a Pagar"

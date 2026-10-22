@@ -12,8 +12,11 @@ export const PLANOS_VENDA: PlanoSlug[] = [PLANO_SLUGS.BASICO, PLANO_SLUGS.COMPLE
 
 /**
  * Módulos exclusivos do Plano Completo (e liberados no trial).
- * Financeiro básico (vendas, caixa, contas) permanece no Básico;
+ * Financeiro básico (vendas, caixa) permanece no Básico;
  * lucro/desempenho e comissões agregadas exigem Completo.
+ *
+ * Módulos com `defaultEnabled: true` ficam liberados em todos os planos
+ * e só podem ser desligados via override em Gerenciar Recursos (admin-saas).
  */
 export const PREMIUM_MODULES = {
   nota_fiscal: {
@@ -36,6 +39,20 @@ export const PREMIUM_MODULES = {
     label: 'Lucro e desempenho',
     description: 'Relatórios de lucratividade, desempenho e comissões dos técnicos',
     status: 'active' as const,
+  },
+  contas_a_pagar: {
+    label: 'Contas a Pagar',
+    description: 'Gestão de despesas, contas fixas e pagamentos',
+    status: 'active' as const,
+    showOnPlanCard: false as const,
+    defaultEnabled: true as const,
+  },
+  contas_a_receber: {
+    label: 'Contas a Receber',
+    description: 'Gestão de receitas e valores a receber',
+    status: 'active' as const,
+    showOnPlanCard: false as const,
+    defaultEnabled: true as const,
   },
 } as const;
 
@@ -79,11 +96,18 @@ export const LEGACY_MODULE_ALIASES: Record<string, PremiumModule> = {
   'lucro-desempenho': 'lucro_desempenho',
 };
 
+export function isModuleDefaultEnabled(key: PremiumModule): boolean {
+  const mod = PREMIUM_MODULES[key];
+  return 'defaultEnabled' in mod && mod.defaultEnabled === true;
+}
+
 export const RECURSOS_BASICO: Record<PremiumModule, boolean> = {
   nota_fiscal: false,
   ia: false,
   whatsapp_crm: false,
   lucro_desempenho: false,
+  contas_a_pagar: true,
+  contas_a_receber: true,
 };
 
 export const RECURSOS_COMPLETO: Record<PremiumModule, boolean> = {
@@ -91,6 +115,8 @@ export const RECURSOS_COMPLETO: Record<PremiumModule, boolean> = {
   ia: true,
   whatsapp_crm: true,
   lucro_desempenho: true,
+  contas_a_pagar: true,
+  contas_a_receber: true,
 };
 
 /** Trial exibe todos os módulos premium para conversão. */

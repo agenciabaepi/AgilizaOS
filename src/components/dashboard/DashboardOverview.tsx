@@ -89,6 +89,7 @@ export default function DashboardOverview() {
   const { empresaData } = useAuth();
   const { temRecurso } = useSubscription();
   const podeLucro = temRecurso('lucro_desempenho');
+  const podeContasAPagar = temRecurso('contas_a_pagar');
   const empresaId = empresaData?.id;
 
   const [loading, setLoading] = useState(true);
@@ -672,6 +673,7 @@ export default function DashboardOverview() {
         )}
       </div>
 
+      {podeContasAPagar && (
       <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
@@ -737,6 +739,7 @@ export default function DashboardOverview() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

@@ -1,12 +1,16 @@
 /**
- * Rotas que exigem módulo do plano (Completo / trial).
- * Financeiro operacional (vendas, caixa, contas) permanece liberado no Básico.
+ * Rotas que exigem módulo do plano (Completo / trial) ou flag admin.
+ * Financeiro operacional (vendas, caixa) permanece liberado no Básico;
+ * contas a pagar/receber vêm ativas por padrão e podem ser desligadas no admin-saas.
  */
 export const PAGE_RESOURCES = {
   '/whatsapp': 'whatsapp_crm',
   '/configuracoes/whatsapp': 'whatsapp_crm',
   '/financeiro/lucro-desempenho': 'lucro_desempenho',
   '/financeiro/comissoes-tecnicos': 'lucro_desempenho',
+  '/financeiro/contas-a-pagar': 'contas_a_pagar',
+  '/financeiro/contas-a-pagar/categorias': 'contas_a_pagar',
+  '/financeiro/contas-a-receber': 'contas_a_receber',
   // Futuro: '/nota-fiscal': 'nota_fiscal',
 } as const;
 
@@ -25,6 +29,14 @@ export function getRequiredResource(pathname: string): string | null {
   // Prefixo: /financeiro/comissoes-tecnicos/[id]
   if (cleanPath.startsWith('/financeiro/comissoes-tecnicos')) {
     return 'lucro_desempenho';
+  }
+
+  if (cleanPath.startsWith('/financeiro/contas-a-pagar')) {
+    return 'contas_a_pagar';
+  }
+
+  if (cleanPath.startsWith('/financeiro/contas-a-receber')) {
+    return 'contas_a_receber';
   }
 
   for (const [route, resource] of Object.entries(PAGE_RESOURCES)) {

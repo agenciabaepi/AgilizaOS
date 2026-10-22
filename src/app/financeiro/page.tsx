@@ -9,6 +9,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 export default function FinanceiroPage() {
   const { temRecurso } = useSubscription();
   const podeLucro = temRecurso('lucro_desempenho');
+  const podeContasAPagar = temRecurso('contas_a_pagar');
 
   const menuItems = [
     ...(podeLucro
@@ -29,13 +30,17 @@ export default function FinanceiroPage() {
       href: '/financeiro/vendas',
       color: 'bg-green-500',
     },
-    {
-      title: 'Contas a Pagar',
-      description: 'Gestão de despesas e contas',
-      icon: FiFileText,
-      href: '/financeiro/contas-a-pagar',
-      color: 'bg-red-500',
-    },
+    ...(podeContasAPagar
+      ? [
+          {
+            title: 'Contas a Pagar',
+            description: 'Gestão de despesas e contas',
+            icon: FiFileText,
+            href: '/financeiro/contas-a-pagar',
+            color: 'bg-red-500',
+          },
+        ]
+      : []),
     {
       title: 'Movimentações',
       description: 'Histórico de movimentações',

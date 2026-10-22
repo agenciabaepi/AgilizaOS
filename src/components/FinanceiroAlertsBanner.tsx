@@ -13,6 +13,7 @@ import {
 import { FiAlertTriangle, FiClock } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
@@ -395,6 +396,7 @@ export default function FinanceiroAlertsBanner() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { empresaData, usuarioData } = useAuth();
+  const { temRecurso } = useSubscription();
   const [contas, setContas] = useState<ContaPagar[]>([]);
   const [configs, setConfigs] = useState<ConfigAvisoContasPagar[]>([]);
   const [loadingConfigs, setLoadingConfigs] = useState(true); // Estado de carregamento
@@ -402,6 +404,7 @@ export default function FinanceiroAlertsBanner() {
   const empresaId = empresaData?.id;
   const usuarioId = usuarioData?.id;
   const router = useRouter();
+  const podeContasAPagar = temRecurso('contas_a_pagar');
 
   const carregarContas = useCallback(async () => {
     if (!empresaId) {
@@ -573,7 +576,7 @@ export default function FinanceiroAlertsBanner() {
     return montarCards(contas, configs, configsCarregadas);
   }, [contas, configs, configsCarregadas]);
 
-  if (alertCards.length === 0) {
+  if (!podeContasAPagar || alertCards.length === 0) {
     return null;
   }
 

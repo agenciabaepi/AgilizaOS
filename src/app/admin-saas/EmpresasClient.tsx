@@ -581,11 +581,11 @@ export default function EmpresasClient() {
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Gerenciar Recursos - {empresaSelecionada.nome}</h3>
             <p className="text-sm text-gray-600 mb-6">
-              Libere módulos premium manualmente. Por padrão, o acesso segue o plano da assinatura.
+              Libere ou desative módulos. Contas a pagar/receber vêm ativas por padrão; os demais seguem o plano da assinatura.
             </p>
 
             <div className="border border-gray-200 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold text-gray-900 mb-3">Módulos Premium</h4>
+              <h4 className="font-semibold text-gray-900 mb-3">Módulos</h4>
               <PremiumRecursosForm
                 valores={recursosCustomizados}
                 onChange={setRecursosCustomizados}
