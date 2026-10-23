@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -85,41 +85,41 @@ function parseDayKey(createdAt: string) {
   return s || '';
 }
 
-type CategoriaPeriodo = 'mes_atual' | 'mes_anterior' | '7d' | '30d' | '90d' | 'ano';
-
-const CATEGORIA_PERIODO_OPTS: Array<{ value: CategoriaPeriodo; label: string }> = [
-  { value: 'mes_atual', label: 'Mês atual' },
-  { value: 'mes_anterior', label: 'Mês anterior' },
-  { value: '7d', label: 'Últimos 7 dias' },
-  { value: '30d', label: 'Últimos 30 dias' },
-  { value: '90d', label: 'Últimos 90 dias' },
-  { value: 'ano', label: 'Ano atual' },
-];
-
-function rangeForCategoriaPeriodo(periodo: CategoriaPeriodo, now = new Date()) {
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-
-  if (periodo === 'mes_atual') {
-    return startEndOfMonth(now);
+/** YYYY-MM → início/fim do mês (calendário local). */
+function rangeFromMesKey(mesKey: string) {
+  const [ys, ms] = mesKey.split('-');
+  const y = Number(ys);
+  const m = Number(ms) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 0 || m > 11) {
+    return startEndOfMonth(new Date());
   }
-  if (periodo === 'mes_anterior') {
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return startEndOfMonth(prev);
-  }
-  if (periodo === 'ano') {
-    const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-    return { start, end };
-  }
-  const days = periodo === '7d' ? 7 : periodo === '30d' ? 30 : 90;
-  const start = new Date(now);
-  start.setDate(start.getDate() - (days - 1));
-  start.setHours(0, 0, 0, 0);
-  return { start, end };
+  return startEndOfMonth(new Date(y, m, 1));
 }
 
-function labelForCategoriaPeriodo(periodo: CategoriaPeriodo) {
-  return CATEGORIA_PERIODO_OPTS.find((o) => o.value === periodo)?.label.toLowerCase() || 'período';
+function mesKeyFromDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function capitalizePt(s: string) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Abas dos últimos N meses (mais recente primeiro). */
+function buildMesTabs(count = 12, now = new Date()) {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = mesKeyFromDate(d);
+    const short =
+      d.getFullYear() === now.getFullYear()
+        ? format(d, 'MMM', { locale: ptBR })
+        : format(d, "MMM ''yy", { locale: ptBR });
+    return {
+      key,
+      label: capitalizePt(short),
+      fullLabel: capitalizePt(format(d, "MMMM 'de' yyyy", { locale: ptBR })),
+    };
+  });
 }
 
 export default function DashboardOverview() {
@@ -131,7 +131,8 @@ export default function DashboardOverview() {
 
   const [loading, setLoading] = useState(true);
   const [loadingCategoria, setLoadingCategoria] = useState(true);
-  const [categoriaPeriodo, setCategoriaPeriodo] = useState<CategoriaPeriodo>('mes_atual');
+  const mesTabs = useMemo(() => buildMesTabs(12), []);
+  const [categoriaMes, setCategoriaMes] = useState(() => mesKeyFromDate(new Date()));
   const [faturamentoMes, setFaturamentoMes] = useState(0);
   const [contasPagasMes, setContasPagasMes] = useState(0);
   const [osNoMes, setOsNoMes] = useState(0);
@@ -177,7 +178,7 @@ export default function DashboardOverview() {
     }
     setLoadingCategoria(true);
     try {
-      const { start, end } = rangeForCategoriaPeriodo(categoriaPeriodo);
+      const { start, end } = rangeFromMesKey(categoriaMes);
       const { data, error } = await supabase
         .from('ordens_servico')
         .select('id, categoria')
@@ -201,7 +202,7 @@ export default function DashboardOverview() {
     } finally {
       setLoadingCategoria(false);
     }
-  }, [empresaId, categoriaPeriodo]);
+  }, [empresaId, categoriaMes]);
 
   const load = useCallback(async () => {
     if (!empresaId) {
@@ -444,7 +445,8 @@ export default function DashboardOverview() {
   const deltaPositive = deltaOs >= 0;
 
   const pieData = porCategoria.slice(0, 8);
-  const categoriaPeriodoLabel = labelForCategoriaPeriodo(categoriaPeriodo);
+  const categoriaMesTab = mesTabs.find((t) => t.key === categoriaMes) || mesTabs[0];
+  const categoriaMesLabel = categoriaMesTab?.fullLabel || categoriaMes;
 
   if (!empresaId) return null;
 
@@ -525,39 +527,46 @@ export default function DashboardOverview() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-gradient-to-b from-white to-zinc-50/80 dark:from-zinc-800 dark:to-zinc-900/40 p-4 md:p-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-                O.S. por categoria de equipamento
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Distribuição das ordens criadas · {categoriaPeriodoLabel}.
-              </p>
-            </div>
-            <label className="shrink-0 flex flex-col gap-1 sm:items-end">
-              <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">
-                Período
-              </span>
-              <select
-                value={categoriaPeriodo}
-                onChange={(e) => setCategoriaPeriodo(e.target.value as CategoriaPeriodo)}
-                className="text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 px-2.5 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-500"
-                aria-label="Filtrar período do gráfico de categorias"
-              >
-                {CATEGORIA_PERIODO_OPTS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+              O.S. por categoria de equipamento
+            </h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Distribuição das ordens criadas em {categoriaMesLabel}.
+            </p>
+          </div>
+          <div
+            role="tablist"
+            aria-label="Mês do gráfico de categorias"
+            className="flex gap-1 overflow-x-auto pb-2 mb-3 -mx-1 px-1 scrollbar-thin"
+          >
+            {mesTabs.map((tab) => {
+              const active = tab.key === categoriaMes;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setCategoriaMes(tab.key)}
+                  className={cn(
+                    'shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                    active
+                      ? 'bg-lime-600 text-white shadow-sm dark:bg-lime-500 dark:text-zinc-900'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
           <div className="h-[300px] w-full">
             {loadingCategoria ? (
               <div className="h-full rounded-xl bg-zinc-100 dark:bg-zinc-700/40 animate-pulse" />
             ) : pieData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-zinc-500">
-                Sem dados de categoria no período.
+                Sem dados de categoria neste mês.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
