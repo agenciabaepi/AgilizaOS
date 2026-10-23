@@ -85,6 +85,43 @@ function parseDayKey(createdAt: string) {
   return s || '';
 }
 
+type CategoriaPeriodo = 'mes_atual' | 'mes_anterior' | '7d' | '30d' | '90d' | 'ano';
+
+const CATEGORIA_PERIODO_OPTS: Array<{ value: CategoriaPeriodo; label: string }> = [
+  { value: 'mes_atual', label: 'Mês atual' },
+  { value: 'mes_anterior', label: 'Mês anterior' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: '90d', label: 'Últimos 90 dias' },
+  { value: 'ano', label: 'Ano atual' },
+];
+
+function rangeForCategoriaPeriodo(periodo: CategoriaPeriodo, now = new Date()) {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  if (periodo === 'mes_atual') {
+    return startEndOfMonth(now);
+  }
+  if (periodo === 'mes_anterior') {
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return startEndOfMonth(prev);
+  }
+  if (periodo === 'ano') {
+    const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+    return { start, end };
+  }
+  const days = periodo === '7d' ? 7 : periodo === '30d' ? 30 : 90;
+  const start = new Date(now);
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+}
+
+function labelForCategoriaPeriodo(periodo: CategoriaPeriodo) {
+  return CATEGORIA_PERIODO_OPTS.find((o) => o.value === periodo)?.label.toLowerCase() || 'período';
+}
+
 export default function DashboardOverview() {
   const { empresaData } = useAuth();
   const { temRecurso } = useSubscription();
@@ -93,6 +130,8 @@ export default function DashboardOverview() {
   const empresaId = empresaData?.id;
 
   const [loading, setLoading] = useState(true);
+  const [loadingCategoria, setLoadingCategoria] = useState(true);
+  const [categoriaPeriodo, setCategoriaPeriodo] = useState<CategoriaPeriodo>('mes_atual');
   const [faturamentoMes, setFaturamentoMes] = useState(0);
   const [contasPagasMes, setContasPagasMes] = useState(0);
   const [osNoMes, setOsNoMes] = useState(0);
@@ -129,6 +168,40 @@ export default function DashboardOverview() {
       fornecedor?: string | null;
     }>
   >([]);
+
+  const loadCategoria = useCallback(async () => {
+    if (!empresaId) {
+      setLoadingCategoria(false);
+      setPorCategoria([]);
+      return;
+    }
+    setLoadingCategoria(true);
+    try {
+      const { start, end } = rangeForCategoriaPeriodo(categoriaPeriodo);
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select('id, categoria')
+        .eq('empresa_id', empresaId)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+      if (error) throw error;
+
+      const catCount = new Map<string, number>();
+      (data || []).forEach((row: { categoria?: string | null }) => {
+        const raw = (row.categoria || '').trim();
+        const key = raw.length ? raw : 'Sem categoria';
+        catCount.set(key, (catCount.get(key) || 0) + 1);
+      });
+      const catArr = Array.from(catCount.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+      setPorCategoria(catArr);
+    } catch {
+      setPorCategoria([]);
+    } finally {
+      setLoadingCategoria(false);
+    }
+  }, [empresaId, categoriaPeriodo]);
 
   const load = useCallback(async () => {
     if (!empresaId) {
@@ -229,17 +302,6 @@ export default function DashboardOverview() {
       }).length;
       setOsMesAtualPeriodo(osCur);
       setOsMesAnteriorPeriodo(osPrev);
-
-      const catCount = new Map<string, number>();
-      ordensDoMes.forEach((row) => {
-        const raw = (row.categoria || '').trim();
-        const key = raw.length ? raw : 'Sem categoria';
-        catCount.set(key, (catCount.get(key) || 0) + 1);
-      });
-      const catArr = Array.from(catCount.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-      setPorCategoria(catArr);
 
       const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       const perDay = new Map<string, number>();
@@ -363,7 +425,6 @@ export default function DashboardOverview() {
       setOsMesAnteriorPeriodo(0);
       setUltimasOs([]);
       setTopLucro([]);
-      setPorCategoria([]);
       setOsPorDia([]);
       setContasVencer([]);
     } finally {
@@ -375,10 +436,15 @@ export default function DashboardOverview() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadCategoria();
+  }, [loadCategoria]);
+
   const deltaOs = osMesAtualPeriodo - osMesAnteriorPeriodo;
   const deltaPositive = deltaOs >= 0;
 
   const pieData = porCategoria.slice(0, 8);
+  const categoriaPeriodoLabel = labelForCategoriaPeriodo(categoriaPeriodo);
 
   if (!empresaId) return null;
 
@@ -459,18 +525,39 @@ export default function DashboardOverview() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-gradient-to-b from-white to-zinc-50/80 dark:from-zinc-800 dark:to-zinc-900/40 p-4 md:p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-            O.S. por categoria de equipamento
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-            Distribuição das ordens criadas no mês atual.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+                O.S. por categoria de equipamento
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Distribuição das ordens criadas · {categoriaPeriodoLabel}.
+              </p>
+            </div>
+            <label className="shrink-0 flex flex-col gap-1 sm:items-end">
+              <span className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 font-medium">
+                Período
+              </span>
+              <select
+                value={categoriaPeriodo}
+                onChange={(e) => setCategoriaPeriodo(e.target.value as CategoriaPeriodo)}
+                className="text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 px-2.5 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-500"
+                aria-label="Filtrar período do gráfico de categorias"
+              >
+                {CATEGORIA_PERIODO_OPTS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="h-[300px] w-full">
-            {loading ? (
+            {loadingCategoria ? (
               <div className="h-full rounded-xl bg-zinc-100 dark:bg-zinc-700/40 animate-pulse" />
             ) : pieData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-zinc-500">
-                Sem dados de categoria no mês.
+                Sem dados de categoria no período.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -502,7 +589,7 @@ export default function DashboardOverview() {
               </ResponsiveContainer>
             )}
           </div>
-          {!loading && pieData.length > 0 && (
+          {!loadingCategoria && pieData.length > 0 && (
             <div className="flex flex-wrap gap-2 justify-center mt-2">
               {pieData.map((c, i) => (
                 <span
