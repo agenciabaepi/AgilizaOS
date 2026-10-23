@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
+import {
+  calcularValorComissao,
+  resolverValoresBaseComissao,
+  type TipoComissao,
+} from '@/lib/calcularComissao';
 
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { comissaoId, valorComissao, observacoes, ativa, status } = body;
+    const { comissaoId, valorComissao, observacoes, ativa, status, dataPagamento } = body;
 
     if (!comissaoId) {
       return NextResponse.json(
@@ -45,7 +50,7 @@ export async function PATCH(request: NextRequest) {
       }
       const { data: configEmpresa } = await supabase
         .from('configuracoes_comissao')
-        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
+        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo, comissao_apenas_servico')
         .eq('empresa_id', os.empresa_id)
         .maybeSingle();
       if (
@@ -63,11 +68,18 @@ export async function PATCH(request: NextRequest) {
           { status: 400 }
         );
       }
-      let tipoComissao = (tecnicoData.tipo_comissao as string) || (configEmpresa?.tipo_comissao as string) || 'porcentagem';
-      let valorBase = tipoComissao === 'fixo' ? (tecnicoData.comissao_fixa ?? configEmpresa?.comissao_fixa_padrao ?? 0) : (tecnicoData.comissao_percentual ?? configEmpresa?.comissao_padrao ?? 10);
-      const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
-      const valorServico = Number(os.valor_servico ?? valorTotal) || valorTotal;
-      const valorComissaoCalc = tipoComissao === 'fixo' ? valorBase : (valorServico * valorBase) / 100;
+      const tipoComissao = ((tecnicoData.tipo_comissao as string) || (configEmpresa?.tipo_comissao as string) || 'porcentagem') as TipoComissao;
+      const taxa = tipoComissao === 'fixo'
+        ? (tecnicoData.comissao_fixa ?? configEmpresa?.comissao_fixa_padrao ?? 0)
+        : (tecnicoData.comissao_percentual ?? configEmpresa?.comissao_padrao ?? 10);
+      const valores = resolverValoresBaseComissao({
+        valorServico: os.valor_servico,
+        valorPeca: os.valor_peca,
+        valorFaturado: os.valor_faturado,
+        apenasServico: configEmpresa?.comissao_apenas_servico,
+      });
+      const valorComissaoCalc = calcularValorComissao(tipoComissao, taxa, valores.valorBaseCalculo);
+      const agora = (typeof dataPagamento === 'string' && dataPagamento) || new Date().toISOString();
       const empresaIdComissao = os.empresa_id || null;
       if (!empresaIdComissao) {
         return NextResponse.json({ error: 'Não foi possível identificar a empresa da OS para registrar comissão.' }, { status: 400 });
@@ -78,22 +90,23 @@ export async function PATCH(request: NextRequest) {
         ordem_servico_id: os.id,
         empresa_id: empresaIdComissao,
         cliente_id: os.cliente_id,
-        valor_servico: valorServico,
-        valor_peca: os.valor_peca ?? 0,
-        valor_total: valorTotal,
+        valor_servico: valores.valorServico,
+        valor_peca: valores.valorPeca,
+        valor_total: valores.valorTotal,
         tipo_comissao: tipoComissao,
         valor_comissao: valorComissaoCalc,
-        data_entrega: os.data_entrega || new Date().toISOString(),
-        data_calculo: new Date().toISOString(),
+        data_entrega: os.data_entrega || agora,
+        data_calculo: agora,
+        data_pagamento: agora,
         status: 'PAGA',
         tipo_ordem: (os.tipo || 'normal').toLowerCase(),
       };
       if (tipoComissao === 'porcentagem') {
-        insertPayload.percentual_comissao = valorBase;
+        insertPayload.percentual_comissao = taxa;
         insertPayload.valor_comissao_fixa = null;
       } else {
-        insertPayload.valor_comissao_fixa = valorBase;
-        insertPayload.percentual_comissao = null;
+        insertPayload.valor_comissao_fixa = taxa;
+        insertPayload.percentual_comissao = 0;
       }
       const { data: inserted, error: insertErr } = await supabase
         .from('comissoes_historico')
@@ -137,7 +150,16 @@ export async function PATCH(request: NextRequest) {
 
     // Status do pagamento: PAGA | CALCULADA | PENDENTE (admin marca comissão como paga)
     if (status !== undefined && status !== null && ['PAGA', 'CALCULADA', 'PENDENTE'].includes(String(status).toUpperCase())) {
-      updateData.status = String(status).toUpperCase();
+      const statusNorm = String(status).toUpperCase();
+      updateData.status = statusNorm;
+      if (statusNorm === 'PAGA') {
+        // Baixa do saque: grava data/hora do pagamento (mesmo instante no lote)
+        updateData.data_pagamento =
+          (typeof dataPagamento === 'string' && dataPagamento) || new Date().toISOString();
+      } else if (statusNorm === 'CALCULADA' || statusNorm === 'PENDENTE') {
+        // Reversão de saque limpa a data de pagamento
+        updateData.data_pagamento = null;
+      }
     }
 
     console.log('💾 Atualizando comissão:', { comissaoId, updateData });

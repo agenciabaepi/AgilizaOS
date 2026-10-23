@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
@@ -9,12 +9,13 @@ import {
 } from '@/lib/comissoesQueryCompat';
 import { assertEmpresaTemRecurso } from '@/lib/billing/assertPlanResource';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { calcularValorComissao, resolverValoresBaseComissao } from '@/lib/calcularComissao';
+import { gerarComissoesPendentesEmpresa } from '@/lib/gerarComissoesPendentes';
 
 /**
  * GET /api/comissoes/lista
  * Retorna TODAS as comissões da empresa (todos os técnicos), mesma lógica do detalhe.
- * Usa admin client para evitar RLS e garantir consistência com a página de detalhe do técnico.
- * Requer sessão (admin/gestor) e plano Completo (lucro_desempenho).
+ * Materialização de pendentes roda em background (after) para não travar o carregamento.
  */
 export async function GET(request: Request) {
   try {
@@ -38,54 +39,122 @@ export async function GET(request: Request) {
     const planGate = await assertEmpresaTemRecurso(empresaId, 'lucro_desempenho');
     if (!planGate.ok) return planGate.response;
 
-    // Mapa tecnico_id (id ou auth_user_id) -> { id: usuarios.id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa }
-    const { data: tecnicosData } = await supabase
-      .from('usuarios')
-      .select('id, nome, auth_user_id, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa')
-      .eq('empresa_id', empresaId)
-      .or(TECNICOS_OR_FILTER);
-    const tecnicosMap = new Map<string, { id: string; nome: string; tipo_comissao: string; comissao_fixa: number; comissao_percentual: number; comissao_ativa: boolean }>();
+    // Não bloqueia a listagem — gera faltantes depois da resposta
+    after(() => {
+      void gerarComissoesPendentesEmpresa(empresaId, { notificarPush: false }).catch((e) => {
+        console.warn('Aviso ao materializar comissões pendentes (lista):', e);
+      });
+    });
+
+    // Janela para previstas / OS em andamento (histórico antigo já está em comissoes_historico)
+    const desde = new Date();
+    desde.setMonth(desde.getMonth() - 18);
+    const desdeIso = desde.toISOString();
+
+    const [tecnicosResult, rawReais, configResult, ordensResult] = await Promise.all([
+      supabase
+        .from('usuarios')
+        .select('id, nome, auth_user_id, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa')
+        .eq('empresa_id', empresaId)
+        .or(TECNICOS_OR_FILTER),
+      fetchComissoesHistoricoRows((osJoinFields, includeAtiva) => {
+        const baseFields = `
+          id,
+          tecnico_id,
+          ordem_servico_id,
+          valor_servico,
+          valor_peca,
+          valor_total,
+          tipo_comissao,
+          percentual_comissao,
+          valor_comissao_fixa,
+          valor_comissao,
+          data_entrega,
+          data_pagamento,
+          data_calculo,
+          status,
+          tipo_ordem,
+          created_at,
+          ${includeAtiva ? 'ativa,' : ''}
+          observacoes,
+          ordens_servico:ordem_servico_id ( ${osJoinFields} ),
+          clientes:cliente_id ( nome )
+        `;
+        return supabase
+          .from('comissoes_historico')
+          .select(baseFields)
+          .eq('empresa_id', empresaId)
+          .order('data_entrega', { ascending: false })
+          .order('created_at', { ascending: false });
+      }),
+      supabase
+        .from('configuracoes_comissao')
+        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo, comissao_apenas_servico')
+        .eq('empresa_id', empresaId)
+        .maybeSingle(),
+      fetchOrdensPrevistasRows((selectFields) =>
+        supabase
+          .from('ordens_servico')
+          .select(selectFields)
+          .eq('empresa_id', empresaId)
+          .not('tecnico_id', 'is', null)
+          .gte('created_at', desdeIso)
+          .order('created_at', { ascending: false })
+      ),
+    ]);
+
+    const tecnicosData = tecnicosResult.data;
+    const configEmpresa = configResult.data;
+    const { data: ordensData, error: ordensError } = ordensResult;
+
+    const tecnicosMap = new Map<
+      string,
+      {
+        id: string;
+        nome: string;
+        tipo_comissao: string;
+        comissao_fixa: number;
+        comissao_percentual: number;
+        comissao_ativa: boolean;
+      }
+    >();
     (tecnicosData || []).forEach((t: any) => {
-      const rec = { id: t.id, nome: t.nome || 'Técnico', tipo_comissao: t.tipo_comissao || 'porcentagem', comissao_fixa: t.comissao_fixa ?? 0, comissao_percentual: t.comissao_percentual ?? 10, comissao_ativa: t.comissao_ativa !== false };
+      const rec = {
+        id: t.id,
+        nome: t.nome || 'Técnico',
+        tipo_comissao: t.tipo_comissao || 'porcentagem',
+        comissao_fixa: t.comissao_fixa ?? 0,
+        comissao_percentual: t.comissao_percentual ?? 10,
+        comissao_ativa: t.comissao_ativa !== false,
+      };
       tecnicosMap.set(t.id, rec);
       if (t.auth_user_id) tecnicosMap.set(t.auth_user_id, rec);
     });
 
     const resolveTecnico = (tecnicoId: string) => {
       const t = tecnicosMap.get(tecnicoId);
-      return t ? { tecnico_id: t.id, tecnico_nome: t.nome, comissao_ativa: t.comissao_ativa, tipo_comissao: t.tipo_comissao, comissao_fixa: t.comissao_fixa, comissao_percentual: t.comissao_percentual } : { tecnico_id: tecnicoId, tecnico_nome: 'Técnico não encontrado', comissao_ativa: true, tipo_comissao: 'porcentagem' as const, comissao_fixa: 0, comissao_percentual: 10 };
+      return t
+        ? {
+            tecnico_id: t.id,
+            tecnico_nome: t.nome,
+            comissao_ativa: t.comissao_ativa,
+            tipo_comissao: t.tipo_comissao,
+            comissao_fixa: t.comissao_fixa,
+            comissao_percentual: t.comissao_percentual,
+          }
+        : {
+            tecnico_id: tecnicoId,
+            tecnico_nome: 'Técnico não encontrado',
+            comissao_ativa: true,
+            tipo_comissao: 'porcentagem' as const,
+            comissao_fixa: 0,
+            comissao_percentual: 10,
+          };
     };
 
-    const norm = (s: string | null | undefined) => (s || '').trim().toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    const norm = (s: string | null | undefined) =>
+      (s || '').trim().toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
-    const rawReais = await fetchComissoesHistoricoRows((osJoinFields, includeAtiva) => {
-      const baseFields = `
-        id,
-        tecnico_id,
-        ordem_servico_id,
-        valor_servico,
-        valor_peca,
-        valor_total,
-        tipo_comissao,
-        percentual_comissao,
-        valor_comissao_fixa,
-        valor_comissao,
-        data_entrega,
-        status,
-        tipo_ordem,
-        created_at,
-        ${includeAtiva ? 'ativa,' : ''}
-        observacoes,
-        ordens_servico:ordem_servico_id ( ${osJoinFields} ),
-        clientes:cliente_id ( nome )
-      `;
-      return supabase
-        .from('comissoes_historico')
-        .select(baseFields)
-        .eq('empresa_id', empresaId)
-        .order('data_entrega', { ascending: false })
-        .order('created_at', { ascending: false });
-    });
     const comissoesReais = rawReais
       .map((c: any) => {
         const os = osRowFromComissao(c);
@@ -106,6 +175,8 @@ export async function GET(request: Request) {
           valor_comissao_fixa: c.valor_comissao_fixa,
           valor_comissao: c.valor_comissao || 0,
           data_entrega: c.data_entrega,
+          data_pagamento: c.data_pagamento || null,
+          data_calculo: c.data_calculo || null,
           status: c.status || 'CALCULADA',
           tipo_ordem: c.tipo_ordem || 'normal',
           created_at: c.created_at,
@@ -118,37 +189,28 @@ export async function GET(request: Request) {
           aparelho_sem_conserto_os: os?.aparelho_sem_conserto ?? null,
         };
       })
-      .filter((c: any) =>
-        !deveExcluirComissaoOs({
-          cliente_recusou: c.cliente_recusou_os,
-          aparelho_sem_conserto: c.aparelho_sem_conserto_os,
-          status: c.status_os,
-          status_tecnico: c.status_tecnico_os,
-        })
+      .filter(
+        (c: any) =>
+          !deveExcluirComissaoOs({
+            cliente_recusou: c.cliente_recusou_os,
+            aparelho_sem_conserto: c.aparelho_sem_conserto_os,
+            status: c.status_os,
+            status_tecnico: c.status_tecnico_os,
+          })
       );
 
     const osComComissao = new Set(comissoesReais.map((c: any) => c.ordem_servico_id).filter(Boolean));
 
-    // Config padrão empresa
-    const { data: configEmpresa } = await supabase
-      .from('configuracoes_comissao')
-      .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
-      .eq('empresa_id', empresaId)
-      .maybeSingle();
-
-    // 2) Todas as OS com técnico e valor, que ainda não têm comissão (previstas)
-    const { data: ordensData, error: ordensError } = await fetchOrdensPrevistasRows((selectFields) =>
-      supabase
-        .from('ordens_servico')
-        .select(selectFields)
-        .eq('empresa_id', empresaId)
-        .not('tecnico_id', 'is', null)
-        .order('created_at', { ascending: false })
-    );
     const isFinalizada = (status: string | null | undefined, statusTec: string | null | undefined) => {
       const s = norm(status);
       const t = norm(statusTec || '');
-      return s === 'ENTREGUE' || t === 'REPARO CONCLUÍDO' || t === 'REPARO CONCLUIDO' || t.includes('ENTREGUE') || t.includes('REPARO CONCLUIDO');
+      return (
+        s === 'ENTREGUE' ||
+        t === 'REPARO CONCLUÍDO' ||
+        t === 'REPARO CONCLUIDO' ||
+        t.includes('ENTREGUE') ||
+        t.includes('REPARO CONCLUIDO')
+      );
     };
 
     let comissoesPrevistas: any[] = [];
@@ -172,11 +234,17 @@ export async function GET(request: Request) {
         })
         .map((os: any) => {
           const tec = resolveTecnico(os.tecnico_id);
-          const tipoComissao = (tec.tipo_comissao === 'fixo' ? 'fixo' : 'porcentagem') as 'porcentagem' | 'fixo';
-          const valorBase = tipoComissao === 'fixo' ? tec.comissao_fixa : tec.comissao_percentual;
-          const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
-          const valorServico = Number(os.valor_servico ?? valorTotal) || valorTotal;
-          const valorComissao = tipoComissao === 'fixo' ? valorBase : (valorServico * valorBase) / 100;
+          const tipoComissao = (tec.tipo_comissao === 'fixo' ? 'fixo' : 'porcentagem') as
+            | 'porcentagem'
+            | 'fixo';
+          const taxa = tipoComissao === 'fixo' ? tec.comissao_fixa : tec.comissao_percentual;
+          const valores = resolverValoresBaseComissao({
+            valorServico: os.valor_servico,
+            valorPeca: os.valor_peca,
+            valorFaturado: os.valor_faturado,
+            apenasServico: configEmpresa?.comissao_apenas_servico,
+          });
+          const valorComissao = calcularValorComissao(tipoComissao, taxa, valores.valorBaseCalculo);
           const dataEntregaBase = os.data_entrega || os.created_at || new Date().toISOString();
           const entregue = isFinalizada(os.status, os.status_tecnico);
           return {
@@ -187,14 +255,16 @@ export async function GET(request: Request) {
             numero_os: os.numero_os || 'N/A',
             cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
             servico_nome: os.servico || 'Serviço não especificado',
-            valor_servico: valorServico,
-            valor_peca: os.valor_peca || 0,
-            valor_total: valorTotal,
+            valor_servico: valores.valorServico,
+            valor_peca: valores.valorPeca,
+            valor_total: valores.valorTotal,
             tipo_comissao: tipoComissao,
-            percentual_comissao: tipoComissao === 'porcentagem' ? valorBase : null,
-            valor_comissao_fixa: tipoComissao === 'fixo' ? valorBase : null,
+            percentual_comissao: tipoComissao === 'porcentagem' ? taxa : null,
+            valor_comissao_fixa: tipoComissao === 'fixo' ? taxa : null,
             valor_comissao: valorComissao,
             data_entrega: dataEntregaBase,
+            data_pagamento: null,
+            data_calculo: null,
             status: entregue ? 'CALCULADA' : 'PREVISTA',
             tipo_ordem: (os.tipo || 'normal').toLowerCase(),
             created_at: dataEntregaBase,
@@ -202,7 +272,7 @@ export async function GET(request: Request) {
             tecnico_comissao_ativa: tec.comissao_ativa,
             observacoes: null,
             status_os: os.status || null,
-            status_tecnico_os: os.status_tecnico || null
+            status_tecnico_os: os.status_tecnico || null,
           };
         });
     }

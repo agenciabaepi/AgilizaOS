@@ -403,7 +403,7 @@ export default function ComissoesPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="w-full min-w-0 max-w-7xl mx-auto p-4 sm:p-6">
         <div className="flex items-center justify-center min-h-[320px]">
           <div className="text-center space-y-4">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-gray-900 mx-auto" />
@@ -415,22 +415,22 @@ export default function ComissoesPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="w-full min-w-0 max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
             <FiDollarSign size={24} />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Gerenciar Comissões</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Gerenciar Comissões</h1>
             <p className="mt-1 text-sm text-gray-500">
               Configure percentuais e regras de comissão para técnicos
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
             <FiUsers size={14} />
             {tecnicos.length} {tecnicos.length === 1 ? 'técnico' : 'técnicos'}
@@ -443,26 +443,26 @@ export default function ComissoesPage() {
       </div>
 
       {/* Configurações Gerais */}
-      <Card className="py-0 gap-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-4 border-b px-6 py-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+      <Card className="py-0 gap-0 overflow-hidden min-w-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
               <FiSettings size={16} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-semibold leading-none">Configurações Gerais</h2>
               <p className="text-xs text-gray-500 mt-1">Regras padrão aplicadas a novos técnicos</p>
             </div>
           </div>
           {!editandoConfig && (
-            <Button type="button" onClick={iniciarEdicaoConfig} variant="outline" size="sm">
+            <Button type="button" onClick={iniciarEdicaoConfig} variant="outline" size="sm" className="self-start sm:self-auto shrink-0">
               <FiEdit size={14} className="mr-1.5" />
               Editar
             </Button>
           )}
         </div>
 
-        <CardContent className="py-5">
+        <CardContent className="py-5 px-4 sm:px-6">
           {editandoConfig ? (
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -624,13 +624,13 @@ export default function ComissoesPage() {
       </Card>
 
       {/* Lista de Técnicos */}
-      <Card className="py-0 gap-0 overflow-hidden">
-        <CardHeader className="border-b py-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+      <Card className="py-0 gap-0 min-w-0 overflow-hidden">
+        <CardHeader className="border-b py-4 sm:py-5 px-4 sm:px-6">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
               <FiUsers size={16} />
             </div>
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-base">Comissões por Técnico</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">Valores individuais sobrescrevem a configuração padrão</p>
             </div>
@@ -638,8 +638,8 @@ export default function ComissoesPage() {
         </CardHeader>
 
         {tecnicos.length > 0 && (
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-            <div className="relative max-w-md">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+            <div className="relative w-full max-w-md">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
@@ -653,7 +653,7 @@ export default function ComissoesPage() {
         )}
 
         {tecnicos.length === 0 ? (
-          <CardContent className="py-16 text-center">
+          <CardContent className="py-16 text-center px-4">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
               <FiUsers size={24} />
             </div>
@@ -663,7 +663,7 @@ export default function ComissoesPage() {
             </p>
           </CardContent>
         ) : tecnicosFiltrados.length === 0 ? (
-          <CardContent className="py-12 text-center">
+          <CardContent className="py-12 text-center px-4">
             <p className="text-sm text-gray-500">Nenhum técnico corresponde à busca.</p>
             <Button variant="ghost" size="sm" className="mt-3" onClick={() => setBuscaTecnico('')}>
               Limpar busca
@@ -678,29 +678,29 @@ export default function ComissoesPage() {
                 <div
                   key={tecnico.id}
                   className={cn(
-                    'px-6 py-5 transition-colors',
+                    'px-4 sm:px-6 py-4 sm:py-5 transition-colors',
                     editando ? 'bg-blue-50/40' : 'hover:bg-gray-50/80'
                   )}
                 >
-                  <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(200px,1.2fr)_minmax(180px,0.9fr)_100px_minmax(160px,1fr)_auto] xl:items-center xl:gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
+                  {/* Linha 1: identidade + valor + status + ações (sempre visíveis) */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
                         {iniciaisTecnico(tecnico.nome) || '?'}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-gray-900">{tecnico.nome}</p>
                         <p className="truncate text-xs text-gray-500">{tecnico.email}</p>
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 xl:hidden">Comissão</p>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
                       {editando ? (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                           <select
                             value={tempTecnico.tipo_comissao || 'porcentagem'}
                             onChange={(e) => setTempTecnico((prev) => ({ ...prev, tipo_comissao: e.target.value as 'porcentagem' | 'fixo' }))}
-                            className="w-[130px] shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                            className="w-full sm:w-[120px] rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                           >
                             <option value="porcentagem">%</option>
                             <option value="fixo">R$ fixo</option>
@@ -709,7 +709,7 @@ export default function ComissoesPage() {
                             <CurrencyInput
                               value={tempTecnico.comissao_fixa ?? ''}
                               onValueChange={(comissao_fixa) => setTempTecnico((prev) => ({ ...prev, comissao_fixa }))}
-                              className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                              className="w-full sm:w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                               placeholder="0,00"
                             />
                           ) : (
@@ -720,92 +720,90 @@ export default function ComissoesPage() {
                               step="0.01"
                               value={tempTecnico.comissao_percentual || ''}
                               onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_percentual: parseFloat(e.target.value) }))}
-                              className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                              className="w-full sm:w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                               placeholder="10,00"
                             />
                           )}
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={tempTecnico.comissao_ativa || false}
+                              onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_ativa: e.target.checked }))}
+                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-sm text-gray-700">Ativo</span>
+                          </label>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className={cn('text-lg font-bold tabular-nums', tecnico.comissao_ativa ? 'text-emerald-600' : 'text-gray-400')}>
-                            {formatarValorComissao(tecnico)}
-                          </span>
-                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase text-gray-600">
-                            {tecnico.tipo_comissao === 'fixo' ? 'Fixo' : '%'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 xl:hidden">Status</p>
-                      {editando ? (
-                        <label className="inline-flex cursor-pointer items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={tempTecnico.comissao_ativa || false}
-                            onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_ativa: e.target.checked }))}
-                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <span className="text-sm text-gray-700">Ativo</span>
-                        </label>
-                      ) : (
-                        <span className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
-                          tecnico.comissao_ativa ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-gray-100 text-gray-600'
-                        )}>
-                          <span className={cn('h-1.5 w-1.5 rounded-full', tecnico.comissao_ativa ? 'bg-emerald-500' : 'bg-gray-400')} />
-                          {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 xl:hidden">Observações</p>
-                      {editando ? (
-                        <input
-                          type="text"
-                          value={tempTecnico.comissao_observacoes || ''}
-                          onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_observacoes: e.target.value }))}
-                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                          placeholder="Observações..."
-                        />
-                      ) : (
-                        <p className="truncate text-sm text-gray-600">
-                          {tecnico.comissao_observacoes || <span className="text-gray-400 italic">Sem observações</span>}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-1.5">
-                      {editando ? (
                         <>
-                          <Button onClick={() => salvarTecnico(tecnico.id)} size="sm" disabled={salvando} title="Salvar">
-                            <FiCheck size={14} />
-                          </Button>
-                          <Button onClick={cancelarEdicaoTecnico} variant="outline" size="sm" title="Cancelar">
-                            <FiX size={14} />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-base sm:text-lg font-bold tabular-nums', tecnico.comissao_ativa ? 'text-emerald-600' : 'text-gray-400')}>
+                              {formatarValorComissao(tecnico)}
+                            </span>
+                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase text-gray-600">
+                              {tecnico.tipo_comissao === 'fixo' ? 'Fixo' : '%'}
+                            </span>
+                          </div>
+                          <span className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+                            tecnico.comissao_ativa ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-gray-100 text-gray-600'
+                          )}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', tecnico.comissao_ativa ? 'bg-emerald-500' : 'bg-gray-400')} />
+                            {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
+                          </span>
                         </>
-                      ) : (
-                        <>
-                          <Button onClick={() => iniciarEdicaoTecnico(tecnico)} variant="outline" size="sm" title="Editar comissão">
-                            <FiEdit size={14} />
-                          </Button>
-                          {configuracao && (
-                            <Button
-                              onClick={() => aplicarComissaoPadrao(tecnico.id)}
-                              variant="outline"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              title="Aplicar comissão padrão"
-                            >
-                              <FiRefreshCw size={14} />
+                      )}
+
+                      <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                        {editando ? (
+                          <>
+                            <Button onClick={() => salvarTecnico(tecnico.id)} size="sm" disabled={salvando} title="Salvar">
+                              <FiCheck size={14} className="sm:mr-1.5" />
+                              <span className="hidden sm:inline">Salvar</span>
                             </Button>
-                          )}
-                        </>
-                      )}
+                            <Button onClick={cancelarEdicaoTecnico} variant="outline" size="sm" title="Cancelar">
+                              <FiX size={14} />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button onClick={() => iniciarEdicaoTecnico(tecnico)} variant="outline" size="sm" title="Editar comissão">
+                              <FiEdit size={14} className="sm:mr-1.5" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </Button>
+                            {configuracao && (
+                              <Button
+                                onClick={() => aplicarComissaoPadrao(tecnico.id)}
+                                variant="outline"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="Aplicar comissão padrão"
+                              >
+                                <FiRefreshCw size={14} />
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Linha 2: observações em largura total */}
+                  <div className="mt-3 min-w-0">
+                    {editando ? (
+                      <input
+                        type="text"
+                        value={tempTecnico.comissao_observacoes || ''}
+                        onChange={(e) => setTempTecnico((prev) => ({ ...prev, comissao_observacoes: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                        placeholder="Observações..."
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-600 break-words">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mr-2">Obs.</span>
+                        {tecnico.comissao_observacoes || <span className="text-gray-400 italic">Sem observações</span>}
+                      </p>
+                    )}
                   </div>
                 </div>
               );

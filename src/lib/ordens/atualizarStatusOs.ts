@@ -23,6 +23,7 @@ import {
   emitirNotificacaoAtendente,
   tipoNotificacaoPorStatusTecnico,
 } from '@/lib/emitirNotificacaoAtendente';
+import { calcularValorComissao, resolverValoresBaseComissao } from '@/lib/calcularComissao';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -699,7 +700,7 @@ export async function atualizarStatusOs(
               // Buscar configuração padrão da empresa
               const { data: configData } = await supabase
                 .from('configuracoes_comissao')
-                .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
+                .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo, comissao_apenas_servico')
                 .eq('empresa_id', tecnicoData.empresa_id)
                 .maybeSingle();
 
@@ -719,42 +720,38 @@ export async function atualizarStatusOs(
               } else {
             
               // Determinar tipo e valor de comissão
-              let tipoComissao = 'porcentagem';
-              let valorComissao = 10; // Padrão 10%
+              let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
+              let taxaComissao = 10; // Padrão 10%
             
               if (tecnicoData.tipo_comissao) {
-                tipoComissao = tecnicoData.tipo_comissao;
-                if (tipoComissao === 'fixo') {
-                  valorComissao = tecnicoData.comissao_fixa || 0;
-                } else {
-                  valorComissao = tecnicoData.comissao_percentual || 10;
-                }
+                tipoComissao = tecnicoData.tipo_comissao === 'fixo' ? 'fixo' : 'porcentagem';
+                taxaComissao = tipoComissao === 'fixo'
+                  ? (tecnicoData.comissao_fixa || 0)
+                  : (tecnicoData.comissao_percentual || 10);
               } else if (configData?.tipo_comissao) {
-                tipoComissao = configData.tipo_comissao;
-                if (tipoComissao === 'fixo') {
-                  valorComissao = configData.comissao_fixa_padrao || 0;
-                } else {
-                  valorComissao = configData.comissao_padrao || 10;
-                }
+                tipoComissao = configData.tipo_comissao === 'fixo' ? 'fixo' : 'porcentagem';
+                taxaComissao = tipoComissao === 'fixo'
+                  ? (configData.comissao_fixa_padrao || 0)
+                  : (configData.comissao_padrao || 10);
               }
             
-              // Calcular valor da comissão (usar valor_servico se valor_faturado for 0)
-              const valorFaturado = osAtualizada.valor_faturado ?? 0;
-              const valorServico = osAtualizada.valor_servico ?? 0;
-              const valorBase = valorFaturado > 0 ? valorFaturado : valorServico;
-              let valorComissaoCalculado = 0;
-              if (tipoComissao === 'fixo') {
-                valorComissaoCalculado = valorComissao;
-              } else {
-                valorComissaoCalculado = valorBase * valorComissao / 100;
-              }
+              const valores = resolverValoresBaseComissao({
+                valorServico: osAtualizada.valor_servico,
+                valorPeca: osAtualizada.valor_peca,
+                valorFaturado: osAtualizada.valor_faturado,
+                apenasServico: configData?.comissao_apenas_servico,
+              });
+              const valorComissaoCalculado = calcularValorComissao(
+                tipoComissao,
+                taxaComissao,
+                valores.valorBaseCalculo
+              );
             
               console.log('💰 CÁLCULO DA COMISSÃO:', {
                 tipoComissao,
-                valorComissao,
-                valorFaturado,
-                valorServico,
-                valorBase,
+                taxaComissao,
+                apenasServico: configData?.comissao_apenas_servico,
+                ...valores,
                 valorComissaoCalculado
               });
             
@@ -772,9 +769,9 @@ export async function atualizarStatusOs(
                 ordem_servico_id: osAnterior.id,
                 empresa_id: empresaIdComissao,
                 cliente_id: osAtualizada.cliente_id || osAnterior.cliente_id,
-                valor_servico: valorServico,
-                valor_peca: osAtualizada.valor_peca ?? 0,
-                valor_total: valorBase,
+                valor_servico: valores.valorServico,
+                valor_peca: valores.valorPeca,
+                valor_total: valores.valorTotal,
                 tipo_comissao: tipoComissao,
                 valor_comissao: valorComissaoCalculado,
                 data_entrega: osAtualizada.data_entrega,
@@ -786,9 +783,9 @@ export async function atualizarStatusOs(
             
               // Adicionar campos condicionais
               if (tipoComissao === 'porcentagem') {
-                dadosComissao.percentual_comissao = valorComissao;
+                dadosComissao.percentual_comissao = taxaComissao;
               } else {
-                dadosComissao.valor_comissao_fixa = valorComissao;
+                dadosComissao.valor_comissao_fixa = taxaComissao;
                 dadosComissao.percentual_comissao = 0;
               }
             

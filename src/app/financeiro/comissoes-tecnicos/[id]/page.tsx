@@ -25,7 +25,12 @@ import {
 } from 'react-icons/fi';
 import { buildComissoesTecnicosPDFBlob } from '@/lib/pdfComissoesTecnicos';
 import { CurrencyInput } from '@/components/CurrencyInput';
-import { parseCurrencyNumber } from '@/lib/currencyMask';
+import {
+  formatDateBr,
+  formatDateTimeBr,
+  mesAtualLocal,
+  mesKeyLocal,
+} from '@/lib/calcularComissao';
 
 interface Comissao {
   id: string;
@@ -41,6 +46,8 @@ interface Comissao {
   percentual_comissao?: number | null;
   valor_comissao_fixa?: number | null;
   data_entrega: string;
+  data_pagamento?: string | null;
+  data_calculo?: string | null;
   status: string;
   created_at: string;
   status_os?: string | null;
@@ -48,6 +55,8 @@ interface Comissao {
   tipo_ordem?: string;
   ativa?: boolean;
   observacoes?: string | null;
+  /** Comissão CALCULADA de mês anterior incluída no saque do mês atual */
+  arrasto?: boolean;
 }
 
 interface TecnicoInfo {
@@ -75,12 +84,12 @@ export default function TecnicoComissoesDetalhesPage() {
   const [comissoes, setComissoes] = useState<Comissao[]>([]);
   const [processando, setProcessando] = useState(false);
   
-  // Estado para saque parcial
-  const [valorSaque, setValorSaque] = useState<string>('');
-  const [mostrarSaqueParcial, setMostrarSaqueParcial] = useState(false);
+  // Modal saque parcial: seleção de OS (evita digitar valor que não bate com as comissões)
+  const [modalSaqueParcial, setModalSaqueParcial] = useState(false);
+  const [osSelecionadasSaque, setOsSelecionadasSaque] = useState<Set<string>>(new Set());
   
-  // Padrão: mês atual (YYYY-MM, alinhado ao filtro por data_entrega em UTC)
-  const [mesSelecionado, setMesSelecionado] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  // Padrão: mês atual (YYYY-MM em America/Sao_Paulo)
+  const [mesSelecionado, setMesSelecionado] = useState<string>(() => mesAtualLocal());
   /** Incluir linha de total + área para assinatura manual no PDF */
   const [pdfIncluirAssinatura, setPdfIncluirAssinatura] = useState(true);
 
@@ -145,19 +154,25 @@ export default function TecnicoComissoesDetalhesPage() {
     }
   };
 
-  // Filtrar por mês
+  // Lista do período: mês selecionado + CALCULADA de meses anteriores (arrasto para saque)
   const comissoesDoMes = useMemo(() => {
-    if (!mesSelecionado || mesSelecionado === 'todos') return comissoes;
-    
-    return comissoes.filter(c => {
-      try {
-        const data = new Date(c.data_entrega);
-        if (isNaN(data.getTime())) return false;
-        return data.toISOString().slice(0, 7) === mesSelecionado;
-      } catch {
-        return false;
-      }
-    });
+    if (!mesSelecionado || mesSelecionado === 'todos') {
+      return comissoes.map((c) => ({ ...c, arrasto: false }));
+    }
+
+    return comissoes
+      .filter((c) => {
+        const mes = mesKeyLocal(c.data_entrega);
+        if (!mes) return false;
+        if (mes === mesSelecionado) return true;
+        // Carry-over: não sacadas de meses anteriores entram no mês atual de saque
+        const status = (c.status || '').toUpperCase();
+        return status === 'CALCULADA' && mes < mesSelecionado;
+      })
+      .map((c) => ({
+        ...c,
+        arrasto: mesKeyLocal(c.data_entrega) < mesSelecionado,
+      }));
   }, [comissoes, mesSelecionado]);
 
   const periodoLabelPdf = useMemo(() => {
@@ -169,61 +184,103 @@ export default function TecnicoComissoesDetalhesPage() {
     return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   }, [mesSelecionado]);
 
-  // Calcular totais
+  // Calcular totais (disponível inclui arrasto + CALCULADA reais ou sintéticas de OS entregue)
   const totais = useMemo(() => {
-    const totalPago = comissoesDoMes
-      .filter(c => c.status?.toUpperCase() === 'PAGA')
-      .reduce((acc, c) => acc + c.valor_comissao, 0);
-    
-    const totalCalculado = comissoesDoMes
-      .filter(c => c.status?.toUpperCase() === 'CALCULADA')
-      .reduce((acc, c) => acc + c.valor_comissao, 0);
-    
-    const totalPrevisto = comissoesDoMes
-      .filter(c => c.status?.toUpperCase() === 'PREVISTA')
-      .reduce((acc, c) => acc + c.valor_comissao, 0);
-    
-    const totalPendente = comissoesDoMes
-      .filter(c => !['PAGA', 'CALCULADA', 'PREVISTA'].includes(c.status?.toUpperCase() || ''))
-      .reduce((acc, c) => acc + c.valor_comissao, 0);
+    const statusOf = (c: Comissao) => (c.status || '').toUpperCase();
+    const isPrevistaPura = (c: Comissao) =>
+      String(c.id).startsWith('prevista-') && statusOf(c) === 'PREVISTA';
+    // Liberada = CALCULADA (registro real OU sintética de OS já entregue)
+    const isLiberada = (c: Comissao) => statusOf(c) === 'CALCULADA';
 
-    const comissoesCalculadas = comissoesDoMes.filter(c => c.status?.toUpperCase() === 'CALCULADA');
-    
+    // Já pago no período = baixas feitas no mês (data_pagamento)
+    const pagasNoPeriodo = comissoes.filter((c) => {
+      if (statusOf(c) !== 'PAGA' || String(c.id).startsWith('prevista-')) return false;
+      if (!mesSelecionado || mesSelecionado === 'todos') return true;
+      const mesPag = mesKeyLocal(c.data_pagamento || c.data_calculo || c.data_entrega);
+      return mesPag === mesSelecionado;
+    });
+    const totalPago = pagasNoPeriodo.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+
+    const comissoesCalculadas = comissoesDoMes.filter(isLiberada);
+    const totalCalculado = comissoesCalculadas.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+    const totalArrasto = comissoesCalculadas
+      .filter((c) => c.arrasto)
+      .reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+
+    const previstasDoMes = comissoesDoMes.filter((c) => isPrevistaPura(c) && !c.arrasto);
+    const totalPrevisto = previstasDoMes.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+
+    const pendentesDoMes = comissoesDoMes.filter((c) => {
+      const s = statusOf(c);
+      return !['PAGA', 'CALCULADA', 'PREVISTA'].includes(s) && !c.arrasto;
+    });
+    const totalPendente = pendentesDoMes.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+
+    // Total geral = soma de tudo que aparece na lista do período
+    const totalGeral = comissoesDoMes.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+
     return {
       pago: totalPago,
-      liberado: totalCalculado, // Disponível para saque
+      liberado: totalCalculado,
+      arrasto: totalArrasto,
       previsto: totalPrevisto,
       pendente: totalPendente,
-      total: totalPago + totalCalculado + totalPrevisto + totalPendente,
-      qtdPagas: comissoesDoMes.filter(c => c.status?.toUpperCase() === 'PAGA').length,
+      total: totalGeral,
+      qtdPagas: pagasNoPeriodo.length,
       qtdLiberadas: comissoesCalculadas.length,
-      qtdPrevistas: comissoesDoMes.filter(c => c.status?.toUpperCase() === 'PREVISTA').length,
-      comissoesLiberadas: comissoesCalculadas
+      qtdArrasto: comissoesCalculadas.filter((c) => c.arrasto).length,
+      qtdPrevistas: previstasDoMes.length,
+      comissoesLiberadas: comissoesCalculadas,
     };
-  }, [comissoesDoMes]);
+  }, [comissoes, comissoesDoMes, mesSelecionado]);
+
+  // Histórico de saques: agrupa PAGA por data/hora de pagamento
+  const historicoSaques = useMemo(() => {
+    const pagas = comissoes.filter((c) => (c.status || '').toUpperCase() === 'PAGA' && !String(c.id).startsWith('prevista-'));
+    const grupos = new Map<string, { dataPagamento: string; itens: Comissao[]; valor: number }>();
+
+    for (const c of pagas) {
+      const raw = c.data_pagamento || c.data_calculo || c.created_at || '';
+      // Agrupa no mesmo minuto (lote de saque)
+      const keyDate = raw ? new Date(raw) : null;
+      const key =
+        keyDate && !isNaN(keyDate.getTime())
+          ? `${keyDate.getUTCFullYear()}-${String(keyDate.getUTCMonth() + 1).padStart(2, '0')}-${String(keyDate.getUTCDate()).padStart(2, '0')}T${String(keyDate.getUTCHours()).padStart(2, '0')}:${String(keyDate.getUTCMinutes()).padStart(2, '0')}`
+          : 'sem-data';
+      const existente = grupos.get(key);
+      if (existente) {
+        existente.itens.push(c);
+        existente.valor += c.valor_comissao;
+      } else {
+        grupos.set(key, { dataPagamento: raw, itens: [c], valor: c.valor_comissao });
+      }
+    }
+
+    return Array.from(grupos.values()).sort((a, b) => {
+      const ta = a.dataPagamento ? new Date(a.dataPagamento).getTime() : 0;
+      const tb = b.dataPagamento ? new Date(b.dataPagamento).getTime() : 0;
+      return tb - ta;
+    });
+  }, [comissoes]);
 
   // Gerar opções de meses
   const mesesDisponiveis = useMemo(() => {
     const meses = new Set<string>();
     const hoje = new Date();
     
-    // Adicionar últimos 12 meses
+    // Adicionar últimos 12 meses (calendário local BR)
     for (let i = 0; i < 12; i++) {
       const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      meses.add(data.toISOString().slice(0, 7));
+      meses.add(mesKeyLocal(data));
     }
     
     // Adicionar meses das comissões
     comissoes.forEach(c => {
-      try {
-        const data = new Date(c.data_entrega);
-        if (!isNaN(data.getTime())) {
-          meses.add(data.toISOString().slice(0, 7));
-        }
-      } catch {}
+      const mes = mesKeyLocal(c.data_entrega);
+      if (mes) meses.add(mes);
     });
     
-    return Array.from(meses).sort().reverse();
+    return Array.from(meses).filter(Boolean).sort().reverse();
   }, [comissoes]);
 
   const formatCurrency = (value: number) => {
@@ -233,13 +290,8 @@ export default function TecnicoComissoesDetalhesPage() {
     }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('pt-BR');
-    } catch {
-      return '-';
-    }
-  };
+  const formatDate = (dateString: string) => formatDateBr(dateString);
+  const formatDateTime = (dateString: string | null | undefined) => formatDateTimeBr(dateString);
 
   const formatMesLabel = (mes: string) => {
     try {
@@ -270,46 +322,61 @@ export default function TecnicoComissoesDetalhesPage() {
     await processarSaque(totais.comissoesLiberadas, totais.liberado);
   };
 
-  // Processar saque parcial
+  const comissoesSelecionadasSaque = useMemo(
+    () => totais.comissoesLiberadas.filter((c) => osSelecionadasSaque.has(c.id)),
+    [totais.comissoesLiberadas, osSelecionadasSaque]
+  );
+
+  const totalSaqueParcial = useMemo(
+    () => comissoesSelecionadasSaque.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0),
+    [comissoesSelecionadasSaque]
+  );
+
+  const abrirModalSaqueParcial = () => {
+    setOsSelecionadasSaque(new Set());
+    setModalSaqueParcial(true);
+  };
+
+  const fecharModalSaqueParcial = () => {
+    if (processando) return;
+    setModalSaqueParcial(false);
+    setOsSelecionadasSaque(new Set());
+  };
+
+  const toggleOsSaque = (id: string) => {
+    setOsSelecionadasSaque((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selecionarTodasOsSaque = () => {
+    setOsSelecionadasSaque(new Set(totais.comissoesLiberadas.map((c) => c.id)));
+  };
+
+  const limparSelecaoOsSaque = () => {
+    setOsSelecionadasSaque(new Set());
+  };
+
+  // Processar saque parcial pelas OS selecionadas (valor = soma exata das comissões)
   const handleSaqueParcial = async () => {
-    const valor = parseCurrencyNumber(valorSaque);
-    
-    if (isNaN(valor) || valor <= 0) {
-      addToast('error', 'Digite um valor válido para o saque.');
+    if (comissoesSelecionadasSaque.length === 0) {
+      addToast('warning', 'Selecione ao menos uma O.S. para sacar.');
       return;
     }
-
-    if (valor > totais.liberado) {
-      addToast('error', `Valor máximo disponível: ${formatCurrency(totais.liberado)}`);
-      return;
-    }
-
-    // Selecionar comissões para cobrir o valor do saque
-    const comissoesParaSaque: Comissao[] = [];
-    let valorAcumulado = 0;
-
-    // Ordenar por valor (menores primeiro para maximizar quantidade de comissões pagas)
-    const ordenadas = [...totais.comissoesLiberadas].sort((a, b) => a.valor_comissao - b.valor_comissao);
-
-    for (const comissao of ordenadas) {
-      if (valorAcumulado >= valor) break;
-      comissoesParaSaque.push(comissao);
-      valorAcumulado += comissao.valor_comissao;
-    }
-
-    // Se não conseguiu cobrir o valor exato, ajustar
-    const valorReal = comissoesParaSaque.reduce((acc, c) => acc + c.valor_comissao, 0);
 
     const confirmado = await confirm({
       title: 'Confirmar Saque Parcial',
-      message: `Serão marcadas ${comissoesParaSaque.length} comissão(ões) como PAGA(S).\n\nValor solicitado: ${formatCurrency(valor)}\nValor real do saque: ${formatCurrency(valorReal)}\n\n${valorReal !== valor ? '(Ajustado para incluir comissões completas)' : ''}`,
-      confirmText: 'Confirmar',
+      message: `Marcar ${comissoesSelecionadasSaque.length} O.S. como PAGA(S)?\n\nTotal: ${formatCurrency(totalSaqueParcial)}`,
+      confirmText: 'Confirmar saque',
       cancelText: 'Cancelar',
-      variant: 'success'
+      variant: 'success',
     });
 
     if (!confirmado) return;
-    await processarSaque(comissoesParaSaque, valorReal);
+    await processarSaque(comissoesSelecionadasSaque, totalSaqueParcial);
   };
 
   const processarSaque = async (comissoesParaSaque: Comissao[], valorTotal: number) => {
@@ -317,17 +384,30 @@ export default function TecnicoComissoesDetalhesPage() {
     try {
       let sucesso = 0;
       let erros = 0;
+      // Mesmo instante para todas as comissões do lote → histórico de saque agrupado
+      const dataPagamentoLote = new Date().toISOString();
+      const token = await getAccessTokenForApi();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
 
       for (const comissao of comissoesParaSaque) {
-        // Ignorar comissões previstas
-        if (comissao.id.startsWith('prevista-')) continue;
+        // Só bloqueia prevista ainda em andamento (não entregue)
+        if (
+          String(comissao.id).startsWith('prevista-') &&
+          (comissao.status || '').toUpperCase() === 'PREVISTA'
+        ) {
+          continue;
+        }
 
         const response = await fetch('/api/comissoes/atualizar', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             comissaoId: comissao.id,
-            status: 'PAGA'
+            status: 'PAGA',
+            dataPagamento: dataPagamentoLote,
           })
         });
 
@@ -340,8 +420,8 @@ export default function TecnicoComissoesDetalhesPage() {
 
       if (sucesso > 0) {
         addToast('success', `Saque de ${formatCurrency(valorTotal)} realizado! ${sucesso} comissão(ões) marcada(s) como paga(s).`);
-        setValorSaque('');
-        setMostrarSaqueParcial(false);
+        setModalSaqueParcial(false);
+        setOsSelecionadasSaque(new Set());
         fetchData(); // Recarregar dados
       }
       if (erros > 0) {
@@ -357,7 +437,10 @@ export default function TecnicoComissoesDetalhesPage() {
 
   // Marcar comissão como paga
   const handleMarcarComoPaga = async (comissao: Comissao) => {
-    if (comissao.id.startsWith('prevista-')) {
+    if (
+      String(comissao.id).startsWith('prevista-') &&
+      (comissao.status || '').toUpperCase() === 'PREVISTA'
+    ) {
       addToast('error', 'Comissões previstas só podem ser pagas após a OS ser finalizada.');
       return;
     }
@@ -371,10 +454,18 @@ export default function TecnicoComissoesDetalhesPage() {
     if (!confirmado) return;
     setProcessando(true);
     try {
+      const token = await getAccessTokenForApi();
       const response = await fetch('/api/comissoes/atualizar', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comissaoId: comissao.id, status: 'PAGA' })
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          comissaoId: comissao.id,
+          status: 'PAGA',
+          dataPagamento: new Date().toISOString(),
+        })
       });
       if (response.ok) {
         addToast('success', 'Comissão marcada como paga.');
@@ -403,9 +494,13 @@ export default function TecnicoComissoesDetalhesPage() {
     if (!confirmado) return;
 
     try {
+      const token = await getAccessTokenForApi();
       const response = await fetch('/api/comissoes/atualizar', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           comissaoId: comissao.id,
           status: 'CALCULADA'
@@ -563,42 +658,44 @@ export default function TecnicoComissoesDetalhesPage() {
           <div className="w-full max-w-full space-y-6">
             
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3 min-w-0">
                 <button
+                  type="button"
                   onClick={() => router.push('/financeiro/comissoes-tecnicos')}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-[0.98]"
+                  aria-label="Voltar"
                 >
-                  <FiArrowLeft size={20} />
+                  <FiArrowLeft size={18} />
                 </button>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FiUser className="text-blue-600" size={24} />
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    <FiUser size={22} />
                   </div>
-                  <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-900">{tecnico.nome}</h1>
+                  <div className="min-w-0">
+                    <h1 className="truncate text-xl md:text-2xl font-bold text-gray-900">{tecnico.nome}</h1>
                     <p className="text-sm text-gray-500">
-                      Comissão: {tecnico.tipo_comissao === 'fixo' 
-                        ? formatCurrency(tecnico.comissao_fixa) + ' por OS'
-                        : `${tecnico.comissao_percentual}% do serviço`
-                      }
+                      Comissão:{' '}
+                      {tecnico.tipo_comissao === 'fixo'
+                        ? `${formatCurrency(tecnico.comissao_fixa)} por OS`
+                        : `${tecnico.comissao_percentual}% do serviço`}
                     </p>
                   </div>
                 </div>
               </div>
-              
-              {/* Seletor de Mês + opções PDF */}
-              <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[280px]">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <FiCalendar className="text-gray-400 flex-shrink-0" />
+
+              {/* Seletor de Mês + PDF */}
+              <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="flex flex-col xs:flex-row sm:flex-row gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <FiCalendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <select
                       value={mesSelecionado}
                       onChange={(e) => setMesSelecionado(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-9 text-sm font-medium text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       <option value="todos">Todos os meses</option>
-                      {mesesDisponiveis.map(mes => (
+                      {mesesDisponiveis.map((mes) => (
                         <option key={mes} value={mes}>{formatMesLabel(mes)}</option>
                       ))}
                     </select>
@@ -607,143 +704,157 @@ export default function TecnicoComissoesDetalhesPage() {
                     type="button"
                     title="Exportar relatório em PDF"
                     onClick={exportarPDF}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium whitespace-nowrap"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.98] sm:min-w-[108px]"
                   >
                     <FiFileText size={16} />
                     PDF
                   </button>
                 </div>
-                <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer select-none">
+                <label className="flex items-start gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={pdfIncluirAssinatura}
                     onChange={(e) => setPdfIncluirAssinatura(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  Incluir total do período e campo para assinatura do técnico
+                  <span>Incluir total do período e campo para assinatura do técnico</span>
                 </label>
               </div>
             </div>
 
             {/* Cards de Resumo */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {/* Total Geral */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiTrendingUp className="text-gray-400" size={18} />
-                  <span className="text-xs text-gray-500 uppercase">Total Geral</span>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
+              <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FiTrendingUp className="text-gray-400 shrink-0" size={16} />
+                  <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-gray-500">Total</span>
                 </div>
-                <p className="text-xl md:text-2xl font-bold text-gray-900">{formatCurrency(totais.total)}</p>
-                <p className="text-xs text-gray-500 mt-1">{comissoesDoMes.length} comissões</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums text-gray-900 leading-tight">{formatCurrency(totais.total)}</p>
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
+                  {comissoesDoMes.length} {comissoesDoMes.length === 1 ? 'comissão' : 'comissões'}
+                </p>
               </div>
 
-              {/* Já Pago */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiCheckCircle className="text-green-500" size={18} />
-                  <span className="text-xs text-gray-500 uppercase">Já Pago</span>
+              <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FiCheckCircle className="text-green-500 shrink-0" size={16} />
+                  <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-gray-500">Já pago</span>
                 </div>
-                <p className="text-xl md:text-2xl font-bold text-green-600">{formatCurrency(totais.pago)}</p>
-                <p className="text-xs text-gray-500 mt-1">{totais.qtdPagas} comissões</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums text-green-600 leading-tight">{formatCurrency(totais.pago)}</p>
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
+                  {totais.qtdPagas} {totais.qtdPagas === 1 ? 'comissão' : 'comissões'}
+                </p>
               </div>
 
-              {/* Liberado para Saque */}
-              <div className="rounded-xl shadow-sm border border-blue-200 p-4 bg-blue-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiDollarSign className="text-blue-500" size={18} />
-                  <span className="text-xs text-blue-600 uppercase font-medium">Disponível</span>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 sm:p-4 shadow-sm">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FiDollarSign className="text-blue-500 shrink-0" size={16} />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-blue-600">Disponível</span>
                 </div>
-                <p className="text-xl md:text-2xl font-bold text-blue-600">{formatCurrency(totais.liberado)}</p>
-                <p className="text-xs text-blue-500 mt-1">{totais.qtdLiberadas} comissões liberadas</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums text-blue-600 leading-tight">{formatCurrency(totais.liberado)}</p>
+                <p className="mt-1 text-[11px] sm:text-xs text-blue-600/80">
+                  {totais.qtdLiberadas} {totais.qtdLiberadas === 1 ? 'liberada' : 'liberadas'}
+                  {totais.arrasto > 0 ? ` · +${formatCurrency(totais.arrasto)} arrasto` : ''}
+                </p>
               </div>
 
-              {/* Previsto */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiClock className="text-orange-500" size={18} />
-                  <span className="text-xs text-gray-500 uppercase">Previsto</span>
+              <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <FiClock className="text-orange-500 shrink-0" size={16} />
+                  <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-gray-500">Previsto</span>
                 </div>
-                <p className="text-xl md:text-2xl font-bold text-orange-600">{formatCurrency(totais.previsto)}</p>
-                <p className="text-xs text-gray-500 mt-1">{totais.qtdPrevistas} OS em andamento</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums text-orange-600 leading-tight">{formatCurrency(totais.previsto)}</p>
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-500">
+                  {totais.qtdPrevistas} OS em andamento
+                </p>
               </div>
             </div>
 
             {/* Seção de Saque */}
             {totais.liberado > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-4 md:p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <FiDollarSign className="text-blue-600" />
-                  Realizar Saque
-                </h2>
-                
-                <div className="flex flex-col md:flex-row gap-4">
+              <div className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
+                <div className="border-b border-blue-50 bg-gradient-to-r from-blue-50 to-white px-4 py-3.5 sm:px-6 sm:py-4">
+                  <h2 className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                      <FiDollarSign size={16} />
+                    </span>
+                    Realizar Saque
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500 sm:pl-10">
+                    Disponível agora: <span className="font-semibold text-blue-600">{formatCurrency(totais.liberado)}</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 p-4 sm:gap-4 sm:p-6 md:grid-cols-2">
                   {/* Saque Total */}
-                  <div className="flex-1 bg-blue-50 rounded-lg p-4">
-                    <h3 className="text-sm font-medium text-blue-900 mb-2">Saque Total</h3>
-                    <p className="text-2xl font-bold text-blue-600 mb-3">{formatCurrency(totais.liberado)}</p>
+                  <div className="flex flex-col rounded-2xl border border-blue-100 bg-blue-50/70 p-4 sm:p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700/80">Saque total</p>
+                    <p className="mt-1 text-2xl sm:text-3xl font-bold tabular-nums text-blue-700">{formatCurrency(totais.liberado)}</p>
+                    <p className="mt-1 text-xs text-blue-700/70">
+                      {totais.qtdLiberadas} {totais.qtdLiberadas === 1 ? 'comissão' : 'comissões'}
+                    </p>
                     <button
+                      type="button"
                       onClick={handleSaqueTotal}
                       disabled={processando}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                      className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {processando ? 'Processando...' : 'Sacar Tudo'}
+                      <FiCheckCircle size={18} />
+                      {processando ? 'Processando...' : 'Sacar tudo'}
                     </button>
                   </div>
 
                   {/* Saque Parcial */}
-                  <div className="flex-1 bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-2">Saque Parcial</h3>
-                    
-                    {!mostrarSaqueParcial ? (
-                      <button
-                        onClick={() => setMostrarSaqueParcial(true)}
-                        className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                      >
-                        Sacar Valor Específico
-                      </button>
-                    ) : (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">
-                            Valor do saque (máx: {formatCurrency(totais.liberado)})
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">R$</span>
-                            <CurrencyInput
-                              value={valorSaque}
-                              onChange={(e) => setValorSaque(e.target.value)}
-                              placeholder="0,00"
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setMostrarSaqueParcial(false);
-                              setValorSaque('');
-                            }}
-                            className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            onClick={handleSaqueParcial}
-                            disabled={processando || !valorSaque}
-                            className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                          >
-                            {processando ? '...' : 'Sacar'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex flex-col rounded-2xl border border-gray-200 bg-gray-50/80 p-4 sm:p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saque parcial</p>
+                    <p className="mt-1 text-sm text-gray-600">Escolha as O.S. que deseja baixar</p>
+                    <button
+                      type="button"
+                      onClick={abrirModalSaqueParcial}
+                      disabled={processando || totais.qtdLiberadas === 0}
+                      className="mt-auto inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FiEdit size={16} />
+                      Selecionar O.S.
+                    </button>
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-500 mt-4 flex items-center gap-1">
-                  <FiAlertCircle size={12} />
-                  O saque marca as comissões como PAGA. Comissões previstas não podem ser sacadas até a OS ser finalizada.
+                <p className="flex items-start gap-2 border-t border-gray-100 px-4 py-3 text-[11px] sm:text-xs text-gray-500 sm:px-6">
+                  <FiAlertCircle size={14} className="mt-0.5 shrink-0 text-gray-400" />
+                  <span>
+                    No saque parcial você escolhe as O.S. — o total é a soma exata delas. O saque marca como PAGA e registra data/hora. Arrasto de meses anteriores entra no disponível.
+                  </span>
                 </p>
+              </div>
+            )}
+
+            {/* Histórico de Saques */}
+            {historicoSaques.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
+                <div className="p-4 md:p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FiCheckCircle className="text-green-500" />
+                    Histórico de Saques ({historicoSaques.length})
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Data e horário de cada baixa de comissão</p>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {historicoSaques.map((saque, idx) => (
+                    <div key={`${saque.dataPagamento}-${idx}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatDateTime(saque.dataPagamento)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {saque.itens.length} comissão(ões) — OS{' '}
+                          {saque.itens.map((i) => `#${i.numero_os}`).join(', ')}
+                        </p>
+                      </div>
+                      <p className="text-base font-bold text-green-600">{formatCurrency(saque.valor)}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -754,6 +865,11 @@ export default function TecnicoComissoesDetalhesPage() {
                   <FiFileText className="text-gray-400" />
                   Histórico de Comissões ({comissoesDoMes.length})
                 </h2>
+                {totais.qtdArrasto > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Inclui {totais.qtdArrasto} comissão(ões) não sacada(s) de meses anteriores.
+                  </p>
+                )}
               </div>
 
               {/* Tabela Desktop - usa largura total e scroll horizontal se necessário */}
@@ -795,6 +911,14 @@ export default function TecnicoComissoesDetalhesPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center">
                           <span className="text-sm text-gray-500">{formatDate(comissao.data_entrega)}</span>
+                          {comissao.arrasto && (
+                            <span className="block text-[10px] text-blue-600 font-medium">mês anterior</span>
+                          )}
+                          {comissao.status?.toUpperCase() === 'PAGA' && (comissao.data_pagamento || comissao.data_calculo) && (
+                            <span className="block text-[10px] text-green-700" title="Data/hora do saque">
+                              Saque: {formatDateTime(comissao.data_pagamento || comissao.data_calculo)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center">
                           <span className="text-sm text-gray-700" title={comissao.status_tecnico_os ? `Técnico: ${comissao.status_tecnico_os}` : undefined}>
@@ -808,6 +932,11 @@ export default function TecnicoComissoesDetalhesPage() {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(comissao.status)}`}>
                             {comissao.status || 'PENDENTE'}
                           </span>
+                          {comissao.arrasto && (
+                            <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700">
+                              Arrasto
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center w-[180px] min-w-[180px]">
                           <div className="flex flex-wrap items-center justify-center gap-1">
@@ -818,7 +947,7 @@ export default function TecnicoComissoesDetalhesPage() {
                             >
                               <FiEye size={16} />
                             </button>
-                            {!comissao.id.startsWith('prevista-') && (
+                            {!String(comissao.id).startsWith('prevista-') && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleEditarComissao(comissao); }}
                                 className="p-1.5 rounded text-blue-600 hover:bg-blue-50"
@@ -827,7 +956,7 @@ export default function TecnicoComissoesDetalhesPage() {
                                 <FiEdit size={16} />
                               </button>
                             )}
-                            {comissao.status?.toUpperCase() === 'CALCULADA' && !comissao.id.startsWith('prevista-') && (
+                            {comissao.status?.toUpperCase() === 'CALCULADA' && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleMarcarComoPaga(comissao); }}
                                 className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 whitespace-nowrap"
@@ -835,7 +964,7 @@ export default function TecnicoComissoesDetalhesPage() {
                                 Marcar paga
                               </button>
                             )}
-                            {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                            {comissao.status?.toUpperCase() === 'PAGA' && !String(comissao.id).startsWith('prevista-') && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleReverterComissao(comissao); }}
                                 className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 whitespace-nowrap"
@@ -879,7 +1008,7 @@ export default function TecnicoComissoesDetalhesPage() {
                       >
                         <FiEye size={12} /> Ver detalhes
                       </button>
-                      {!comissao.id.startsWith('prevista-') && (
+                      {!String(comissao.id).startsWith('prevista-') && (
                         <button
                           onClick={() => handleEditarComissao(comissao)}
                           className="text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1"
@@ -887,7 +1016,7 @@ export default function TecnicoComissoesDetalhesPage() {
                           <FiEdit size={12} /> Editar
                         </button>
                       )}
-                      {comissao.status?.toUpperCase() === 'CALCULADA' && !comissao.id.startsWith('prevista-') && (
+                      {comissao.status?.toUpperCase() === 'CALCULADA' && (
                         <button
                           onClick={() => handleMarcarComoPaga(comissao)}
                           className="text-xs px-2 py-1.5 rounded bg-green-600 text-white hover:bg-green-700"
@@ -895,7 +1024,7 @@ export default function TecnicoComissoesDetalhesPage() {
                           Marcar como paga
                         </button>
                       )}
-                      {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                      {comissao.status?.toUpperCase() === 'PAGA' && !String(comissao.id).startsWith('prevista-') && (
                         <button
                           onClick={() => handleReverterComissao(comissao)}
                           className="text-xs px-2 py-1.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
@@ -916,6 +1045,143 @@ export default function TecnicoComissoesDetalhesPage() {
                 </div>
               )}
             </div>
+
+            {/* Modal Saque Parcial — seleção de O.S. */}
+            {modalSaqueParcial && (
+              <div
+                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+                onClick={fecharModalSaqueParcial}
+              >
+                <div
+                  className="flex w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl max-h-[92vh] sm:max-h-[85vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Saque parcial</h3>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        Selecione as O.S. disponíveis. O total atualiza na hora.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fecharModalSaqueParcial}
+                      disabled={processando}
+                      className="shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+                      aria-label="Fechar"
+                    >
+                      <FiX size={20} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2 sm:px-5">
+                    <p className="text-xs text-gray-500">
+                      {osSelecionadasSaque.size} de {totais.qtdLiberadas} selecionada(s)
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={selecionarTodasOsSaque}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                      >
+                        Todas
+                      </button>
+                      <span className="text-gray-300">·</span>
+                      <button
+                        type="button"
+                        onClick={limparSelecaoOsSaque}
+                        className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+                      >
+                        Limpar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2 sm:px-3">
+                    {totais.comissoesLiberadas.length === 0 ? (
+                      <p className="px-3 py-8 text-center text-sm text-gray-500">Nenhuma O.S. liberada para saque.</p>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {totais.comissoesLiberadas.map((c) => {
+                          const selecionada = osSelecionadasSaque.has(c.id);
+                          return (
+                            <li key={c.id}>
+                              <label
+                                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                                  selecionada
+                                    ? 'border-blue-300 bg-blue-50/80'
+                                    : 'border-transparent bg-gray-50 hover:border-gray-200 hover:bg-white'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selecionada}
+                                  onChange={() => toggleOsSaque(c.id)}
+                                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <span className="text-sm font-semibold text-gray-900">OS #{c.numero_os}</span>
+                                    {c.arrasto && (
+                                      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                        Arrasto
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-xs text-gray-500">
+                                    {c.cliente_nome}
+                                    {c.servico_nome ? ` · ${c.servico_nome}` : ''}
+                                  </span>
+                                  <span className="mt-0.5 block text-[11px] text-gray-400">
+                                    Entrega {formatDate(c.data_entrega)}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 text-sm font-bold tabular-nums text-blue-700">
+                                  {formatCurrency(Number(c.valor_comissao || 0))}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="sticky bottom-0 border-t border-gray-100 bg-white px-4 py-3 sm:px-5 safe-area-pb">
+                    <div className="mb-3 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Total do saque</p>
+                        <p className="text-2xl font-bold tabular-nums text-emerald-600">
+                          {formatCurrency(totalSaqueParcial)}
+                        </p>
+                      </div>
+                      <p className="pb-1 text-xs text-gray-500 text-right">
+                        Disponível: {formatCurrency(totais.liberado)}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={fecharModalSaqueParcial}
+                        disabled={processando}
+                        className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaqueParcial}
+                        disabled={processando || osSelecionadasSaque.size === 0}
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <FiCheckCircle size={18} />
+                        {processando ? 'Processando...' : 'Confirmar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Modal Ver detalhes */}
             {comissaoDetalhes && (

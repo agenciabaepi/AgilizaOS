@@ -75,9 +75,32 @@ export default function ComissoesTecnicosPage() {
   const [valorEditado, setValorEditado] = useState<number>(0);
   const [observacoesEditadas, setObservacoesEditadas] = useState<string>('');
   
-  // Estado para mês selecionado (formato: YYYY-MM ou 'todos'); padrão = mês corrente (mesmo critério UTC do filtro por data_entrega)
-  const [mesSelecionado, setMesSelecionado] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  // Estado para mês selecionado (formato: YYYY-MM ou 'todos'); padrão = mês corrente (America/Sao_Paulo)
+  const [mesSelecionado, setMesSelecionado] = useState<string>(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+    }).formatToParts(new Date());
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    return y && m ? `${y}-${m}` : new Date().toISOString().slice(0, 7);
+  });
   const [pdfListaAssinatura, setPdfListaAssinatura] = useState(false);
+
+  const mesKeyBr = (dateInput: string | Date | null | undefined) => {
+    if (!dateInput) return '';
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+    }).formatToParts(d);
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    return y && m ? `${y}-${m}` : '';
+  };
 
   // Estados para filtros
   const [filtros, setFiltros] = useState<Filtros>({
@@ -293,10 +316,10 @@ export default function ComissoesTecnicosPage() {
     return mesesOrdenados;
   }, [comissoes]);
   
-  // Filtrar comissões por mês selecionado e técnicos ativos
+  // Filtrar por mês + técnicos ativos.
+  // Carry-over: CALCULADA de meses anteriores entra no mês selecionado (disponível para saque).
   const comissoesDoMes = useMemo(() => {
     const filtradas = comissoes.filter(comissao => {
-      // Filtrar comissões de técnicos desativados
       const comissaoAtiva = comissao.ativa !== false;
       const tecnicoComissaoAtiva = comissao.tecnico_comissao_ativa !== false;
       
@@ -304,33 +327,15 @@ export default function ComissoesTecnicosPage() {
         return false;
       }
       
-      // Filtrar por mês selecionado (se houver mês selecionado e não for "todos")
       if (mesSelecionado && mesSelecionado !== 'todos') {
-        try {
-          const dataEntrega = new Date(comissao.data_entrega);
-          if (isNaN(dataEntrega.getTime())) {
-            console.warn('⚠️ Data de entrega inválida:', comissao.data_entrega);
-            return false;
-          }
-          const mesComissao = dataEntrega.toISOString().slice(0, 7);
-          if (mesComissao !== mesSelecionado) {
-            return false;
-          }
-        } catch (e) {
-          console.error('❌ Erro ao processar data de entrega:', comissao.data_entrega, e);
-          return false;
-        }
+        const mesComissao = mesKeyBr(comissao.data_entrega);
+        if (!mesComissao) return false;
+        if (mesComissao === mesSelecionado) return true;
+        const status = (comissao.status || '').toUpperCase();
+        return status === 'CALCULADA' && mesComissao < mesSelecionado;
       }
       
       return true;
-    });
-    
-    // Debug: Log do filtro
-    console.log('🔍 Filtro aplicado:', {
-      mesSelecionado,
-      totalComissoes: comissoes.length,
-      comissoesFiltradas: filtradas.length,
-      comissoesAtivas: comissoes.filter(c => c.ativa !== false && c.tecnico_comissao_ativa !== false).length
     });
     
     return filtradas;

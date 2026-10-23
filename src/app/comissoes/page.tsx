@@ -6,6 +6,7 @@ import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useToast } from '@/components/Toast';
 import { FiDollarSign, FiCalendar, FiTrendingUp, FiEye, FiDownload, FiFilter, FiX } from 'react-icons/fi';
+import { formatDateBr, formatDateTimeBr, mesAtualLocal, mesKeyLocal } from '@/lib/calcularComissao';
 
 interface ComissaoDetalhada {
   id: string;
@@ -17,6 +18,8 @@ interface ComissaoDetalhada {
   valor_comissao_fixa?: number | null;
   valor_comissao: number;
   data_entrega: string;
+  data_pagamento?: string | null;
+  data_calculo?: string | null;
   status: string;
   tipo_ordem: string;
   ordem_servico_id: string;
@@ -45,7 +48,7 @@ export default function ComissoesPage() {
   const [loading, setLoading] = useState(true);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   
-  // Padrão: "Mês atual e pendentes" = mês atual (todas) + de outros meses só as não calculadas (PREVISTA/PENDENTE)
+  // Padrão: mês atual + PREVISTA/PENDENTE/CALCULADA (não sacadas) de meses anteriores
   const [exibirModo, setExibirModo] = useState<'padrao' | 'todas'>('padrao');
   const [filtros, setFiltros] = useState<FiltrosPeriodo>({
     dataInicio: '',
@@ -54,21 +57,19 @@ export default function ComissoesPage() {
     tipoOrdem: ''
   });
 
-  const isCurrentMonth = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return !isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  };
-
-  // Filtrar: padrão = mês atual + não calculadas de outros meses (PREVISTA/PENDENTE); depois aplica filtros manuais
+  // Filtrar: padrão = mês atual + não pagas de outros meses (arrasto CALCULADA + PREVISTA/PENDENTE)
   const comissoesFiltradas = useMemo(() => {
     let base = comissoes;
     if (exibirModo === 'padrao') {
+      const mesAtual = mesAtualLocal();
       base = comissoes.filter(c => {
-        const noMesAtual = isCurrentMonth(c.data_entrega);
-        const naoCalculadaOuPendente =
-          (c.status || '').toUpperCase() === 'PREVISTA' || (c.status || '').toUpperCase() === 'PENDENTE';
-        return noMesAtual || naoCalculadaOuPendente;
+        const mes = mesKeyLocal(c.data_entrega);
+        const noMesAtual = mes === mesAtual;
+        const status = (c.status || '').toUpperCase();
+        const naoPagaAnterior =
+          mes < mesAtual &&
+          (status === 'PREVISTA' || status === 'PENDENTE' || status === 'CALCULADA');
+        return noMesAtual || naoPagaAnterior;
       });
     }
     return base.filter(comissao => {
@@ -153,9 +154,8 @@ const metricas = useMemo(() => {
     }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
+  const formatDate = (dateString: string) => formatDateBr(dateString);
+  const formatDateTime = (dateString: string | null | undefined) => formatDateTimeBr(dateString);
 
   const getStatusColor = (status: string) => {
     const s = (status || '').toLowerCase();
@@ -455,9 +455,19 @@ const metricas = useMemo(() => {
                           <div className="text-sm font-bold text-green-600">
                             {formatCurrency(comissao.valor_comissao)}
                           </div>
-                          {(comissao.status || '').toUpperCase() !== 'PAGA' && (
+                          {(comissao.status || '').toUpperCase() === 'PREVISTA' && (
                             <span className="text-[11px] text-orange-600 font-medium">
-                              Prevista (cliente ainda não pagou)
+                              Prevista (OS em andamento)
+                            </span>
+                          )}
+                          {(comissao.status || '').toUpperCase() === 'CALCULADA' && (
+                            <span className="text-[11px] text-blue-600 font-medium">
+                              Liberada para saque
+                            </span>
+                          )}
+                          {(comissao.status || '').toUpperCase() === 'PAGA' && (comissao.data_pagamento || comissao.data_calculo) && (
+                            <span className="text-[11px] text-green-700 font-medium">
+                              Sacada em {formatDateTime(comissao.data_pagamento || comissao.data_calculo)}
                             </span>
                           )}
                           {comissao.observacoes && (

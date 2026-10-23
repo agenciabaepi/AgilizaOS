@@ -119,8 +119,11 @@ interface AnaliseTecnico {
   nome: string;
   totalOS: number;
   receitaTotal: number;
+  valorServicoTotal: number;
+  valorPecaTotal: number;
   custosTotal: number;
   lucroTotal: number;
+  comissaoTotal: number;
   margemMedia: number;
 }
 
@@ -915,7 +918,9 @@ export default function LucroDesempenhoPage() {
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-6 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">Análise por Técnico</h3>
-        <p className="text-sm text-gray-600 mt-1">Performance e lucratividade por técnico</p>
+        <p className="text-sm text-gray-600 mt-1">
+          Valores de serviço e peça separados, com comissão total do mês por técnico
+        </p>
       </div>
       
       <div className="overflow-x-auto">
@@ -924,14 +929,16 @@ export default function LucroDesempenhoPage() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receita</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Peça</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custos</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lucro</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comissão</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Margem</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {analiseTecnicos.map((tecnico) => (
+            {analiseTecnicos.map((tecnico: AnaliseTecnico) => (
               <tr key={tecnico.tecnico_id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {tecnico.nome}
@@ -940,7 +947,10 @@ export default function LucroDesempenhoPage() {
                   {tecnico.totalOS}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {formatarMoeda(tecnico.receitaTotal)}
+                  {formatarMoeda(tecnico.valorServicoTotal || 0)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                  {formatarMoeda(tecnico.valorPecaTotal || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                   {formatarMoeda(tecnico.custosTotal)}
@@ -949,6 +959,9 @@ export default function LucroDesempenhoPage() {
                   tecnico.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {formatarMoeda(tecnico.lucroTotal)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-blue-600">
+                  {formatarMoeda(tecnico.comissaoTotal || 0)}
                 </td>
                 <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
                   tecnico.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { mesKeyLocal } from '@/lib/calcularComissao';
+import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 
 export interface Venda {
   id: string;
@@ -28,6 +30,7 @@ export interface OrdemServico {
   numero_os: string;
   cliente_id: string;
   tecnico?: string;
+  tecnico_id?: string | null;
   valor_peca?: number;
   valor_servico?: number;
   qtd_peca?: number;
@@ -40,6 +43,14 @@ export interface OrdemServico {
   clientes?: { id: string; nome: string };
 }
 
+interface ComissaoResumo {
+  tecnico_id: string;
+  valor_comissao: number;
+  data_entrega: string | null;
+  status: string | null;
+  ativa?: boolean | null;
+}
+
 const getMesISO = (date: Date) => date.toISOString().slice(0, 7);
 const norm = (v: string | undefined) => (v || '').toLowerCase().trim();
 
@@ -48,6 +59,8 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [todasVendas, setTodasVendas] = useState<Venda[]>([]);
   const [todasContas, setTodasContas] = useState<ContaPagar[]>([]);
+  const [comissoes, setComissoes] = useState<ComissaoResumo[]>([]);
+  const [tecnicosMap, setTecnicosMap] = useState<Map<string, string>>(new Map());
   const [investimentosMes, setInvestimentosMes] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,10 +81,10 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
       const dataInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
       const dataFim = new Date(ano, mes + 1, 0).toISOString().split('T')[0];
 
-      const [ordensRes, vendasRes, contasRes, invRes] = await Promise.all([
+      const [ordensRes, vendasRes, contasRes, invRes, comissoesRes, tecnicosRes] = await Promise.all([
         supabase
           .from('ordens_servico')
-          .select('id, numero_os, cliente_id, tecnico, valor_peca, valor_servico, qtd_peca, qtd_servico, status, created_at')
+          .select('id, numero_os, cliente_id, tecnico, tecnico_id, valor_peca, valor_servico, qtd_peca, qtd_servico, status, created_at')
           .eq('empresa_id', empresaId)
           .order('created_at', { ascending: false })
           .limit(200),
@@ -91,21 +104,51 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
           .eq('empresa_id', empresaId)
           .eq('tipo', 'investimento')
           .gte('data_movimentacao', `${dataInicio}T00:00:00`)
-          .lte('data_movimentacao', `${dataFim}T23:59:59`)
+          .lte('data_movimentacao', `${dataFim}T23:59:59`),
+        supabase
+          .from('comissoes_historico')
+          .select('tecnico_id, valor_comissao, data_entrega, status, ativa')
+          .eq('empresa_id', empresaId)
+          .order('data_entrega', { ascending: false }),
+        supabase
+          .from('usuarios')
+          .select('id, nome, auth_user_id')
+          .eq('empresa_id', empresaId)
+          .or(TECNICOS_OR_FILTER)
       ]);
 
       if (ordensRes.error) throw ordensRes.error;
       if (vendasRes.error) throw vendasRes.error;
       if (contasRes.error) throw contasRes.error;
 
+      let comissoesData: ComissaoResumo[] = [];
+      if (comissoesRes.error) {
+        // Fallback se a coluna `ativa` ainda não existir em algum ambiente
+        const fallback = await supabase
+          .from('comissoes_historico')
+          .select('tecnico_id, valor_comissao, data_entrega, status')
+          .eq('empresa_id', empresaId)
+          .order('data_entrega', { ascending: false });
+        comissoesData = (fallback.data || []) as ComissaoResumo[];
+      } else {
+        comissoesData = (comissoesRes.data || []) as ComissaoResumo[];
+      }
+
       const vendasData = vendasRes.data || [];
       const contasData = contasRes.data || [];
       const ordensData = ordensRes.data || [];
+      const tecnicosData = (tecnicosRes.error ? [] : tecnicosRes.data) || [];
 
       const pecasContas = contasData.filter(c => norm(c.tipo) === 'pecas');
       const clienteIds = [...new Set((ordensData || []).map((o: any) => o.cliente_id).filter(Boolean))];
       const { data: clientesData } = await supabase.from('clientes').select('id, nome').in('id', clienteIds);
       const clientesMap = new Map((clientesData || []).map((c: any) => [c.id, c]));
+
+      const nomesTecnicos = new Map<string, string>();
+      tecnicosData.forEach((t: any) => {
+        if (t.id && t.nome) nomesTecnicos.set(t.id, t.nome);
+        if (t.auth_user_id && t.nome) nomesTecnicos.set(t.auth_user_id, t.nome);
+      });
 
       const ordensCompletas: OrdemServico[] = (ordensData || []).map((os: any) => {
         const vendasOS = vendasData.filter(v => {
@@ -113,11 +156,15 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
           return obs.includes(`O.S. #${os.numero_os}`) || obs.includes(`OS #${os.numero_os}`) || obs.includes(`#${os.numero_os}`);
         });
         const custosOS = pecasContas.filter(c => c.os_id === os.id);
+        const nomeTecnico =
+          os.tecnico ||
+          (os.tecnico_id ? nomesTecnicos.get(os.tecnico_id) : undefined) ||
+          'N/A';
         return {
           ...os,
           vendas: vendasOS,
           custos: custosOS,
-          tecnico_nome: os.tecnico || 'N/A',
+          tecnico_nome: nomeTecnico,
           clientes: clientesMap.get(os.cliente_id) || undefined
         };
       });
@@ -157,12 +204,16 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
       setOrdens(ordensFinais);
       setTodasVendas(vendasData);
       setTodasContas(contasData);
+      setComissoes(comissoesData as ComissaoResumo[]);
+      setTecnicosMap(nomesTecnicos);
       setInvestimentosMes(invest);
     } catch (e: any) {
       setError(e?.message || 'Erro ao carregar dados');
       setOrdens([]);
       setTodasVendas([]);
       setTodasContas([]);
+      setComissoes([]);
+      setTecnicosMap(new Map());
       setInvestimentosMes(0);
     } finally {
       setLoading(false);
@@ -315,36 +366,80 @@ export function useLucroDesempenho(empresaId: string | undefined, currentMonth: 
   }, [contasPagasNoMes, contasPendentes, contasDoMesVencimento, custosComputados]);
 
   const analiseTecnicos = useMemo(() => {
-    const map = new Map<string, { totalOS: number; receitaTotal: number; custosTotal: number; lucroTotal: number }>();
+    type Acc = {
+      totalOS: number;
+      receitaTotal: number;
+      valorServicoTotal: number;
+      valorPecaTotal: number;
+      custosTotal: number;
+      lucroTotal: number;
+      comissaoTotal: number;
+    };
+    const map = new Map<string, Acc>();
+
+    const ensure = (nome: string): Acc => {
+      let ent = map.get(nome);
+      if (!ent) {
+        ent = {
+          totalOS: 0,
+          receitaTotal: 0,
+          valorServicoTotal: 0,
+          valorPecaTotal: 0,
+          custosTotal: 0,
+          lucroTotal: 0,
+          comissaoTotal: 0,
+        };
+        map.set(nome, ent);
+      }
+      return ent;
+    };
+
     ordens.forEach(o => {
       const nome = o.tecnico_nome || o.tecnico || 'N/A';
       if (nome === 'N/A') return;
+      const vs = Number(o.valor_servico || 0);
+      const qs = Number(o.qtd_servico || 1) || 1;
+      const vp = Number(o.valor_peca || 0);
+      const qp = Number(o.qtd_peca || 1) || 1;
+      const totalServico = vs * qs;
+      const totalPeca = vp * qp;
       const rec = (o.vendas || []).reduce((s, v) => s + (v.total || 0), 0);
       const custos = (o.custos || [])
         .filter(c => ((c.data_vencimento || '').toString().substring(0, 7)) === mesISO)
         .reduce((s, c) => s + (c.valor || 0), 0);
       let lucro = rec - custos;
       if (rec === 0) {
-        const vs = Number(o.valor_servico || 0);
-        const qs = Number(o.qtd_servico || 1);
-        const vp = Number(o.valor_peca || 0);
-        const qp = Number(o.qtd_peca || 1);
-        lucro = Math.max(0, vs * qs + vp * qp) - custos;
+        lucro = Math.max(0, totalServico + totalPeca) - custos;
       }
-      const ent = map.get(nome) || { totalOS: 0, receitaTotal: 0, custosTotal: 0, lucroTotal: 0 };
+      const ent = ensure(nome);
       ent.totalOS += 1;
-      ent.receitaTotal += rec;
+      ent.receitaTotal += rec > 0 ? rec : totalServico + totalPeca;
+      ent.valorServicoTotal += totalServico;
+      ent.valorPecaTotal += totalPeca;
       ent.custosTotal += custos;
       ent.lucroTotal += lucro;
-      map.set(nome, ent);
     });
-    return Array.from(map.entries()).map(([nome, d]) => ({
-      tecnico_id: nome,
-      nome,
-      ...d,
-      margemMedia: d.receitaTotal > 0 ? (d.lucroTotal / d.receitaTotal) * 100 : 0
-    })).sort((a, b) => b.lucroTotal - a.lucroTotal);
-  }, [ordens, mesISO]);
+
+    const mesComissoes = mesKeyLocal(currentMonth);
+    comissoes.forEach(c => {
+      if (c.ativa === false) return;
+      const mesComissao = mesKeyLocal(c.data_entrega);
+      if (!mesComissao || mesComissao !== mesComissoes) return;
+      const nome = tecnicosMap.get(c.tecnico_id);
+      if (!nome) return;
+      const ent = ensure(nome);
+      ent.comissaoTotal += Number(c.valor_comissao || 0);
+    });
+
+    return Array.from(map.entries())
+      .map(([nome, d]) => ({
+        tecnico_id: nome,
+        nome,
+        ...d,
+        margemMedia: d.receitaTotal > 0 ? (d.lucroTotal / d.receitaTotal) * 100 : 0,
+      }))
+      .sort((a, b) => b.lucroTotal - a.lucroTotal);
+  }, [ordens, mesISO, currentMonth, comissoes, tecnicosMap]);
 
   const dadosDiarios = useMemo(() => {
     const porDia = new Map<number, { dia: number; receita: number; custos: number; lucro: number }>();

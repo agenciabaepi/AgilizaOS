@@ -8,6 +8,7 @@ import {
   osRowFromComissao,
 } from '@/lib/comissoesQueryCompat';
 import { isUsuarioTecnico, TECNICOS_OR_FILTER } from '@/lib/tecnicos';
+import { calcularValorComissao, resolverValoresBaseComissao } from '@/lib/calcularComissao';
 
 /**
  * GET /api/comissoes/minhas
@@ -57,6 +58,8 @@ export async function GET(request: Request) {
           valor_comissao_fixa,
           valor_comissao,
           data_entrega,
+          data_pagamento,
+          data_calculo,
           status,
           tipo_ordem,
           created_at,
@@ -93,6 +96,8 @@ export async function GET(request: Request) {
         valor_comissao_fixa: c.valor_comissao_fixa,
         valor_comissao: c.valor_comissao || 0,
         data_entrega: c.data_entrega,
+        data_pagamento: c.data_pagamento || null,
+        data_calculo: c.data_calculo || null,
         status: c.status || 'CALCULADA',
         tipo_ordem: c.tipo_ordem || 'normal',
         created_at: c.created_at,
@@ -119,11 +124,12 @@ export async function GET(request: Request) {
 
     const osComComissao = new Set(comissoesFormatadasFiltradas.map((c: any) => c.ordem_servico_id).filter(Boolean));
 
-    const { data: configRetornoRow } = await supabase
+    const { data: configEmpresaRow } = await supabase
       .from('configuracoes_comissao')
-      .select('comissao_retorno_ativo')
+      .select('comissao_retorno_ativo, tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_apenas_servico')
       .eq('empresa_id', empresaId)
       .maybeSingle();
+    const configRetornoRow = configEmpresaRow;
 
     // 2) Config comissão
     let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
@@ -131,16 +137,9 @@ export async function GET(request: Request) {
     if (usuario.tipo_comissao) {
       tipoComissao = usuario.tipo_comissao as 'porcentagem' | 'fixo';
       valorBaseComissao = tipoComissao === 'fixo' ? (usuario.comissao_fixa ?? 0) : (usuario.comissao_percentual ?? 10);
-    } else {
-      const { data: configEmpresa } = await supabase
-        .from('configuracoes_comissao')
-        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
-        .eq('empresa_id', empresaId)
-        .maybeSingle();
-      if (configEmpresa?.tipo_comissao) {
-        tipoComissao = configEmpresa.tipo_comissao as 'porcentagem' | 'fixo';
-        valorBaseComissao = tipoComissao === 'fixo' ? (configEmpresa.comissao_fixa_padrao ?? 0) : (configEmpresa.comissao_padrao ?? 10);
-      }
+    } else if (configEmpresaRow?.tipo_comissao) {
+      tipoComissao = configEmpresaRow.tipo_comissao as 'porcentagem' | 'fixo';
+      valorBaseComissao = tipoComissao === 'fixo' ? (configEmpresaRow.comissao_fixa_padrao ?? 0) : (configEmpresaRow.comissao_padrao ?? 10);
     }
 
     // 3) OS para previstas (OR tecnico_id = id ou auth_user_id)
@@ -148,6 +147,8 @@ export async function GET(request: Request) {
       ? `tecnico_id.eq.${tecnicoTabelaId},tecnico_id.eq.${authUserId}`
       : `tecnico_id.eq.${tecnicoTabelaId}`;
 
+    const desdePrevistas = new Date();
+    desdePrevistas.setMonth(desdePrevistas.getMonth() - 18);
     const { data: ordensData, error: ordensError } = await fetchOrdensPrevistasRows((selectFields) => {
       let query = supabase
         .from('ordens_servico')
@@ -155,6 +156,7 @@ export async function GET(request: Request) {
         .eq('empresa_id', empresaId)
         .or(orFilter)
         .not('tecnico_id', 'is', null)
+        .gte('created_at', desdePrevistas.toISOString())
         .order('created_at', { ascending: false });
       return query;
     });
@@ -186,23 +188,29 @@ export async function GET(request: Request) {
           return true;
         })
         .map((os: any) => {
-          const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
-          const valorServico = Number(os.valor_servico ?? valorTotal) || valorTotal;
-          const valorComissao = tipoComissao === 'fixo' ? valorBaseComissao : (valorServico * valorBaseComissao) / 100;
+          const valores = resolverValoresBaseComissao({
+            valorServico: os.valor_servico,
+            valorPeca: os.valor_peca,
+            valorFaturado: os.valor_faturado,
+            apenasServico: configEmpresaRow?.comissao_apenas_servico,
+          });
+          const valorComissao = calcularValorComissao(tipoComissao, valorBaseComissao, valores.valorBaseCalculo);
           const dataEntregaBase = os.data_entrega || os.created_at || new Date().toISOString();
           const entregue = isFinalizada(os.status, os.status_tecnico);
           return {
             id: `prevista-${os.id}`,
             ordem_servico_id: os.id,
             numero_os: os.numero_os || 'N/A',
-            valor_servico: valorServico,
-            valor_peca: os.valor_peca || 0,
-            valor_total: valorTotal,
+            valor_servico: valores.valorServico,
+            valor_peca: valores.valorPeca,
+            valor_total: valores.valorTotal,
             tipo_comissao: tipoComissao,
             percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : null,
             valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
             valor_comissao: valorComissao,
             data_entrega: dataEntregaBase,
+            data_pagamento: null,
+            data_calculo: null,
             status: entregue ? 'CALCULADA' : 'PREVISTA',
             tipo_ordem: (os.tipo || 'normal').toLowerCase(),
             created_at: dataEntregaBase,
