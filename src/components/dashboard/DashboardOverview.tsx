@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -65,27 +65,10 @@ function startEndOfMonth(d: Date) {
   return { start, end };
 }
 
-function sameCalendarPeriodPrevMonth(now: Date) {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const day = now.getDate();
-  const curStart = new Date(y, m, 1, 0, 0, 0, 0);
-  const curEnd = new Date(y, m, day, 23, 59, 59, 999);
-  const pm = m === 0 ? 11 : m - 1;
-  const py = m === 0 ? y - 1 : y;
-  const dimPrev = new Date(py, pm + 1, 0).getDate();
-  const d2 = Math.min(day, dimPrev);
-  const prevStart = new Date(py, pm, 1, 0, 0, 0, 0);
-  const prevEnd = new Date(py, pm, d2, 23, 59, 59, 999);
-  return { curStart, curEnd, prevStart, prevEnd };
+function mesKeyFromDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function parseDayKey(createdAt: string) {
-  const s = (createdAt || '').toString().split('T')[0];
-  return s || '';
-}
-
-/** YYYY-MM → início/fim do mês (calendário local). */
 function rangeFromMesKey(mesKey: string) {
   const [ys, ms] = mesKey.split('-');
   const y = Number(ys);
@@ -96,33 +79,51 @@ function rangeFromMesKey(mesKey: string) {
   return startEndOfMonth(new Date(y, m, 1));
 }
 
-function mesKeyFromDate(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 function capitalizePt(s: string) {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Abas dos últimos N meses (mais recente primeiro). */
-function buildMesTabs(count = 12, now = new Date()) {
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = mesKeyFromDate(d);
-    const short =
-      d.getFullYear() === now.getFullYear()
-        ? format(d, 'MMM', { locale: ptBR })
-        : format(d, "MMM ''yy", { locale: ptBR });
-    return {
-      key,
-      label: capitalizePt(short),
-      fullLabel: capitalizePt(format(d, "MMMM 'de' yyyy", { locale: ptBR })),
-    };
-  });
+/** Compara o mês selecionado com o anterior (mês atual: até o dia de hoje). */
+function compareRangesForMes(mesKey: string, now = new Date()) {
+  const { start, end } = rangeFromMesKey(mesKey);
+  const isCurrent = mesKey === mesKeyFromDate(now);
+
+  if (isCurrent) {
+    const day = now.getDate();
+    const curStart = start;
+    const curEnd = new Date(now.getFullYear(), now.getMonth(), day, 23, 59, 59, 999);
+    const pm = start.getMonth() === 0 ? 11 : start.getMonth() - 1;
+    const py = start.getMonth() === 0 ? start.getFullYear() - 1 : start.getFullYear();
+    const dimPrev = new Date(py, pm + 1, 0).getDate();
+    const d2 = Math.min(day, dimPrev);
+    const prevStart = new Date(py, pm, 1, 0, 0, 0, 0);
+    const prevEnd = new Date(py, pm, d2, 23, 59, 59, 999);
+    return { curStart, curEnd, prevStart, prevEnd, isCurrent, compareDay: day };
+  }
+
+  const prevMonth = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+  const prev = startEndOfMonth(prevMonth);
+  return {
+    curStart: start,
+    curEnd: end,
+    prevStart: prev.start,
+    prevEnd: prev.end,
+    isCurrent: false,
+    compareDay: end.getDate(),
+  };
 }
 
-export default function DashboardOverview() {
+function parseDayKey(createdAt: string) {
+  const s = (createdAt || '').toString().split('T')[0];
+  return s || '';
+}
+
+type Props = {
+  mesKey: string;
+};
+
+export default function DashboardOverview({ mesKey }: Props) {
   const { empresaData } = useAuth();
   const { temRecurso } = useSubscription();
   const podeLucro = temRecurso('lucro_desempenho');
@@ -130,14 +131,13 @@ export default function DashboardOverview() {
   const empresaId = empresaData?.id;
 
   const [loading, setLoading] = useState(true);
-  const [loadingCategoria, setLoadingCategoria] = useState(true);
-  const mesTabs = useMemo(() => buildMesTabs(12), []);
-  const [categoriaMes, setCategoriaMes] = useState(() => mesKeyFromDate(new Date()));
   const [faturamentoMes, setFaturamentoMes] = useState(0);
   const [contasPagasMes, setContasPagasMes] = useState(0);
   const [osNoMes, setOsNoMes] = useState(0);
   const [osMesAtualPeriodo, setOsMesAtualPeriodo] = useState(0);
   const [osMesAnteriorPeriodo, setOsMesAnteriorPeriodo] = useState(0);
+  const [compareDay, setCompareDay] = useState(new Date().getDate());
+  const [isCurrentMonth, setIsCurrentMonth] = useState(true);
   const [ultimasOs, setUltimasOs] = useState<
     Array<{
       id: string;
@@ -170,39 +170,9 @@ export default function DashboardOverview() {
     }>
   >([]);
 
-  const loadCategoria = useCallback(async () => {
-    if (!empresaId) {
-      setLoadingCategoria(false);
-      setPorCategoria([]);
-      return;
-    }
-    setLoadingCategoria(true);
-    try {
-      const { start, end } = rangeFromMesKey(categoriaMes);
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select('id, categoria')
-        .eq('empresa_id', empresaId)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-      if (error) throw error;
-
-      const catCount = new Map<string, number>();
-      (data || []).forEach((row: { categoria?: string | null }) => {
-        const raw = (row.categoria || '').trim();
-        const key = raw.length ? raw : 'Sem categoria';
-        catCount.set(key, (catCount.get(key) || 0) + 1);
-      });
-      const catArr = Array.from(catCount.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-      setPorCategoria(catArr);
-    } catch {
-      setPorCategoria([]);
-    } finally {
-      setLoadingCategoria(false);
-    }
-  }, [empresaId, categoriaMes]);
+  const mesLabel = capitalizePt(
+    format(rangeFromMesKey(mesKey).start, "MMMM 'de' yyyy", { locale: ptBR })
+  );
 
   const load = useCallback(async () => {
     if (!empresaId) {
@@ -211,13 +181,18 @@ export default function DashboardOverview() {
     }
     setLoading(true);
     const now = new Date();
-    const { start: inicioMes, end: fimMes } = startEndOfMonth(now);
-    const mesISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const { curStart, curEnd, prevStart, prevEnd } = sameCalendarPeriodPrevMonth(now);
+    const { start: inicioMes, end: fimMes } = rangeFromMesKey(mesKey);
+    const mesISO = mesKey;
+    const { curStart, curEnd, prevStart, prevEnd, isCurrent, compareDay: day } =
+      compareRangesForMes(mesKey, now);
+    setIsCurrentMonth(isCurrent);
+    setCompareDay(day);
 
     try {
       const inicioMesIso = inicioMes.toISOString();
       const fimMesIso = fimMes.toISOString();
+      const inicioMesDate = inicioMesIso.split('T')[0];
+      const fimMesDate = fimMesIso.split('T')[0];
 
       const [vendasRes, contasRes, ordensMesRes, ordensPeriodoRes, ultimasRes] = await Promise.all([
         supabase
@@ -225,8 +200,8 @@ export default function DashboardOverview() {
           .select('id, total, data_venda, status, observacoes')
           .eq('empresa_id', empresaId)
           .eq('status', 'finalizada')
-          .gte('data_venda', inicioMesIso.split('T')[0])
-          .lte('data_venda', fimMesIso.split('T')[0]),
+          .gte('data_venda', inicioMesDate)
+          .lte('data_venda', fimMesDate),
         supabase
           .from('contas_pagar')
           .select('id, descricao, valor, tipo, data_vencimento, data_pagamento, status, fornecedor, os_id')
@@ -255,6 +230,8 @@ export default function DashboardOverview() {
           `
           )
           .eq('empresa_id', empresaId)
+          .gte('created_at', inicioMesIso)
+          .lte('created_at', fimMesIso)
           .order('created_at', { ascending: false })
           .limit(5),
       ]);
@@ -304,48 +281,60 @@ export default function DashboardOverview() {
       setOsMesAtualPeriodo(osCur);
       setOsMesAnteriorPeriodo(osPrev);
 
-      const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const catCount = new Map<string, number>();
+      ordensDoMes.forEach((row) => {
+        const raw = (row.categoria || '').trim();
+        const key = raw.length ? raw : 'Sem categoria';
+        catCount.set(key, (catCount.get(key) || 0) + 1);
+      });
+      setPorCategoria(
+        Array.from(catCount.entries())
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+      );
+
+      const diasNoMes = fimMes.getDate();
+      const y = inicioMes.getFullYear();
+      const m = inicioMes.getMonth() + 1;
       const perDay = new Map<string, number>();
       for (let d = 1; d <= diasNoMes; d++) {
-        const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         perDay.set(key, 0);
       }
       ordensDoMes.forEach((row) => {
         const k = parseDayKey(row.created_at);
         if (perDay.has(k)) perDay.set(k, (perDay.get(k) || 0) + 1);
       });
-      const osDia = Array.from(perDay.entries()).map(([dia, total]) => ({
-        dia,
-        total,
-        label: format(new Date(dia + 'T12:00:00'), 'dd/MM', { locale: ptBR }),
-      }));
-      setOsPorDia(osDia);
+      setOsPorDia(
+        Array.from(perDay.entries()).map(([dia, total]) => ({
+          dia,
+          total,
+          label: format(new Date(dia + 'T12:00:00'), 'dd/MM', { locale: ptBR }),
+        }))
+      );
 
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      const limite = new Date(hoje);
-      limite.setDate(limite.getDate() + 60);
-
-      const pendentesVencer = contas
+      const pendentesMes = contas
         .filter((c: { status?: string; data_vencimento?: string }) => {
           const st = norm(c.status);
           if (st === 'pago') return false;
-          const v = (c.data_vencimento || '').toString().split('T')[0];
-          if (!v) return false;
-          const dv = new Date(v + 'T12:00:00');
-          return dv >= hoje && dv <= limite;
+          const v = (c.data_vencimento || '').toString();
+          return v.length >= 7 && v.slice(0, 7) === mesISO;
         })
         .sort(
           (a: { data_vencimento?: string }, b: { data_vencimento?: string }) =>
             new Date(a.data_vencimento || '').getTime() - new Date(b.data_vencimento || '').getTime()
         )
         .slice(0, 12);
-      setContasVencer(pendentesVencer);
+      setContasVencer(pendentesMes);
 
       const ult = (ultimasRes.data || []).map((row: Record<string, unknown>) => {
         const cli = row.clientes as { nome?: string } | { nome?: string }[] | null;
         const cliente =
-          Array.isArray(cli) && cli[0] ? { nome: cli[0].nome || '—' } : cli && !Array.isArray(cli) ? { nome: cli.nome || '—' } : null;
+          Array.isArray(cli) && cli[0]
+            ? { nome: cli[0].nome || '—' }
+            : cli && !Array.isArray(cli)
+              ? { nome: cli.nome || '—' }
+              : null;
         return {
           id: row.id as string,
           numero_os: String(row.numero_os),
@@ -357,9 +346,7 @@ export default function DashboardOverview() {
       setUltimasOs(ult);
 
       const idsOsMes = new Set(ordensDoMes.map((o) => o.id));
-      const ordensMap = new Map(
-        ordensDoMes.map((o) => [String(o.numero_os), o] as const)
-      );
+      const ordensMap = new Map(ordensDoMes.map((o) => [String(o.numero_os), o] as const));
 
       const receitaByOs = new Map<string, number>();
       vendasMes.forEach((v: { id: string; total?: number; observacoes?: string }) => {
@@ -401,7 +388,7 @@ export default function DashboardOverview() {
           receita: rec,
           custos: cust,
           lucro: rec - cust,
-          cliente_id: os.cliente_id,
+          cliente_id: os.cliente_id || undefined,
         });
       });
       lucroRows.sort((a, b) => b.lucro - a.lucro);
@@ -426,27 +413,21 @@ export default function DashboardOverview() {
       setOsMesAnteriorPeriodo(0);
       setUltimasOs([]);
       setTopLucro([]);
+      setPorCategoria([]);
       setOsPorDia([]);
       setContasVencer([]);
     } finally {
       setLoading(false);
     }
-  }, [empresaId]);
+  }, [empresaId, mesKey]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  useEffect(() => {
-    loadCategoria();
-  }, [loadCategoria]);
-
   const deltaOs = osMesAtualPeriodo - osMesAnteriorPeriodo;
   const deltaPositive = deltaOs >= 0;
-
   const pieData = porCategoria.slice(0, 8);
-  const categoriaMesTab = mesTabs.find((t) => t.key === categoriaMes) || mesTabs[0];
-  const categoriaMesLabel = categoriaMesTab?.fullLabel || categoriaMes;
 
   if (!empresaId) return null;
 
@@ -468,7 +449,7 @@ export default function DashboardOverview() {
           <DashboardCard
             title="Faturamento (mês)"
             value={brl(faturamentoMes)}
-            description="Vendas finalizadas no mês atual"
+            description={`Vendas finalizadas em ${mesLabel}`}
             descriptionColorClass="text-zinc-500 dark:text-zinc-400"
             icon={<FiDollarSign className="w-5 h-5 text-lime-600 dark:text-lime-400" />}
             svgPolyline={{ color: '#84cc16', points: '0,18 12,12 24,14 36,8 48,10 60,6' }}
@@ -484,7 +465,7 @@ export default function DashboardOverview() {
           <DashboardCard
             title="O.S. no mês"
             value={osNoMes}
-            description="Ordens criadas no mês atual"
+            description={`Ordens criadas em ${mesLabel}`}
             descriptionColorClass="text-zinc-500 dark:text-zinc-400"
             icon={<FiFileText className="w-5 h-5 text-violet-600 dark:text-violet-400" />}
             svgPolyline={{ color: '#a78bfa', points: '0,14 15,10 30,12 45,8 60,10' }}
@@ -510,7 +491,9 @@ export default function DashboardOverview() {
                   ) : (
                     <FiArrowDownRight className="w-4 h-4" />
                   )}
-                  O.S. (1–{format(new Date(), 'd')} vs. período anterior)
+                  {isCurrentMonth
+                    ? `O.S. (1–${compareDay} vs. período anterior)`
+                    : 'O.S. (mês inteiro vs. anterior)'}
                 </span>
               </span>
             }
@@ -527,42 +510,14 @@ export default function DashboardOverview() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-gradient-to-b from-white to-zinc-50/80 dark:from-zinc-800 dark:to-zinc-900/40 p-4 md:p-6 shadow-sm">
-          <div className="mb-3">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-              O.S. por categoria de equipamento
-            </h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Distribuição das ordens criadas em {categoriaMesLabel}.
-            </p>
-          </div>
-          <div
-            role="tablist"
-            aria-label="Mês do gráfico de categorias"
-            className="flex gap-1 overflow-x-auto pb-2 mb-3 -mx-1 px-1 scrollbar-thin"
-          >
-            {mesTabs.map((tab) => {
-              const active = tab.key === categoriaMes;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setCategoriaMes(tab.key)}
-                  className={cn(
-                    'shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                    active
-                      ? 'bg-lime-600 text-white shadow-sm dark:bg-lime-500 dark:text-zinc-900'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+            O.S. por categoria de equipamento
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+            Distribuição das ordens criadas em {mesLabel}.
+          </p>
           <div className="h-[300px] w-full">
-            {loadingCategoria ? (
+            {loading ? (
               <div className="h-full rounded-xl bg-zinc-100 dark:bg-zinc-700/40 animate-pulse" />
             ) : pieData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-zinc-500">
@@ -598,7 +553,7 @@ export default function DashboardOverview() {
               </ResponsiveContainer>
             )}
           </div>
-          {!loadingCategoria && pieData.length > 0 && (
+          {!loading && pieData.length > 0 && (
             <div className="flex flex-wrap gap-2 justify-center mt-2">
               {pieData.map((c, i) => (
                 <span
@@ -618,10 +573,10 @@ export default function DashboardOverview() {
 
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-gradient-to-b from-white to-zinc-50/80 dark:from-zinc-800 dark:to-zinc-900/40 p-4 md:p-6 shadow-sm">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-            O.S. por dia (mês atual)
+            O.S. por dia
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-            Volume de ordens criadas em cada dia.
+            Volume de ordens criadas em cada dia de {mesLabel}.
           </p>
           <div className="h-[300px] w-full">
             {loading ? (
@@ -652,7 +607,9 @@ export default function DashboardOverview() {
                     formatter={(value: number) => [`${value}`, 'O.S.']}
                     labelFormatter={(_, p) => {
                       const pl = p?.[0]?.payload as { dia?: string } | undefined;
-                      return pl?.dia ? format(new Date(pl.dia + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '';
+                      return pl?.dia
+                        ? format(new Date(pl.dia + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+                        : '';
                     }}
                   />
                   <Area
@@ -672,7 +629,9 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2 mb-4">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Últimas O.S.</h2>
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              Últimas O.S. do mês
+            </h2>
             <Link
               href="/ordens"
               className="text-xs font-medium text-lime-700 dark:text-lime-400 hover:underline"
@@ -687,7 +646,7 @@ export default function DashboardOverview() {
               ))}
             </div>
           ) : ultimasOs.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nenhuma ordem encontrada.</p>
+            <p className="text-sm text-zinc-500">Nenhuma ordem neste mês.</p>
           ) : (
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
               {ultimasOs.map((os) => (
@@ -716,125 +675,129 @@ export default function DashboardOverview() {
         </section>
 
         {podeLucro && (
-        <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              Maior lucro no mês
-            </h2>
-            <Link
-              href="/financeiro/lucro-desempenho"
-              className="text-xs font-medium text-lime-700 dark:text-lime-400 hover:underline"
-            >
-              Lucro & desempenho →
-            </Link>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-            Apenas O.S. criadas no mês atual. Receita de vendas finalizadas no mês vinculadas à O.S.,
-            menos peças (contas tipo peças com vencimento no mês) ligadas a essas O.S.
-          </p>
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 animate-pulse" />
-              ))}
+          <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Maior lucro no mês
+              </h2>
+              <Link
+                href="/financeiro/lucro-desempenho"
+                className="text-xs font-medium text-lime-700 dark:text-lime-400 hover:underline"
+              >
+                Lucro & desempenho →
+              </Link>
             </div>
-          ) : topLucro.length === 0 ? (
-            <p className="text-sm text-zinc-500">Sem vendas vinculadas a O.S. neste mês.</p>
-          ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
-              {topLucro.map((os) => (
-                <li key={os.id} className="py-3 first:pt-0 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/ordens/${os.id}`}
-                      className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-lime-700 dark:hover:text-lime-400 truncate block"
-                    >
-                      OS {os.numero_os}
-                    </Link>
-                    <p className="text-xs text-zinc-500 truncate">{os.clientes?.nome || 'Cliente —'}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                      {brl(os.lucro)}
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      rec. {brl(os.receita)} · custo {brl(os.custos)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+              O.S. criadas em {mesLabel}. Receita de vendas finalizadas no mês vinculadas à O.S.,
+              menos peças (contas tipo peças com vencimento no mês) ligadas a essas O.S.
+            </p>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 animate-pulse" />
+                ))}
+              </div>
+            ) : topLucro.length === 0 ? (
+              <p className="text-sm text-zinc-500">Sem vendas vinculadas a O.S. neste mês.</p>
+            ) : (
+              <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
+                {topLucro.map((os) => (
+                  <li key={os.id} className="py-3 first:pt-0 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/ordens/${os.id}`}
+                        className="font-medium text-zinc-900 dark:text-zinc-100 hover:text-lime-700 dark:hover:text-lime-400 truncate block"
+                      >
+                        OS {os.numero_os}
+                      </Link>
+                      <p className="text-xs text-zinc-500 truncate">{os.clientes?.nome || 'Cliente —'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                        {brl(os.lucro)}
+                      </p>
+                      <p className="text-[10px] text-zinc-400">
+                        rec. {brl(os.receita)} · custo {brl(os.custos)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         )}
       </div>
 
       {podeContasAPagar && (
-      <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Contas a vencer</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Próximos 60 dias · pendentes ou vencidas não pagas
-            </p>
+        <section className="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 p-4 md:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Contas do mês
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Pendentes com vencimento em {mesLabel}
+              </p>
+            </div>
+            <Link
+              href="/financeiro/contas-a-pagar"
+              className="text-xs font-medium text-lime-700 dark:text-lime-400 hover:underline shrink-0"
+            >
+              Abrir contas a pagar →
+            </Link>
           </div>
-          <Link
-            href="/financeiro/contas-a-pagar"
-            className="text-xs font-medium text-lime-700 dark:text-lime-400 hover:underline shrink-0"
-          >
-            Abrir contas a pagar →
-          </Link>
-        </div>
-        {loading ? (
-          <div className="h-32 rounded-xl bg-zinc-100 dark:bg-zinc-700/40 animate-pulse" />
-        ) : contasVencer.length === 0 ? (
-          <p className="text-sm text-zinc-500">Nenhuma conta nesse período.</p>
-        ) : (
-          <div className="overflow-x-auto -mx-1">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-zinc-500 border-b border-zinc-200 dark:border-zinc-600">
-                  <th className="pb-2 pr-4 font-medium">Vencimento</th>
-                  <th className="pb-2 pr-4 font-medium">Descrição</th>
-                  <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Fornecedor</th>
-                  <th className="pb-2 pr-4 font-medium">Status</th>
-                  <th className="pb-2 text-right font-medium">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
-                {contasVencer.map((c) => (
-                  <tr key={c.id} className="text-zinc-800 dark:text-zinc-200">
-                    <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {format(new Date((c.data_vencimento || '').split('T')[0] + 'T12:00:00'), 'dd/MM/yyyy', {
-                        locale: ptBR,
-                      })}
-                    </td>
-                    <td className="py-2.5 pr-4 max-w-[200px] sm:max-w-xs truncate" title={c.descricao}>
-                      {c.descricao}
-                    </td>
-                    <td className="py-2.5 pr-4 hidden sm:table-cell text-zinc-500 max-w-[140px] truncate">
-                      {c.fornecedor || '—'}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <span
-                        className={cn(
-                          'text-[10px] font-semibold px-2 py-0.5 rounded-md',
-                          norm(c.status) === 'vencido'
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/35 dark:text-rose-300'
-                            : 'bg-amber-100 text-amber-900 dark:bg-amber-900/35 dark:text-amber-200'
-                        )}
-                      >
-                        {norm(c.status) === 'vencido' ? 'Vencido' : 'Pendente'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-medium tabular-nums">{brl(c.valor)}</td>
+          {loading ? (
+            <div className="h-32 rounded-xl bg-zinc-100 dark:bg-zinc-700/40 animate-pulse" />
+          ) : contasVencer.length === 0 ? (
+            <p className="text-sm text-zinc-500">Nenhuma conta pendente neste mês.</p>
+          ) : (
+            <div className="overflow-x-auto -mx-1">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-zinc-500 border-b border-zinc-200 dark:border-zinc-600">
+                    <th className="pb-2 pr-4 font-medium">Vencimento</th>
+                    <th className="pb-2 pr-4 font-medium">Descrição</th>
+                    <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Fornecedor</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 text-right font-medium">Valor</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
+                  {contasVencer.map((c) => (
+                    <tr key={c.id} className="text-zinc-800 dark:text-zinc-200">
+                      <td className="py-2.5 pr-4 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">
+                        {format(
+                          new Date((c.data_vencimento || '').split('T')[0] + 'T12:00:00'),
+                          'dd/MM/yyyy',
+                          { locale: ptBR }
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 max-w-[200px] sm:max-w-xs truncate" title={c.descricao}>
+                        {c.descricao}
+                      </td>
+                      <td className="py-2.5 pr-4 hidden sm:table-cell text-zinc-500 max-w-[140px] truncate">
+                        {c.fornecedor || '—'}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <span
+                          className={cn(
+                            'text-[10px] font-semibold px-2 py-0.5 rounded-md',
+                            norm(c.status) === 'vencido'
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/35 dark:text-rose-300'
+                              : 'bg-amber-100 text-amber-900 dark:bg-amber-900/35 dark:text-amber-200'
+                          )}
+                        >
+                          {norm(c.status) === 'vencido' ? 'Vencido' : 'Pendente'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right font-medium tabular-nums">{brl(c.valor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

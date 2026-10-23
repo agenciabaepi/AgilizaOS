@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { FiSmartphone, FiMonitor, FiTrendingUp } from 'react-icons/fi';
@@ -20,13 +20,21 @@ const COLORS = [
   '#818cf8', '#a5b4fc', '#c7d2fe', '#93c5fd', '#bfdbfe',
 ];
 
-type PeriodFilter = '30' | '90' | '180' | '365' | 'all';
 type CategoryTab = string;
 
 interface ModeloRanking {
   marca: string;
   modelo: string;
   total: number;
+}
+
+function rangeFromMesKey(mesKey: string) {
+  const [ys, ms] = mesKey.split('-');
+  const y = Number(ys);
+  const m = Number(ms) - 1;
+  const start = new Date(y, m, 1, 0, 0, 0, 0);
+  const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+  return { start, end };
 }
 
 function SkeletonBar() {
@@ -43,12 +51,15 @@ function SkeletonBar() {
   );
 }
 
-export default function DashboardAparelhosRanking() {
+type Props = {
+  mesKey: string;
+};
+
+export default function DashboardAparelhosRanking({ mesKey }: Props) {
   const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
 
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<PeriodFilter>('90');
   const [categorias, setCategorias] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<CategoryTab>('TODOS');
   const [allRows, setAllRows] = useState<Array<{ marca: string; modelo: string; categoria: string }>>([]);
@@ -58,20 +69,16 @@ export default function DashboardAparelhosRanking() {
     setLoading(true);
 
     try {
-      let query = supabase
+      const { start, end } = rangeFromMesKey(mesKey);
+      const { data, error } = await supabase
         .from('ordens_servico')
         .select('marca, modelo, categoria')
         .eq('empresa_id', empresaId)
         .not('marca', 'is', null)
-        .not('modelo', 'is', null);
+        .not('modelo', 'is', null)
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
 
-      if (period !== 'all') {
-        const d = new Date();
-        d.setDate(d.getDate() - Number(period));
-        query = query.gte('created_at', d.toISOString());
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
 
       const rows = (data || []).filter(
@@ -86,13 +93,14 @@ export default function DashboardAparelhosRanking() {
       });
       const sorted = Array.from(cats).sort();
       setCategorias(sorted);
+      setActiveTab((prev) => (prev === 'TODOS' || sorted.includes(prev) ? prev : 'TODOS'));
     } catch {
       setAllRows([]);
       setCategorias([]);
     } finally {
       setLoading(false);
     }
-  }, [empresaId, period]);
+  }, [empresaId, mesKey]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -135,15 +143,7 @@ export default function DashboardAparelhosRanking() {
     return filtered.length;
   }, [allRows, activeTab]);
 
-  const periodLabels: Record<PeriodFilter, string> = {
-    '30': '30 dias',
-    '90': '3 meses',
-    '180': '6 meses',
-    '365': '1 ano',
-    'all': 'Todo período',
-  };
-
-  const categoryIcons: Record<string, React.ReactNode> = {
+  const categoryIcons: Record<string, ReactNode> = {
     CELULAR: <FiSmartphone className="w-3.5 h-3.5" />,
     NOTEBOOK: <FiMonitor className="w-3.5 h-3.5" />,
     COMPUTADOR: <FiMonitor className="w-3.5 h-3.5" />,
@@ -154,22 +154,11 @@ export default function DashboardAparelhosRanking() {
 
   return (
     <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-        <div className="flex items-center gap-2">
-          <FiTrendingUp className="w-5 h-5 text-indigo-500" />
-          <h2 className="text-base md:text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Aparelhos mais atendidos
-          </h2>
-        </div>
-        <select
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
-          className="text-xs border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 focus:ring-1 focus:ring-indigo-500 w-fit"
-        >
-          {Object.entries(periodLabels).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
+      <div className="flex items-center gap-2 mb-5">
+        <FiTrendingUp className="w-5 h-5 text-indigo-500" />
+        <h2 className="text-base md:text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Aparelhos mais atendidos
+        </h2>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-5">
@@ -209,7 +198,7 @@ export default function DashboardAparelhosRanking() {
       ) : ranking.length === 0 ? (
         <div className="text-center py-10 text-zinc-400 dark:text-zinc-500">
           <FiSmartphone className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">Nenhum aparelho registrado neste período</p>
+          <p className="text-sm">Nenhum aparelho registrado neste mês</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
