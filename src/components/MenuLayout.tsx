@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect, useMemo, useContext, createContext, type ReactNode } from 'react';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   FiHome,
   FiUsers,
@@ -778,21 +779,30 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
             <div className="h-9 flex items-center shrink-0" style={{ minWidth: 0 }}>
               {!userDataReady ? (
                 <div className="h-9 w-24 rounded bg-zinc-200 dark:bg-zinc-700 animate-pulse" aria-hidden />
-              ) : empresaLogoUrl ? (
-                <img
-                  src={empresaLogoUrl}
-                  alt={empresaData?.nome || 'Logo da empresa'}
-                  className="h-9 w-auto max-w-[160px] md:max-w-[180px] object-contain object-left"
-                />
               ) : (
-                <Image
-                  src={theme === 'dark' ? '/assets/imagens/logobranco.png' : '/assets/imagens/logopreto.png'}
-                  alt="Consert"
-                  width={120}
-                  height={36}
-                  className="h-9 w-auto object-contain object-left"
-                  priority
-                />
+                <Link
+                  href={dashboardPath}
+                  className="h-9 flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500/50"
+                  aria-label="Ir para a dashboard"
+                  title="Ir para a dashboard"
+                >
+                  {empresaLogoUrl ? (
+                    <img
+                      src={empresaLogoUrl}
+                      alt={empresaData?.nome || 'Logo da empresa'}
+                      className="h-9 w-auto max-w-[160px] md:max-w-[180px] object-contain object-left"
+                    />
+                  ) : (
+                    <Image
+                      src={theme === 'dark' ? '/assets/imagens/logobranco.png' : '/assets/imagens/logopreto.png'}
+                      alt="Consert"
+                      width={120}
+                      height={36}
+                      className="h-9 w-auto object-contain object-left"
+                      priority
+                    />
+                  )}
+                </Link>
               )}
             </div>
             {isTecnico && (
