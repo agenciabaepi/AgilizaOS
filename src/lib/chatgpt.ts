@@ -599,85 +599,269 @@ export type LaudoChatReply = {
   pecas?: PecaSugerida[];
 };
 
-const LAUDO_ASSISTENTE_SYSTEM = `Você é um assistente EXCLUSIVO para assistência técnica e laudos de equipamentos eletrônicos no Brasil.
+const LAUDO_ASSISTENTE_SYSTEM = `Você é um assistente de assistência técnica e laudos de equipamentos eletrônicos no Brasil.
 
-ESCOPO — SOMENTE RESPONDA ASSUNTOS DESTA LISTA:
+ESCOPO — RESPONDA estes assuntos (lista NÃO exaustiva):
 - Laudos técnicos: redação, correção, clareza, descrição de defeitos, testes e conclusões
-- Manutenção e reparo de: celular/smartphone, tablet, computador/notebook/desktop, TV/televisão, impressora/multifuncional, monitor, console, nobreak, roteador e demais eletrônicos de consumo
-- Identificação de peças e componentes (por foto, etiqueta, modelo ou descrição)
-- Dúvidas técnicas: sintomas, causas prováveis, procedimentos de teste, troca de peças, ferramentas do ofício
-- Análise de fotos de placas, aparelhos, conectores, danos visíveis e etiquetas
-- PANIC FULL / logs de crash do iPhone: análise de arquivo (.ips), tradução de termos, interpretação de backtrace/panicString e causa provável do defeito
-- Como OBTER, EXPORTAR ou ENVIAR Panic Full do iPhone (ex.: Analytics no Ajustes, Finder/iTunes no Mac, ferramentas como 3uTools/iMazing, após reinício por panic) — isso É assistência técnica e DEVE ser respondido
-- Orientações sobre diagnóstico de iPhone/Android, modos de recuperação (DFU, recovery), ferramentas de bancada e fluxo de trabalho do técnico em assistência
-- Transformar ditado ou rascunho em texto adequado para laudo de ordem de serviço
+- Manutenção e reparo de celular, tablet, computador/notebook, TV, impressora, monitor, console, nobreak, roteador e eletrônicos de consumo
+- Peças, componentes, compatibilidade, códigos e procedimentos de teste/troca
+- Sintomas, causas prováveis, fluxos de diagnóstico e ferramentas de bancada
+- Fotos de placas/aparelhos/etiquetas e Panic Full / logs de crash (.ips)
+- Como obter/exportar Panic Full, DFU, recovery e fluxos do técnico
+- Atualizações de sistema (iOS, iPadOS, macOS, Android, Windows, firmware) causando bugs, reinícios, falhas de rede, bateria, touch, câmera, boot loop etc. — ISSO É TÉCNICO e DEVE ser respondido
+- Problemas conhecidos de modelos, boletins do fabricante, recalls e relatos de campo em fóruns técnicos
+- Transformar ditado/rascunho em texto de laudo
 
-FORA DO ESCOPO — RECUSE SEM RESPONDER O ASSUNTO:
-- Esportes (futebol etc.), política, religião, entretenimento, celebridades
-- Vida pessoal, relacionamentos, saúde, finanças pessoais, viagens, receitas
-- Programação geral, matemática escolar, redação acadêmica, trabalhos escolares
-- Qualquer conversa casual SEM relação com assistência técnica, reparo ou diagnóstico de eletrônicos
+FORA DO ESCOPO — recuse só o que for claramente alheio à assistência técnica:
+- Esportes, política, religião, celebridades, entretenimento casual
+- Vida pessoal, relacionamentos, saúde humana, finanças pessoais, viagens, receitas
+- Programação geral, matemática escolar, redação acadêmica
+- Conversa casual SEM aparelho, reparo, diagnóstico, peça, log ou manutenção
 
-REGRA DE BLOQUEIO (OBRIGATÓRIA):
-- PERMITIDO e deve responder: perguntas sobre panic full, logs, onde baixar/exportar logs, diagnóstico, peças, manutenção, laudo, ferramentas do técnico — mesmo que sejam "como fazer" ou tutoriais curtos
-- BLOQUEIE apenas assuntos claramente fora da assistência técnica (lista acima)
-- Em dúvida se é técnico ou não: se menciona aparelho, reparo, panic, log, laudo, peça, defeito, iPhone, Android, placa — CONSIDERE DENTRO DO ESCOPO e responda
-- NÃO responda o conteúdo fora do escopo, NÃO dê opinião, NÃO contorne com resposta parcial
-- Na recusa retorne APENAS: "message" curta + "laudo": null + "pecas": []
-- Exemplo de recusa: "Sou assistente exclusivo para assistência técnica de eletrônicos. Não posso ajudar com esse assunto. Posso ajudar com laudo, panic full, peças, manutenção ou diagnóstico do equipamento."
-- Se o histórico tiver assuntos mistos, avalie SOMENTE a última mensagem do usuário para decidir
+REGRA DE BLOQUEIO:
+- Em dúvida: se menciona aparelho, iPhone, Android, update/atualização, bug, reinício, panic, log, laudo, peça, placa, defeito — está DENTRO do escopo; responda
+- NÃO recuse pergunta sobre “atualização do iPhone está dando problema” ou equivalentes
+- Na recusa: "message" curta + "laudo": null + "pecas": []
+- Avalie a ÚLTIMA mensagem do usuário
 
-REGRAS GERAIS (quando DENTRO do escopo):
-- Responda sempre em português brasileiro
-- Mantenha termos técnicos e informações factuais do técnico
-- NÃO invente defeitos, peças ou testes que o técnico não mencionou
-- Seja conversacional e objetivo; pode fazer perguntas curtas se faltar contexto técnico
-- Não use markdown pesado; prefira texto corrido com parágrafos separados por linha em branco
-- Mensagens do usuário podem ser ditado bruto (transcrição de áudio): interprete o pedido técnico
-- Com FOTOS: leia etiquetas, silk screen, números de peça, MAC, modelos; identifique componentes visíveis
-- Com PANIC FULL: explique em português claro o que o log indica; cite panicString, módulo/falha (ex. AppleSMC, ANS2, i2c, tristar), se sugere troca de peça ou reparo em placa; seja objetivo para o técnico
-- NUNCA diga que "não consegue identificar" sem listar o que leu na imagem ou no panic log e dar hipótese técnica fundamentada
+FERRAMENTAS (use quando ajudar):
+- pesquisar_internet: use para informação atual, problemas de update, boletins, defeitos conhecidos de modelo, procedimentos/peças quando você não tiver certeza. Prefira fontes do fabricante, iFixit, fóruns técnicos (ex.: Reddit r/AskAMechanic / comunidades de reparo, Badcaps, Apple Support, XDA). Monte a consulta com marca + modelo + sintoma.
+- dados_os: use para ler dados de uma O.S. da empresa (cliente, aparelho, relato, laudo, status)
+- casos_similares: use para buscar O.S. da empresa com marca/modelo/sintoma parecidos e reaproveitar o que já foi diagnosticado no histórico interno
+- Para dúvida básica/óbvia, pode responder direto sem ferramenta
+- Se pesquisou, sintetize em português técnico objetivo; cite 1–3 fontes/URLs quando a ferramenta trouxer links. Não invente links.
+
+REGRAS GERAIS (dentro do escopo):
+- Português brasileiro; objetivo e conversacional
+- NÃO invente defeitos/peças/testes que o técnico não mencionou nem que a pesquisa/banco não suportem
+- Pode fazer perguntas curtas se faltar contexto
+- Sem markdown pesado; parágrafos separados por linha em branco
+- Com FOTOS: leia etiquetas/silk/números; hipóteses fundamentadas
+- Com PANIC FULL: explique panicString/módulo; hipótese de peça ou reparo em placa
+- NUNCA diga que “não consegue identificar” sem listar o que leu e dar hipótese
 
 PEÇAS PROVÁVEIS (array "pecas"):
-- Quando houver base de diagnóstico (sintomas, panic full, foto, laudo, descrição do defeito), inclua "pecas" com até 5 hipóteses ordenadas da mais para a menos provável
-- Cada item: "nome" (peça/componente com nome técnico usado na bancada), "confianca" (alta|media|baixa), "motivo" (1-2 frases com fundamento técnico), "testesAntes" (array com 1-4 testes objetivos antes de trocar a peça)
-- Se o técnico pedir explicitamente sugestão de peça, priorize preencher "pecas" mesmo que "message" seja curta
-- NÃO invente peças sem relação com o que foi descrito, fotografado ou lido no panic log
-- Se não houver base para sugerir peças, use "pecas": []
-- NÃO liste peças em "message" nem em "laudo" — somente no array "pecas"
+- Com base de diagnóstico (sintomas, panic, foto, laudo, pesquisa), até 5 hipóteses ordenadas
+- Campos: nome, confianca (alta|media|baixa), motivo, testesAntes (1–4)
+- Sem base: "pecas": []. Não liste peças em "message"/"laudo"
 
 LAUDO TÉCNICO (campo "laudo"):
-- Preencha "laudo" SOMENTE quando o técnico pedir EXPLICITAMENTE para gerar, redigir, escrever, montar ou corrigir o laudo (ex.: "gera o laudo", "texto para o laudo", "gerar laudo técnico")
-- Em TODAS as outras respostas (diagnóstico, panic full, foto, dúvidas, peças, explicações): use SEMPRE "laudo": null
-- NÃO gere laudo automaticamente só porque analisou panic full, foto ou descreveu o defeito
-- Quando o pedido for explícito: coloque o texto técnico completo e pronto para o documento em "laudo" (parágrafos claros) e uma confirmação curta em "message"
-- Use somente informações já discutidas no chat ou no laudo atual de referência; não invente testes ou conclusões novas
+- Preencha "laudo" SÓ se o técnico pedir explicitamente gerar/redigir/corrigir o laudo
+- Caso contrário: "laudo": null
+- Não invente testes/conclusões novas além do discutido/pesquisado
 
-FORMATO DE RESPOSTA (OBRIGATÓRIO):
-Retorne APENAS um JSON válido com esta estrutura exata:
+FORMATO DE RESPOSTA FINAL (OBRIGATÓRIO — só na resposta ao usuário, não em tool calls):
+Retorne APENAS JSON válido:
 {
-  "message": "texto conversacional curto (explicação, confirmação, pergunta ou recusa fora do escopo)",
-  "laudo": "texto técnico do laudo pronto para o documento, ou null",
-  "pecas": [
-    {
-      "nome": "nome da peça ou componente",
-      "confianca": "alta",
-      "motivo": "por que esta peça é provável",
-      "testesAntes": ["teste 1", "teste 2"]
-    }
-  ]
+  "message": "texto conversacional",
+  "laudo": null,
+  "pecas": []
 }
 
-REGRAS DO JSON:
-- "message": SOMENTE a parte conversacional. NUNCA inclua o texto do laudo nem a lista de peças aqui. Sem "---", sem blocos de laudo.
-- "laudo": SOMENTE o texto técnico do laudo quando o técnico PEDIU explicitamente; caso contrário use null (padrão na maioria das respostas).
-- "pecas": array de sugestões técnicas; use [] quando não aplicável.
+PERSONALIZAÇÃO:
+- Se o contexto informar o nome do técnico, inicie "message" pelo primeiro nome
+- Nunca use o nome em "laudo" nem em "pecas"`;
 
-PERSONALIZAÇÃO DO TÉCNICO (OBRIGATÓRIA quando o contexto informar o nome):
-- Chame o técnico pelo primeiro nome no INÍCIO de toda resposta em "message" (ex.: "Lucas, pelo panic log..." ou "Beleza, Lucas — vale testar o VBUS antes")
-- Isso vale em TODA resposta dentro do escopo, não só na primeira
-- Use o nome uma vez por resposta, de forma natural; não repita em toda frase
-- NUNCA use o nome do técnico em "laudo" nem em "pecas" — somente em "message"`;
+const LAUDO_CHAT_MAX_TOOL_ROUNDS = 4;
+const LAUDO_CHAT_MAX_SEARCHES = 2;
+
+const LAUDO_CHAT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'pesquisar_internet',
+      description:
+        'Pesquisa na internet informação técnica atual: bugs de atualização iOS/Android, defeitos comuns, causas de sintomas, procedimentos, peças/compatibilidade, boletins do fabricante e relatos em fóruns técnicos.',
+      parameters: {
+        type: 'object',
+        properties: {
+          consulta: {
+            type: 'string',
+            description:
+              'Consulta com marca, modelo e sintoma. Ex.: "iPhone 15 iOS 18.1 reiniciando sozinho problemas conhecidos"',
+          },
+        },
+        required: ['consulta'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'dados_os',
+      description:
+        'Busca no banco da empresa os dados de uma ordem de serviço (cliente, aparelho, status, relato, observação, laudo).',
+      parameters: {
+        type: 'object',
+        properties: {
+          numero_os: { type: 'string', description: 'Número da O.S., ex.: 890' },
+        },
+        required: ['numero_os'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'casos_similares',
+      description:
+        'Busca O.S. recentes da empresa com marca/modelo parecidos e laudo preenchido, para reutilizar diagnósticos internos.',
+      parameters: {
+        type: 'object',
+        properties: {
+          marca: { type: 'string' },
+          modelo: { type: 'string' },
+          sintoma: {
+            type: 'string',
+            description: 'Palavras-chave do defeito (opcional), ex.: "não carrega", "sem imagem"',
+          },
+        },
+        required: ['marca'],
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
+function limparUrlFonte(url: string): string {
+  try {
+    const u = new URL(url);
+    [...u.searchParams.keys()]
+      .filter((k) => k.startsWith('utm_'))
+      .forEach((k) => u.searchParams.delete(k));
+    return u.toString().replace(/\?$/, '');
+  } catch {
+    return url;
+  }
+}
+
+async function pesquisarInternetLaudo(client: OpenAI, consulta: string): Promise<string> {
+  const resposta = await client.responses.create({
+    model: process.env.OPENAI_PESQUISA_MODEL?.trim() || 'gpt-4o-mini',
+    tools: [{ type: 'web_search' as const }],
+    instructions:
+      'Você pesquisa para um técnico de assistência técnica de eletrônicos no Brasil. Responda em português, direto e técnico, em no máximo 14 linhas: causas/problemas conhecidos em ordem de probabilidade, testes antes de trocar peça, peça/código quando houver. Prefira fabricante, Apple/Google Support, iFixit e fóruns técnicos. Não invente; se não achar, diga. Inclua links quando disponíveis.',
+    input: consulta,
+    max_output_tokens: 1400,
+  });
+
+  const fontes = new Set<string>();
+  for (const item of resposta.output ?? []) {
+    if (item.type !== 'message') continue;
+    for (const parte of item.content ?? []) {
+      if (parte.type !== 'output_text') continue;
+      for (const a of parte.annotations ?? []) {
+        if (a.type === 'url_citation' && 'url' in a && typeof a.url === 'string') {
+          fontes.add(limparUrlFonte(a.url));
+        }
+      }
+    }
+  }
+
+  const texto = resposta.output_text?.replace(/\s*\(\[[^\]]+\]\([^)]+\)\)/g, '').trim();
+  if (!texto) return 'A pesquisa não trouxe resultado útil.';
+  const links = [...fontes].slice(0, 5);
+  return `${texto}${links.length ? `\n\nFontes:\n${links.join('\n')}` : ''}`;
+}
+
+async function buscarDadosOsEmpresa(empresaId: string, numeroOs: string): Promise<string> {
+  const admin = getSupabaseAdmin();
+  const numero = numeroOs.replace(/\D/g, '');
+  if (!numero) return 'Número da O.S. inválido.';
+
+  const { data, error } = await admin
+    .from('ordens_servico')
+    .select(
+      `
+      numero_os, status, status_tecnico, categoria, marca, modelo, cor,
+      problema_relatado, observacao, laudo, servico, created_at,
+      cliente:cliente_id ( nome, telefone )
+    `
+    )
+    .eq('empresa_id', empresaId)
+    .eq('numero_os', numero)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[laudo-chat] dados_os:', error.message);
+    return 'Não foi possível consultar a O.S. no banco.';
+  }
+  if (!data) return `OS #${numero} não encontrada nesta empresa.`;
+
+  const cliente = data.cliente as { nome?: string; telefone?: string } | { nome?: string; telefone?: string }[] | null;
+  const nomeCliente = Array.isArray(cliente) ? cliente[0]?.nome : cliente?.nome;
+  const tel = Array.isArray(cliente) ? cliente[0]?.telefone : cliente?.telefone;
+  const aparelho = [data.marca, data.modelo || data.categoria, data.cor].filter(Boolean).join(' ');
+  const laudoTexto =
+    typeof data.laudo === 'string'
+      ? data.laudo.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200)
+      : '';
+
+  return [
+    `OS #${data.numero_os}`,
+    `Cliente: ${nomeCliente || '—'} ${tel ? `(${tel})` : ''}`.trim(),
+    `Aparelho: ${aparelho || '—'}`,
+    `Status OS: ${data.status || '—'} | Status técnico: ${data.status_tecnico || '—'}`,
+    `Serviço: ${data.servico || '—'}`,
+    `Relato: ${data.problema_relatado || '—'}`,
+    `Observação: ${data.observacao || '—'}`,
+    `Laudo: ${laudoTexto || '—'}`,
+    `Entrada: ${data.created_at || '—'}`,
+  ].join('\n');
+}
+
+async function buscarCasosSimilaresEmpresa(
+  empresaId: string,
+  marca: string,
+  modelo?: string,
+  sintoma?: string
+): Promise<string> {
+  const admin = getSupabaseAdmin();
+  const marcaQ = marca.trim();
+  if (!marcaQ) return 'Informe a marca.';
+
+  let query = admin
+    .from('ordens_servico')
+    .select('numero_os, marca, modelo, status_tecnico, problema_relatado, laudo, created_at')
+    .eq('empresa_id', empresaId)
+    .ilike('marca', `%${marcaQ}%`)
+    .not('laudo', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (modelo?.trim()) {
+    query = query.ilike('modelo', `%${modelo.trim()}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[laudo-chat] casos_similares:', error.message);
+    return 'Não foi possível buscar casos similares.';
+  }
+  if (!data?.length) return 'Nenhum caso similar com laudo encontrado na empresa.';
+
+  const sintomaQ = sintoma?.trim().toLowerCase();
+  const filtrados = sintomaQ
+    ? data.filter((os) => {
+        const blob = `${os.problema_relatado || ''} ${os.laudo || ''}`.toLowerCase();
+        return blob.includes(sintomaQ) || sintomaQ.split(/\s+/).some((t) => t.length > 3 && blob.includes(t));
+      })
+    : data;
+
+  const lista = (filtrados.length ? filtrados : data).slice(0, 6);
+  return lista
+    .map((os, i) => {
+      const laudo = String(os.laudo || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 280);
+      return `${i + 1}. OS #${os.numero_os} | ${[os.marca, os.modelo].filter(Boolean).join(' ')} | técnico: ${os.status_tecnico || '-'}\nRelato: ${os.problema_relatado || '—'}\nLaudo: ${laudo || '—'}`;
+    })
+    .join('\n\n');
+}
 
 function normalizePecaSugerida(raw: unknown): PecaSugerida | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -770,12 +954,38 @@ function toLaudoApiMessage(
   };
 }
 
+function parseLaudoChatReply(raw: string): LaudoChatReply | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      message?: string;
+      laudo?: string | null;
+      pecas?: unknown;
+    };
+    const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+    const laudo =
+      typeof parsed.laudo === 'string' && parsed.laudo.trim() ? parsed.laudo.trim() : null;
+    const pecas = parsePecasSugeridas(parsed.pecas);
+    if (!message && !laudo && pecas.length === 0) return null;
+    return { message, laudo, ...(pecas.length > 0 ? { pecas } : {}) };
+  } catch {
+    return { message: trimmed, laudo: null };
+  }
+}
+
 /**
- * Conversa com o técnico sobre o laudo (estilo ChatGPT).
+ * Conversa com o técnico sobre o laudo (estilo ChatGPT), com busca web e consulta ao banco.
  */
 export async function chatLaudoTecnico(
   messages: LaudoChatMessage[],
-  context?: { laudoAtual?: string; numeroOS?: string; nomeTecnico?: string; solicitarLaudo?: boolean }
+  context?: {
+    laudoAtual?: string;
+    numeroOS?: string;
+    nomeTecnico?: string;
+    solicitarLaudo?: boolean;
+    empresaId?: string;
+  }
 ): Promise<LaudoChatReply | null> {
   try {
     const client = getOpenAIClient();
@@ -805,7 +1015,14 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
         '\n\nNESTA REQUISIÇÃO: o técnico NÃO pediu laudo. Retorne OBRIGATORIAMENTE "laudo": null. Não inclua texto de laudo na resposta.';
     }
     if (context?.numeroOS) {
-      systemContent += `\n\nContexto: ordem de serviço #${context.numeroOS}.`;
+      systemContent += `\n\nContexto: ordem de serviço #${context.numeroOS}. Se precisar de detalhes, use a ferramenta dados_os.`;
+    }
+    if (context?.empresaId) {
+      systemContent +=
+        '\n\nFerramentas de banco disponíveis para esta empresa: dados_os e casos_similares.';
+    } else {
+      systemContent +=
+        '\n\nFerramenta de banco indisponível nesta sessão; use pesquisar_internet quando precisar de informação externa.';
     }
     if (context?.laudoAtual) {
       const laudoLimpo = context.laudoAtual
@@ -823,42 +1040,144 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
       -1
     );
     const hasVision = lastUserImageIdx >= 0;
-
     const hasPanicfull = recent.some((m) => Boolean(m.panicfull?.content?.trim()));
+    const model = hasVision ? 'gpt-4o' : 'gpt-4o-mini';
+
+    const tools = context?.empresaId
+      ? LAUDO_CHAT_TOOLS
+      : LAUDO_CHAT_TOOLS.filter((t) => t.type === 'function' && t.function.name === 'pesquisar_internet');
 
     const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemContent },
-      ...recent.map((m, i) =>
-        toLaudoApiMessage(m, i === lastUserImageIdx ? 'high' : 'low')
-      ),
+      ...recent.map((m, i) => toLaudoApiMessage(m, i === lastUserImageIdx ? 'high' : 'low')),
     ];
 
-    const completion = await client.chat.completions.create({
-      model: hasVision ? 'gpt-4o' : 'gpt-4o-mini',
-      messages: apiMessages,
-      max_tokens: hasPanicfull ? 3500 : 2000,
-      temperature: 0.35,
-      response_format: { type: 'json_object' },
-    });
+    let pesquisas = 0;
 
-    const raw = completion.choices[0]?.message?.content?.trim();
-    if (!raw) return null;
+    const executarTool = async (nome: string, args: Record<string, unknown>): Promise<string> => {
+      if (nome === 'pesquisar_internet') {
+        const consulta = String(args.consulta ?? '').trim();
+        if (!consulta) return 'Consulta vazia.';
+        if (pesquisas >= LAUDO_CHAT_MAX_SEARCHES) {
+          return 'Limite de pesquisas desta mensagem atingido; responda com o que já tem.';
+        }
+        pesquisas += 1;
+        try {
+          return await pesquisarInternetLaudo(client, consulta);
+        } catch (err) {
+          console.error(
+            '[laudo-chat] pesquisar_internet:',
+            err instanceof Error ? err.message : err
+          );
+          return 'Falha ao pesquisar na internet. Responda com o conhecimento disponível e avise a limitação.';
+        }
+      }
 
-    try {
-      const parsed = JSON.parse(raw) as {
-        message?: string;
-        laudo?: string | null;
-        pecas?: unknown;
-      };
-      const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
-      const laudo =
-        typeof parsed.laudo === 'string' && parsed.laudo.trim() ? parsed.laudo.trim() : null;
-      const pecas = parsePecasSugeridas(parsed.pecas);
-      if (!message && !laudo && pecas.length === 0) return null;
-      return { message, laudo, ...(pecas.length > 0 ? { pecas } : {}) };
-    } catch {
-      return { message: raw, laudo: null };
+      if (!context?.empresaId) {
+        return 'Consulta ao banco indisponível nesta sessão.';
+      }
+
+      if (nome === 'dados_os') {
+        return buscarDadosOsEmpresa(context.empresaId, String(args.numero_os ?? ''));
+      }
+
+      if (nome === 'casos_similares') {
+        return buscarCasosSimilaresEmpresa(
+          context.empresaId,
+          String(args.marca ?? ''),
+          typeof args.modelo === 'string' ? args.modelo : undefined,
+          typeof args.sintoma === 'string' ? args.sintoma : undefined
+        );
+      }
+
+      return `Ferramenta desconhecida: ${nome}`;
+    };
+
+    let rawFinal: string | null = null;
+
+    for (let rodada = 0; rodada <= LAUDO_CHAT_MAX_TOOL_ROUNDS; rodada++) {
+      const isLast = rodada === LAUDO_CHAT_MAX_TOOL_ROUNDS;
+      const completion = await client.chat.completions.create({
+        model,
+        messages: apiMessages,
+        ...(isLast
+          ? { response_format: { type: 'json_object' as const } }
+          : { tools, tool_choice: 'auto' as const }),
+        max_tokens: hasPanicfull ? 3500 : 2200,
+        temperature: 0.35,
+      });
+
+      const msg = completion.choices[0]?.message;
+      if (!msg) break;
+
+      const chamadas = !isLast ? msg.tool_calls?.filter((c) => c.type === 'function') ?? [] : [];
+      if (!chamadas.length) {
+        rawFinal = msg.content?.trim() || null;
+        break;
+      }
+
+      apiMessages.push({
+        role: 'assistant',
+        content: msg.content ?? null,
+        tool_calls: chamadas,
+      });
+
+      for (const chamada of chamadas) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(chamada.function.arguments || '{}');
+        } catch {
+          args = {};
+        }
+        const resultado = await executarTool(chamada.function.name, args);
+        apiMessages.push({
+          role: 'tool',
+          tool_call_id: chamada.id,
+          content: resultado.slice(0, 8000),
+        });
+      }
     }
+
+    if (!rawFinal) {
+      const formatCompletion = await client.chat.completions.create({
+        model,
+        messages: [
+          ...apiMessages,
+          {
+            role: 'user',
+            content:
+              'Com base no que já foi obtido (incluindo resultados de ferramentas), retorne AGORA apenas o JSON final com message, laudo e pecas.',
+          },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: hasPanicfull ? 3500 : 2200,
+        temperature: 0.3,
+      });
+      rawFinal = formatCompletion.choices[0]?.message?.content?.trim() || null;
+    }
+
+    if (!rawFinal) return null;
+
+    const parsed = parseLaudoChatReply(rawFinal);
+    if (parsed) return parsed;
+
+    // Conteúdo não-JSON após tools: força formatação
+    const wrap = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Converta a resposta do assistente técnico no JSON {"message":"...","laudo":null,"pecas":[]}. Mantenha o texto útil em message. Se não houver laudo pedido, laudo=null. pecas=[] se não houver.',
+        },
+        { role: 'user', content: rawFinal.slice(0, 6000) },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 2000,
+      temperature: 0.2,
+    });
+    const wrapped = wrap.choices[0]?.message?.content?.trim();
+    return wrapped ? parseLaudoChatReply(wrapped) : { message: rawFinal, laudo: null };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('❌ Erro no chat de laudo:', msg);

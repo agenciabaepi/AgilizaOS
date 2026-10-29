@@ -75,7 +75,13 @@ export async function POST(req: NextRequest) {
       typeof body.nomeTecnico === 'string' ? body.nomeTecnico.trim().slice(0, 80) : undefined;
     const solicitarLaudo = body.solicitarLaudo === true;
 
-    const reply = await chatLaudoTecnico(messages, { laudoAtual, numeroOS, nomeTecnico, solicitarLaudo });
+    const reply = await chatLaudoTecnico(messages, {
+      laudoAtual,
+      numeroOS,
+      nomeTecnico,
+      solicitarLaudo,
+      empresaId: access.empresaId,
+    });
 
     if (!reply || (!reply.message && !reply.laudo && !(reply.pecas?.length))) {
       return NextResponse.json(
