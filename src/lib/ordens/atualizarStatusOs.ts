@@ -46,6 +46,21 @@ function isStatusSemReparo(status: string): boolean {
   return normalized === 'SEM REPARO' || normalized === 'SEMREPARO';
 }
 
+/** Fase em que laudo novo ainda pode auto-marcar ORÇAMENTO CONCLUÍDO (não sobrescreve execução/reparo). */
+function isFaseOrcamentoParaLaudo(statusTecnico: string): boolean {
+  const n = normalizeStatus(statusTecnico)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!n) return true;
+  if (/^AGUARDANDO\s*INICIO$/.test(n)) return true;
+  if (/^EM\s*ANALISE$/.test(n)) return true;
+  if (/^ORCAMENTO$/.test(n)) return true;
+  return false;
+}
+
 /** Mapeia status do técnico para status da O.S. (espelhamento técnico → atendente) */
 function mapTecnicoParaOS(statusTec: string): string {
   const n = (normalizeStatus(statusTec) || '')
@@ -338,36 +353,64 @@ export async function atualizarStatusOs(
 
     if (tecnicoAlterou && atendenteAlterou) {
       // Ambos mudaram de verdade (ex.: entrega com flags) → respeitar os dois
-      dadosAtualizacao.status = novoStatusRaw;
-      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
-    } else if (tecnicoAlterou) {
-      // Técnico alterou → espelhar para O.S.
-      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
-      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || osAnteriorStatus;
-    } else if (atendenteAlterou) {
-      // Atendente alterou → espelhar para técnico (ignora status_tecnico repetido no body)
-      dadosAtualizacao.status = novoStatusRaw;
-      if (isStatusSemReparo(osAnteriorStatusTecnico) && normalizeStatus(novoStatusRaw) !== 'ENTREGUE') {
-        dadosAtualizacao.status_tecnico = 'SEM REPARO';
-      } else if (isStatusTecnicoFinal(osAnteriorStatusTecnico) && nomesStatusIguaisLocal(novoStatusRaw, 'AGUARDANDO RETIRADA')) {
-        dadosAtualizacao.status_tecnico = osAnteriorStatusTecnico;
+      // Técnico nunca finaliza/entrega: se newStatus veio ENTREGUE sem intenção de entrega do atendente
+      // (cliente antigo remapeando), preferir espelhamento técnico → O.S.
+      if (normalizeStatus(novoStatusRaw) === 'ENTREGUE') {
+        dadosAtualizacao.status = 'ENTREGUE';
+        dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
       } else {
-        dadosAtualizacao.status_tecnico = mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico;
+        dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+        // Preferir espelho do técnico para evitar newStatus remapeado no client sobrescrever
+        // AGUARDANDO RETIRADA / outros status do atendente quando o técnico só mudou status_tecnico.
+        const espelho = mapTecnicoParaOS(novoStatusTecnicoRaw);
+        dadosAtualizacao.status = espelho || novoStatusRaw || osAnteriorStatus;
+      }
+    } else if (tecnicoAlterou) {
+      // Técnico alterou → espelhar para O.S. (nunca ENTREGUE)
+      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+      const espelho = mapTecnicoParaOS(novoStatusTecnicoRaw) || osAnteriorStatus;
+      dadosAtualizacao.status =
+        normalizeStatus(espelho) === 'ENTREGUE' ? osAnteriorStatus : espelho;
+    } else if (atendenteAlterou) {
+      // Proteção: clientes antigos (bancada) remapeavam status_tecnico → newStatus e
+      // reenviavam os dois. Ex.: AGUARDANDO RETIRADA + REPARO CONCLUÍDO virava CONCLUIDO
+      // no save sem o atendente ter mudado nada. Se newStatus é só o espelho do
+      // status_tecnico atual e o técnico não mudou, ignorar (eco de remapeamento).
+      const espelhoDoTecnicoAtual = mapTecnicoParaOS(osAnteriorStatusTecnico);
+      const ecoRemapeamentoCliente =
+        !tecnicoAlterou &&
+        !!espelhoDoTecnicoAtual &&
+        nomesStatusIguaisLocal(novoStatusRaw, espelhoDoTecnicoAtual);
+
+      if (!ecoRemapeamentoCliente) {
+        // Atendente alterou de verdade → espelhar para técnico
+        dadosAtualizacao.status = novoStatusRaw;
+        if (isStatusSemReparo(osAnteriorStatusTecnico) && normalizeStatus(novoStatusRaw) !== 'ENTREGUE') {
+          dadosAtualizacao.status_tecnico = 'SEM REPARO';
+        } else if (isStatusTecnicoFinal(osAnteriorStatusTecnico) && nomesStatusIguaisLocal(novoStatusRaw, 'AGUARDANDO RETIRADA')) {
+          dadosAtualizacao.status_tecnico = osAnteriorStatusTecnico;
+        } else {
+          dadosAtualizacao.status_tecnico = mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico;
+        }
       }
     }
 
-    // Laudo preenchido pelo técnico (app ou bancada): só aplica se ninguém mudou status explicitamente
+    // Laudo novo: só auto-marca ORÇAMENTO CONCLUÍDO na fase inicial (não em execução/reparo)
     if (laudoNovoPreenchido && !tecnicoAlterou && !atendenteAlterou) {
-      const stLaudoAnt = normalizeStatus(osAnteriorStatusTecnico)
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .replace(/_/g, ' ');
-      const jaOrcamentoEnviado =
-        stLaudoAnt.includes('ORCAMENTO') && stLaudoAnt.includes('CONCLUIDO');
-      const tecnicoSemReparo = isStatusSemReparo(osAnteriorStatusTecnico);
-      const tecnicoReparoConcluido = isStatusTecnicoFinal(osAnteriorStatusTecnico);
+      const jaOrcamentoEnviado = (() => {
+        const st = normalizeStatus(osAnteriorStatusTecnico)
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .replace(/_/g, ' ');
+        return st.includes('ORCAMENTO') && st.includes('CONCLUIDO');
+      })();
 
-      if (!jaOrcamentoEnviado && !tecnicoSemReparo && !tecnicoReparoConcluido) {
+      if (
+        !jaOrcamentoEnviado &&
+        isFaseOrcamentoParaLaudo(osAnteriorStatusTecnico) &&
+        !isStatusSemReparo(osAnteriorStatusTecnico) &&
+        !isStatusTecnicoFinal(osAnteriorStatusTecnico)
+      ) {
         const statusOrcamento = 'ORÇAMENTO CONCLUÍDO';
         dadosAtualizacao.status_tecnico = statusOrcamento;
         dadosAtualizacao.status = mapTecnicoParaOS(statusOrcamento) || osAnteriorStatus;

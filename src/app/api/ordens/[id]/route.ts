@@ -183,7 +183,8 @@ export async function PUT(
       if (st === 'APROVADO') {
         dataToUpdate.status_tecnico = 'APROVADO';
       } else if (st === 'ENTREGUE') {
-        dataToUpdate.status_tecnico = 'FINALIZADA';
+        // Alinhar com update-status: entrega → REPARO CONCLUÍDO (não "FINALIZADA")
+        dataToUpdate.status_tecnico = 'REPARO CONCLUÍDO';
         if (!updateData.data_entrega) {
           const dataStr = toDateOnlyLocal();
           dataToUpdate.data_entrega = dataStr;

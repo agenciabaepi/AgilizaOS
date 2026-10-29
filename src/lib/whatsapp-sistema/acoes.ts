@@ -91,7 +91,13 @@ function osEntregue(os: OsAlvo): boolean {
 
 function statusVaiParaOrcamentoConcluido(os: OsAlvo): boolean {
   const st = normalizeStatusNome(os.status_tecnico || '');
-  return !(st.includes('ORCAMENTO') && st.includes('CONCLUIDO')) && st !== 'SEM REPARO' && !/REPARO CONCLUIDO/.test(st);
+  if (st.includes('ORCAMENTO') && st.includes('CONCLUIDO')) return false;
+  if (st === 'SEM REPARO' || /REPARO CONCLUIDO/.test(st)) return false;
+  // Só na fase inicial (igual à API): não avisar/forçar em execução ou depois
+  if (!st || /^AGUARDANDO INICIO$/.test(st) || /^EM ANALISE$/.test(st) || /^ORCAMENTO$/.test(st)) {
+    return true;
+  }
+  return false;
 }
 
 const RODAPE_CONFIRMACAO = 'Responda *SIM* para salvar ou *NÃO* para cancelar. Se quiser ajustar algo, é só me dizer.';

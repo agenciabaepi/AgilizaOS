@@ -607,8 +607,15 @@ export default function BancadaPage() {
                       if (statusTecnicoUpper.includes('EM ATENDIMENTO')) return 'Em Atendimento';
                       if (statusTecnicoUpper.includes('AGUARDANDO PEÇA') || statusTecnicoUpper.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
                       if (statusTecnicoUpper.includes('EM EXECUÇÃO') || statusTecnicoUpper.includes('EM_EXECUCAO')) return 'Em Execução';
-                      if (statusTecnicoUpper.includes('REPARO CONCLUÍDO') || statusTecnicoUpper.includes('CONCLUIDO')) return 'Reparo Concluído';
-                      if (statusTecnicoUpper === 'ENTREGUE') return 'Entregue';
+                      if (
+                        statusTecnicoUpper.includes('REPARO CONCLUÍDO') ||
+                        statusTecnicoUpper.includes('REPARO CONCLUIDO') ||
+                        statusTecnicoUpper === 'CONCLUIDO' ||
+                        statusTecnicoUpper === 'CONCLUÍDO'
+                      ) {
+                        return 'Reparo Concluído';
+                      }
+                      if (statusTecnicoUpper === 'ENTREGUE' || statusTecnicoUpper === 'FINALIZADA') return 'Entregue';
                     }
                     
                     // Fallback para status principal
@@ -621,8 +628,14 @@ export default function BancadaPage() {
                     if (statusNormalizado.includes('AGUARDANDO PEÇA') || statusNormalizado.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
                     if (statusNormalizado === 'APROVADO' || statusNormalizado.includes('APROVADO')) return 'Aprovado';
                     if (statusNormalizado.includes('EXECUÇÃO') || statusNormalizado.includes('EXECUCAO')) return 'Em Execução';
-                    if (statusNormalizado.includes('CONCLUIDO') || statusNormalizado.includes('CONCLUÍDO')) return 'Reparo Concluído';
-                    if (statusNormalizado === 'ENTREGUE') return 'Entregue';
+                    if (
+                      statusNormalizado.includes('REPARO CONCLU') ||
+                      statusNormalizado === 'CONCLUIDO' ||
+                      statusNormalizado === 'CONCLUÍDO'
+                    ) {
+                      return 'Reparo Concluído';
+                    }
+                    if (statusNormalizado === 'ENTREGUE' || statusNormalizado === 'FINALIZADA') return 'Entregue';
                     // Formatar com primeira letra maiúscula se vier em minúsculo (ex: "em atendimento")
                     const raw = (statusTecnico || status || '').trim();
                     if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
@@ -774,8 +787,15 @@ export default function BancadaPage() {
                         if (statusTecnicoUpper.includes('EM ATENDIMENTO')) return 'Em Atendimento';
                         if (statusTecnicoUpper.includes('AGUARDANDO PEÇA') || statusTecnicoUpper.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
                         if (statusTecnicoUpper.includes('EM EXECUÇÃO') || statusTecnicoUpper.includes('EM_EXECUCAO')) return 'Em Execução';
-                        if (statusTecnicoUpper.includes('REPARO CONCLUÍDO') || statusTecnicoUpper.includes('CONCLUIDO')) return 'Reparo Concluído';
-                        if (statusTecnicoUpper === 'ENTREGUE') return 'Entregue';
+                        if (
+                          statusTecnicoUpper.includes('REPARO CONCLUÍDO') ||
+                          statusTecnicoUpper.includes('REPARO CONCLUIDO') ||
+                          statusTecnicoUpper === 'CONCLUIDO' ||
+                          statusTecnicoUpper === 'CONCLUÍDO'
+                        ) {
+                          return 'Reparo Concluído';
+                        }
+                        if (statusTecnicoUpper === 'ENTREGUE' || statusTecnicoUpper === 'FINALIZADA') return 'Entregue';
                         return st.charAt(0).toUpperCase() + st.slice(1).toLowerCase();
                       })();
 

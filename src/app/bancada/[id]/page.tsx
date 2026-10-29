@@ -445,48 +445,12 @@ export default function DetalheBancadaPage() {
       // Normalizar para o nome exato de uma opção (evitar diferença de acento/caixa entre select e DB)
       const opcaoCorrespondente = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === statusTecnicoParaSalvar.toUpperCase());
       if (opcaoCorrespondente?.nome) statusTecnicoParaSalvar = opcaoCorrespondente.nome;
-      const tecnicoSelecionouSemReparo = /SEM\s*REPARO|SEM_REPARO/.test((statusTecnicoParaSalvar || '').toUpperCase());
-      const stParaLaudoUpper = (statusTecnicoParaSalvar || '').toUpperCase();
-      // Reparo concluído é etapa depois do orçamento: nunca sobrescrever com ORÇAMENTO CONCLUÍDO por causa do laudo
-      const tecnicoSelecionouReparoConcluido =
-        stParaLaudoUpper.includes('REPARO CONCLUÍDO') ||
-        stParaLaudoUpper.includes('REPARO CONCLUIDO') ||
-        /REPARO\s*CONCLU[IÍ]DO/.test(stParaLaudoUpper);
-      // Se o técnico preencheu o laudo e o status ainda não é de orçamento concluído, marcar como ORÇAMENTO CONCLUÍDO
-      // (só faz sentido enquanto a OS ainda está na fase de orçamento; não quando já marcou reparo concluído)
-      const laudoPreenchido = typeof laudo === 'string' && laudo.trim().length > 0;
-      const jaOrcamentoEnviado = stParaLaudoUpper.includes('ORÇAMENTO CONCLUÍDO') || stParaLaudoUpper.includes('ORCAMENTO CONCLUIDO');
-      if (laudoPreenchido && !jaOrcamentoEnviado && !tecnicoSelecionouSemReparo && !tecnicoSelecionouReparoConcluido) {
-        const opcaoConcluido = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === 'ORÇAMENTO CONCLUÍDO');
-        statusTecnicoParaSalvar = opcaoConcluido?.nome ?? 'ORÇAMENTO CONCLUÍDO';
-      }
-      
-      // Atualizar status da OS baseado no status técnico (mapeamento consistente com a API)
-      let novoStatus = os?.status;
-      const stUpper = (statusTecnicoParaSalvar || '').toUpperCase();
-      if (statusTecnicoParaSalvar === 'EM ANÁLISE' || /EM\s*AN[ÁA]LISE|EM_ANALISE/.test(stUpper)) {
-        novoStatus = 'EM ANÁLISE';
-      } else if (statusTecnicoParaSalvar === 'AGUARDANDO INÍCIO' || /AGUARDANDO\s*IN[IÍ]CIO|AGUARDANDO INICIO/.test(stUpper)) {
-        novoStatus = 'ORÇAMENTO';
-      } else if (/OR[ÇC]AMENTO CONCLU[IÍ]DO/.test(stUpper)) {
-        novoStatus = 'ORÇAMENTO CONCLUÍDO'; // orçamento pronto pelo técnico
-      } else if (statusTecnicoParaSalvar === 'REPARO CONCLUÍDO' || /REPARO CONCLU[IÍ]DO/.test(stUpper)) {
-        novoStatus = 'CONCLUIDO';
-      } else if (/SEM\s*REPARO|SEM_REPARO/.test(stUpper)) {
-        // Regra solicitada: espelhar o mesmo status na OS.
-        novoStatus = 'SEM REPARO';
-      } else if (/EM\s*EXECU[ÇC][ÃA]O|EM_EXECUCAO/.test(stUpper)) {
-        // Em execução não deve cair em status de concluído na OS.
-        novoStatus = 'APROVADO';
-      } else if (statusTecnicoParaSalvar) {
-        // Status personalizado (ou não mapeado): espelha o mesmo nome na O.S.
-        novoStatus = statusTecnicoParaSalvar;
-      }
 
-      // Regra de espelhamento: SEM REPARO do técnico deve espelhar na O.S.
+      // NÃO forçar ORÇAMENTO CONCLUÍDO no client só porque há laudo.
+      // A API (atualizarStatusOs) só auto-marca na fase inicial e quando o laudo é novo.
+      // Forçar aqui sobrescrevia EM EXECUÇÃO / AGUARDANDO PEÇA e quebrava o fluxo.
       if (/SEM\s*REPARO|SEM_REPARO/.test((statusTecnicoParaSalvar || '').toUpperCase())) {
         statusTecnicoParaSalvar = 'SEM REPARO';
-        novoStatus = 'SEM REPARO';
       }
 
       // Preparar dados dos produtos e serviços
@@ -533,9 +497,10 @@ export default function DetalheBancadaPage() {
       // Preparar dados para salvar (sem campos JSON por enquanto)
       
       // ✅ CORREÇÃO: Sempre atualizar produtos/serviços, mesmo que vazios (para permitir remoção)
+      // NÃO enviar newStatus/status remapeados: a API espelha a partir de newStatusTecnico.
+      // Enviar newStatus remapeado fazia a API achar que o "atendente" mudou o status e
+      // sobrescrevia AGUARDANDO RETIRADA → CONCLUIDO (O.S. "finalizada" indevidamente).
       const updateData: any = {
-        status: novoStatus,
-        status_tecnico: statusTecnicoParaSalvar,
         // ✅ Sempre atualizar produtos e serviços (permitir limpar quando removidos)
         peca: produtosText,
         servico: servicosText,
@@ -558,14 +523,10 @@ export default function DetalheBancadaPage() {
       // Remover campos de debug antes de enviar
       const { _debug, ...updateDataLimpo } = updateData;
       
-      // Garantir que status e status_tecnico vão explícitos no body (a API usa esses nomes)
       const requestBody = {
         osId: id,
-        newStatus: novoStatus ?? os?.status,
         newStatusTecnico: statusTecnicoParaSalvar,
         ...updateDataLimpo,
-        status: novoStatus ?? os?.status,
-        status_tecnico: statusTecnicoParaSalvar,
       };
       
       const response = await fetch('/api/ordens/update-status', {
@@ -580,12 +541,17 @@ export default function DetalheBancadaPage() {
         throw new Error(result.error || 'Erro ao atualizar ordem');
       }
 
-      // Atualizar estado local (incluindo status técnico se foi alterado automaticamente pelo laudo)
+      const statusOsAtualizado =
+        (result as any)?.ordem?.status ??
+        (result as any)?.data?.status ??
+        os.status;
+
+      // Atualizar estado local com o que a API persistiu (espelhamento)
       setStatusTecnico(statusTecnicoParaSalvar);
       if (os) {
         setOs({ 
           ...os, 
-          status: novoStatus || os.status,
+          status: statusOsAtualizado,
           status_tecnico: statusTecnicoParaSalvar,
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
