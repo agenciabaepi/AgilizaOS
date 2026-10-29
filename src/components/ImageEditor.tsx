@@ -182,10 +182,7 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
     setCanUndo(false);
     setCanRedo(false);
 
-    // Carregar imagem
-    console.log('🖼️ Carregando imagem:', imageUrl);
-    
-    // Verificar se a URL é válida
+    // Carregar imagem// Verificar se a URL é válida
     if (!imageUrl || imageUrl.trim() === '') {
       console.error('❌ URL da imagem inválida');
       addToast('error', 'URL da imagem inválida');
@@ -196,50 +193,20 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
     const htmlImg = new Image();
     htmlImg.crossOrigin = 'anonymous';
     
-    htmlImg.onload = () => {
-      console.log('✅ Imagem HTML carregada:', {
-        naturalWidth: htmlImg.naturalWidth,
-        naturalHeight: htmlImg.naturalHeight,
-        width: htmlImg.width,
-        height: htmlImg.height
-      });
-
-      try {
+    htmlImg.onload = () => {try {
         // Criar objeto Fabric Image a partir do elemento HTML
-        const fabricImg = new FabricImage(htmlImg);
-        
-        console.log('✅ Objeto Fabric Image criado:', {
-          width: fabricImg.width,
-          height: fabricImg.height
-        });
-
-        // Obter dimensões reais
+        const fabricImg = new FabricImage(htmlImg);// Obter dimensões reais
         const imgWidth = htmlImg.naturalWidth || htmlImg.width || 800;
-        const imgHeight = htmlImg.naturalHeight || htmlImg.height || 600;
-
-        console.log('📐 Dimensões da imagem:', { imgWidth, imgHeight });
-
-        // Ajustar tamanho do canvas para a imagem
+        const imgHeight = htmlImg.naturalHeight || htmlImg.height || 600;// Ajustar tamanho do canvas para a imagem
         const maxWidth = 1200;
         const maxHeight = 800;
 
         // Calcular escala para caber no canvas
         const scaleX = maxWidth / imgWidth;
         const scaleY = maxHeight / imgHeight;
-        const scale = Math.min(scaleX, scaleY, 1);
-
-        console.log('📏 Escala calculada:', scale);
-
-        // Definir dimensões do canvas
+        const scale = Math.min(scaleX, scaleY, 1);// Definir dimensões do canvas
         canvas.setWidth(imgWidth * scale);
-        canvas.setHeight(imgHeight * scale);
-        
-        console.log('📐 Dimensões do canvas:', { 
-          width: canvas.getWidth(), 
-          height: canvas.getHeight() 
-        });
-        
-        // Configurar escala da imagem
+        canvas.setHeight(imgHeight * scale);// Configurar escala da imagem
         fabricImg.scaleX = scale;
         fabricImg.scaleY = scale;
         fabricImg.selectable = false;
@@ -252,10 +219,7 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
         canvas.sendObjectToBack(fabricImg);
         
         // Armazenar referência da imagem de fundo
-        backgroundImageRef.current = fabricImg;
-        
-        console.log('✅ Imagem adicionada ao canvas');
-        canvas.renderAll();
+        backgroundImageRef.current = fabricImg;canvas.renderAll();
         saveState();
         
         // Salvar estado inicial para comparação
@@ -460,24 +424,13 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
       const { Circle } = fabric;
       const state = drawingStateRef.current;
       
-      const handleMouseDown = (opt: TEvent) => {
-        console.log('🖱️ Circle mouse:down', opt);
-        
-        // Se clicou em um objeto existente, não criar novo
-        const target = canvas.findTarget(opt.e);
-        console.log('🎯 Target:', target);
-        if (target && target !== canvas.backgroundImage) {
-          console.log('⏭️ Clicou em objeto existente, ignorando');
-          return;
+      const handleMouseDown = (opt: TEvent) => {// Se clicou em um objeto existente, não criar novo
+        const target = canvas.findTarget(opt.e);if (target && target !== canvas.backgroundImage) {return;
         }
 
         const pointer = canvas.getPointer(opt.e);
         state.startX = pointer.x;
-        state.startY = pointer.y;
-        
-        console.log('📍 Iniciando círculo em:', state.startX, state.startY);
-        
-        canvas.selection = false;
+        state.startY = pointer.y;canvas.selection = false;
         canvas.defaultCursor = 'crosshair';
         
         state.circle = new Circle({
@@ -489,9 +442,7 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
           strokeWidth: 3,
         });
         canvas.add(state.circle);
-        setIsDrawing(true);
-        console.log('✅ Círculo criado e adicionado ao canvas');
-      };
+        setIsDrawing(true);};
 
       const handleMouseMove = (opt: TEvent) => {
         if (!state.circle) {
@@ -512,22 +463,15 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
         });
       };
 
-      const handleMouseUp = () => {
-        console.log('🖱️ Circle mouse:up');
-        
-        if (state.rafId) {
+      const handleMouseUp = () => {if (state.rafId) {
           cancelAnimationFrame(state.rafId);
           state.rafId = null;
         }
         
         // Se não arrastou o suficiente, remover o círculo
         if (state.circle) {
-          if (state.circle.radius < 5) {
-            console.log('❌ Círculo muito pequeno, removendo');
-            canvas.remove(state.circle);
-          } else {
-            console.log('✅ Círculo salvo, raio:', state.circle.radius);
-            saveState();
+          if (state.circle.radius < 5) {canvas.remove(state.circle);
+          } else {saveState();
           }
           state.circle = null;
         }
@@ -544,24 +488,13 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
       const { Rect } = fabric;
       const state = drawingStateRef.current;
       
-      const handleMouseDown = (opt: TEvent) => {
-        console.log('🖱️ Rectangle mouse:down', opt);
-        
-        // Se clicou em um objeto existente, não criar novo
-        const target = canvas.findTarget(opt.e);
-        console.log('🎯 Target:', target);
-        if (target && target !== canvas.backgroundImage) {
-          console.log('⏭️ Clicou em objeto existente, ignorando');
-          return;
+      const handleMouseDown = (opt: TEvent) => {// Se clicou em um objeto existente, não criar novo
+        const target = canvas.findTarget(opt.e);if (target && target !== canvas.backgroundImage) {return;
         }
 
         const pointer = canvas.getPointer(opt.e);
         state.startX = pointer.x;
-        state.startY = pointer.y;
-        
-        console.log('📍 Iniciando retângulo em:', state.startX, state.startY);
-        
-        canvas.selection = false;
+        state.startY = pointer.y;canvas.selection = false;
         canvas.defaultCursor = 'crosshair';
         
         state.rect = new Rect({
@@ -574,9 +507,7 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
           strokeWidth: 3,
         });
         canvas.add(state.rect);
-        setIsDrawing(true);
-        console.log('✅ Retângulo criado e adicionado ao canvas');
-      };
+        setIsDrawing(true);};
 
       const handleMouseMove = (opt: TEvent) => {
         if (!state.rect) {
@@ -602,22 +533,15 @@ export default function ImageEditor({ isOpen, onClose, imageUrl, onSave, osId }:
         });
       };
 
-      const handleMouseUp = () => {
-        console.log('🖱️ Rectangle mouse:up');
-        
-        if (state.rafId) {
+      const handleMouseUp = () => {if (state.rafId) {
           cancelAnimationFrame(state.rafId);
           state.rafId = null;
         }
         
         // Se não arrastou o suficiente, remover o retângulo
         if (state.rect) {
-          if (state.rect.width < 5 || state.rect.height < 5) {
-            console.log('❌ Retângulo muito pequeno, removendo');
-            canvas.remove(state.rect);
-          } else {
-            console.log('✅ Retângulo salvo, dimensões:', state.rect.width, state.rect.height);
-            saveState();
+          if (state.rect.width < 5 || state.rect.height < 5) {canvas.remove(state.rect);
+          } else {saveState();
           }
           state.rect = null;
         }

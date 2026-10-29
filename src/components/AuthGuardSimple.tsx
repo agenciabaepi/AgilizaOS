@@ -40,15 +40,12 @@ export default function AuthGuardSimple({
 
         // Se não há sessão, redirecionar para login IMEDIATAMENTE
         if (error || !session) {
-          console.log('🚫 AuthGuardSimple: Sem sessão válida, redirecionando para login');
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
           return;
         }
 
         // Passo 2: Aguardar dados completos (evita redirect ao atualizar - AuthContext usa dados temporários)
         if (!userDataReady || !usuarioData || !empresaData?.id) {
-          console.log('⏳ AuthGuardSimple: Aguardando dados do usuário...');
-          
           // Aguarda até 2 segundos pelos dados do usuário
           let attempts = 0;
           const maxAttempts = 20; // 20 tentativas de 100ms = 2 segundos
@@ -61,7 +58,6 @@ export default function AuthGuardSimple({
             if (usuarioData?.empresa_id && empresaData?.id) {
               // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
               if (empresaData.ativo === false) {
-                console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando');
                 supabase.auth.signOut().then(() => {
                   router.replace('/empresa-desativada');
                 }).catch((e) => {
@@ -74,8 +70,6 @@ export default function AuthGuardSimple({
               // Dados carregaram, verificar permissão
               checkPermissionAndAuthorize();
             } else if (attempts >= maxAttempts) {
-              // Timeout: redirecionar para login
-              console.log('⚠️ AuthGuardSimple: Timeout aguardando dados do usuário');
               router.replace('/login');
             } else {
               // Aguardar mais um pouco
@@ -103,7 +97,6 @@ export default function AuthGuardSimple({
 
       // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
       if (empresaData && empresaData.ativo === false) {
-        console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando');
         supabase.auth.signOut().then(() => {
           router.replace('/empresa-desativada');
         });
@@ -122,7 +115,6 @@ export default function AuthGuardSimple({
     // Timeout de segurança geral - 3 segundos
     const safetyTimeout = setTimeout(() => {
       if (isMounted && isChecking) {
-        console.log('⚠️ AuthGuardSimple: Timeout de segurança geral');
         router.replace('/login');
       }
     }, 3000);

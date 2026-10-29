@@ -447,8 +447,6 @@ export default function FinanceiroAlertsBanner() {
       const randomId = Math.random().toString(36).substring(7);
       const url = `/api/avisos-contas-pagar?empresa_id=${empresaId}&_t=${timestamp}&_r=${randomId}`;
       
-      console.log('[FinanceiroAlertsBanner] Carregando configurações:', url, 'usuarioId:', usuarioId);
-      
       const response = await fetch(url, {
         cache: 'no-store',
         headers: {
@@ -461,49 +459,30 @@ export default function FinanceiroAlertsBanner() {
       if (response.ok) {
         const data = await response.json();
         const todasConfigs = data.configs || [];
-        console.log('[FinanceiroAlertsBanner] Todas as configurações recebidas:', todasConfigs.length);
         
         // Filtrar configurações que se aplicam ao usuário atual
         // IMPORTANTE: Só incluir configurações ativas E que o usuário tem permissão para ver
         let configsFiltradas = todasConfigs.filter((config: ConfigAvisoContasPagar) => {
           // Primeiro verificar se está ativa
           if (!config.ativo) {
-            console.log('[FinanceiroAlertsBanner] Configuração desativada ignorada:', config.tipo_alerta);
             return false;
           }
           
           // Verificar se o usuário pode ver esta configuração
           if (usuarioId) {
             if (config.exibir_para_todos) {
-              console.log('[FinanceiroAlertsBanner] Configuração "para todos" incluída:', config.tipo_alerta);
               return true;
             }
             const usuarioEstaNaLista = Array.isArray(config.usuarios_ids) && config.usuarios_ids.includes(usuarioId);
             if (usuarioEstaNaLista) {
-              console.log('[FinanceiroAlertsBanner] Usuário está na lista, incluindo:', config.tipo_alerta);
               return true;
             }
-            console.log('[FinanceiroAlertsBanner] Usuário NÃO está na lista, excluindo:', config.tipo_alerta);
             return false;
           } else {
             // Se não há usuarioId, mostrar apenas avisos "para todos"
-            const mostrar = config.exibir_para_todos;
-            if (!mostrar) {
-              console.log('[FinanceiroAlertsBanner] Sem usuarioId e não é "para todos", excluindo:', config.tipo_alerta);
-            }
-            return mostrar;
+            return config.exibir_para_todos;
           }
         });
-        
-        console.log('[FinanceiroAlertsBanner] Configurações filtradas (ativas e aplicáveis ao usuário):', configsFiltradas.length);
-        console.log('[FinanceiroAlertsBanner] Atualizando estado das configurações:', configsFiltradas.map(c => ({ 
-          tipo: c.tipo_alerta, 
-          titulo: c.titulo, 
-          cor_fundo: c.cor_fundo,
-          ativo: c.ativo,
-          exibir_para_todos: c.exibir_para_todos,
-          usuarios_ids: c.usuarios_ids
-        })));
         
         // Forçar atualização do estado mesmo que os dados pareçam iguais
         setConfigs([...configsFiltradas]);
@@ -534,7 +513,6 @@ export default function FinanceiroAlertsBanner() {
 
     // Escutar evento de atualização de configurações
     const handleConfigAtualizada = () => {
-      console.log('[FinanceiroAlertsBanner] Evento de atualização recebido, recarregando configurações...');
       // Aguardar um pouco para garantir que o banco foi atualizado
       setTimeout(() => {
         carregarConfigs();
@@ -545,7 +523,6 @@ export default function FinanceiroAlertsBanner() {
     
     // Também escutar eventos de atualização de avisos do sistema (caso alguém edite de outra forma)
     const handleAvisosAtualizados = () => {
-      console.log('[FinanceiroAlertsBanner] Avisos atualizados, recarregando configurações...');
       setTimeout(() => {
         carregarConfigs();
       }, 500);
@@ -566,13 +543,6 @@ export default function FinanceiroAlertsBanner() {
   }, [carregarContas, carregarConfigs, empresaId]);
 
   const alertCards = useMemo(() => {
-    console.log('[FinanceiroAlertsBanner] Recalculando cards:', { 
-      contasCount: contas.length, 
-      configsCount: configs.length,
-      configsCarregadas,
-      loadingConfigs,
-      configs: configs.map(c => ({ tipo: c.tipo_alerta, ativo: c.ativo, titulo: c.titulo }))
-    });
     return montarCards(contas, configs, configsCarregadas);
   }, [contas, configs, configsCarregadas]);
 

@@ -32,11 +32,9 @@ export const useSessionMonitor = (options: SessionMonitorOptions = {}) => {
         console.warn('🚨 Problema de sessão detectado:', authStatus.error);
         
         if (autoRefreshOnError) {
-          console.log('🔄 Tentando refresh automático...');
           const refreshed = await refreshAuthToken();
           
           if (refreshed) {
-            console.log('✅ Sessão renovada com sucesso');
             addToast('Sessão renovada automaticamente', 'success');
             return true;
           } else {
@@ -176,7 +174,6 @@ export const useSessionMonitor = (options: SessionMonitorOptions = {}) => {
     if (!refreshOnNavigation) return;
 
     const handleFocus = () => {
-      console.log('🔍 Janela focada - verificando sessão...');
       handleSessionIssues();
     };
 

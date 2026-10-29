@@ -311,8 +311,6 @@ export default function ComissoesTecnicosPage() {
     // Ordenar do mais recente para o mais antigo
     const mesesOrdenados = Array.from(meses).sort().reverse();
     
-    console.log('📅 Meses com comissões detectados:', mesesOrdenados);
-    
     return mesesOrdenados;
   }, [comissoes]);
   
@@ -517,15 +515,6 @@ export default function ComissoesTecnicosPage() {
   const isAdmin = Boolean(usuarioData?.nivel === 'admin' || usuarioData?.nivel === 'usuarioteste');
   const [campoAtivaExiste, setCampoAtivaExiste] = useState<boolean | null>(null);
 
-  // Debug: verificar nível do usuário
-  useEffect(() => {
-    if (usuarioData) {
-      console.log('🔍 Debug Comissões - Nível do usuário:', usuarioData.nivel, 'isAdmin:', isAdmin, 'usuarioData completo:', usuarioData);
-    } else {
-      console.log('🔍 Debug Comissões - usuarioData ainda não carregou');
-    }
-  }, [usuarioData, isAdmin]);
-
   const handleEditarComissao = (comissao: ComissaoDetalhada) => {
     setComissaoEditando(comissao);
     setValorEditado(comissao.valor_comissao);
@@ -537,12 +526,6 @@ export default function ComissoesTecnicosPage() {
 
     setSalvando(true);
     try {
-      console.log('💾 Salvando edição de comissão:', {
-        comissaoId: comissaoEditando.id,
-        valorComissao: valorEditado,
-        observacoes: observacoesEditadas
-      });
-
       const response = await fetch('/api/comissoes/atualizar', {
         method: 'PATCH',
         headers: {
@@ -557,7 +540,6 @@ export default function ComissoesTecnicosPage() {
 
       // Ler a resposta como texto primeiro para verificar se é HTML
       const responseText = await response.text();
-      console.log('📥 Resposta da API (texto):', responseText.substring(0, 200));
 
       // Verificar se a resposta é HTML
       if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
@@ -627,13 +609,6 @@ export default function ComissoesTecnicosPage() {
 
     setSalvando(true);
     try {
-      // Debug: verificar se há cookies antes de fazer a requisição
-      console.log('🔍 Debug - Fazendo requisição para atualizar comissão:', {
-        comissaoId: comissao.id,
-        ativa: !comissao.ativa,
-        url: '/api/comissoes/atualizar'
-      });
-
       // Obter token de autenticação da sessão
       const token = session?.access_token;
       
@@ -659,7 +634,6 @@ export default function ComissoesTecnicosPage() {
 
       // Ler a resposta como texto primeiro para verificar se é HTML
       const responseText = await response.text();
-      console.log('📥 Resposta da API (texto):', responseText.substring(0, 200));
 
       // Verificar se a resposta é HTML
       if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {

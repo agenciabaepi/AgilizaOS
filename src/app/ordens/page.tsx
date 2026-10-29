@@ -463,7 +463,6 @@ export default function ListaOrdensPage() {
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session) {
-        console.log('🔄 Refrescando sessão automaticamente...');
         await supabase.auth.refreshSession();
       }
     } catch (error) {
@@ -599,7 +598,6 @@ export default function ListaOrdensPage() {
         
         // Se for erro vazio ou sem informações, ignorar apenas se tiver dados
         if (!hasUsefulInfo && data && Array.isArray(data) && data.length > 0) {
-          console.log('⚠️ Erro vazio ignorado porque temos dados');
           error = null;
         }
       }
@@ -903,7 +901,6 @@ export default function ListaOrdensPage() {
         setPercentualRetornos(percentualRetornos);
       } else {
         // Se não houver dados, limpar ordens e métricas
-        console.log('⚠️ Nenhuma ordem encontrada');
         setOrdens([]);
         setTotalOS(0);
         setPercentualRetornos(0);
@@ -924,7 +921,6 @@ export default function ListaOrdensPage() {
           // Tentar refrescar sessão e recarregar automaticamente
           try {
             await supabase.auth.refreshSession();
-            console.log('✅ Sessão refrescada, tentando recarregar...');
             setTimeout(() => {
               fetchOrdens(true); // Tentar novamente após refresh
             }, 1000);
@@ -980,7 +976,6 @@ export default function ListaOrdensPage() {
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session) {
-        console.log('🔄 Refrescando sessão para técnicos...');
         await supabase.auth.refreshSession();
       }
     } catch (error) {
@@ -1033,7 +1028,6 @@ export default function ListaOrdensPage() {
     
     const loadData = async () => {
       try {
-        console.log('🔄 Carregando dados para empresa:', empresaId);
         await Promise.all([
           fetchOrdens(),
           fetchTecnicos()

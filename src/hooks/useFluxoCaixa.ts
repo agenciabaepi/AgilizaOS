@@ -132,7 +132,6 @@ export const useFluxoCaixa = () => {
           }
 
           if (!vendasData || vendasData.length === 0) {
-            console.log('ℹ️ Nenhuma venda encontrada para o período');
             return [];
           }
 
@@ -164,7 +163,6 @@ export const useFluxoCaixa = () => {
             ? vendasConvertidas.filter(v => v.categoria === categoria)
             : vendasConvertidas;
 
-          console.log(`✅ ${vendasFiltradas.length} venda(s) carregada(s)`);
           return vendasFiltradas;
         } catch (err) {
           console.error('❌ Erro inesperado ao buscar vendas:', err);
@@ -292,14 +290,6 @@ export const useFluxoCaixa = () => {
         const dataA = new Date(a.data_movimentacao).getTime();
         const dataB = new Date(b.data_movimentacao).getTime();
         return dataB - dataA;
-      });
-
-      console.log('💰 Movimentações carregadas:', {
-        manuais: movimentacoesManuais?.length || 0,
-        vendas: vendas.length,
-        contasPagas: contasPagas.length,
-        investimentos: investimentos.length,
-        total: movimentacoesFiltradas.length
       });
 
       if (requestId === requestIdRef.current) {

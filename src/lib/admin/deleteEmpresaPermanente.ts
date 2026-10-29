@@ -55,8 +55,6 @@ const TABLES_WITH_EMPRESA_ID: readonly string[] = [
   'configuracoes_comissao',
   'configuracoes_precificacao',
   'termos_garantia',
-  'colunas_dashboard',
-  'notas_dashboard',
   'avisos_sistema',
   'onboarding_status',
 

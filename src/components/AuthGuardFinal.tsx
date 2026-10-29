@@ -29,16 +29,11 @@ export default function AuthGuardFinal({
     // Evitar múltiplas execuções
     if (isRedirecting) return;
     
-    console.log('⚡ AuthGuardFinal: Verificação...');
-    
     const checkAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('📊 AuthGuardFinal: Sessão:', !!session);
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          console.log('🚫 AuthGuardFinal: Redirecionando...');
           setIsRedirecting(true);
           
           // Pequeno delay para evitar loops
@@ -57,7 +52,6 @@ export default function AuthGuardFinal({
 
         // Só bloquear se empresaData já carregou e está desativada
         if (empresaData && empresaData.ativo === false) {
-          console.log('🚫 AuthGuardFinal: Empresa desativada, redirecionando');
           setIsRedirecting(true);
           supabase.auth.signOut().then(() => {
             router.replace('/empresa-desativada');
@@ -70,8 +64,6 @@ export default function AuthGuardFinal({
 
         // Plano único - sem verificação de permissão
         
-        // Se tem sessão, autorizar
-        console.log('✅ AuthGuardFinal: Autorizado!');
         setIsAuthorized(true);
         
       } catch (err) {

@@ -84,8 +84,6 @@ export const useRetry = (config: RetryConfig = {}) => {
           
           onRetry?.(currentAttempt, error);
           
-          console.log(`🔄 Tentativa ${currentAttempt} falhou. Tentando novamente em ${delay}ms...`, error);
-          
           return new Promise((resolve, reject) => {
             timeoutRef.current = setTimeout(async () => {
               try {
@@ -146,9 +144,7 @@ export const useSupabaseRetry = () => {
     initialDelay: 2000, // 2 segundos
     maxDelay: 10000,    // 10 segundos máximo
     backoffFactor: 2.5, // 2s, 5s, 10s
-    onRetry: (attempt, error) => {
-      console.log(`🔄 Tentativa ${attempt} de reconexão com Supabase...`);
-    },
+    onRetry: () => {},
     onMaxAttemptsReached: (error) => {
       console.error('❌ Não foi possível conectar com o servidor após várias tentativas');
     }

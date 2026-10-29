@@ -726,7 +726,20 @@ export default function EditarOSSimples() {
       
       // Verificar mudanças nos relatos
       if (relato !== ordem?.problema_relatado) updateData.problema_relatado = relato;
-      if (laudo !== (ordem as any)?.laudo) updateData.laudo = laudo;
+      // TipTap reformata HTML sem o usuário editar — só envia laudo se o texto plano mudou
+      {
+        const plano = (v: unknown) =>
+          typeof v === 'string'
+            ? v
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+            : '';
+        if (plano(laudo) !== plano((ordem as any)?.laudo)) {
+          updateData.laudo = laudo;
+        }
+      }
       
       // Observações (só se mudaram)
       if (normalizarTextoHistorico(observacoesAtualizadas) !== normalizarTextoHistorico((ordem as any)?.observacao)) {
@@ -840,9 +853,9 @@ export default function EditarOSSimples() {
       
       // Se a notificação foi enviada, mostrar feedback
       if (result.notificationSent) {
-        addToast('success', '✅ Status atualizado e técnico notificado via WhatsApp!');
+        addToast('success', '✅ Alterações salvas e técnico notificado via WhatsApp!');
       } else {
-        addToast('success', '✅ Status atualizado com sucesso!');
+        addToast('success', '✅ Alterações salvas com sucesso!');
       }
       // Avisar se a comissão não foi registrada no banco
       if (result.comissaoErro) {
@@ -1742,14 +1755,23 @@ export default function EditarOSSimples() {
                   <input
                     type="file"
                     multiple
-                    accept="image/*,.pdf"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*,application/pdf,.pdf"
                     className="hidden"
                     id="file-upload"
                     disabled={uploadingImagens}
                     onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      setNovasImagens(prev => [...prev, ...files]);
-                      addToast('success', `${files.length} arquivo(s) selecionado(s)`);
+                      const input = e.target;
+                      const files = Array.from(input.files || []);
+                      if (files.length === 0) return;
+                      setNovasImagens((prev) => [...prev, ...files]);
+                      addToast(
+                        'success',
+                        files.length === 1
+                          ? '1 arquivo selecionado. Toque de novo para adicionar mais.'
+                          : `${files.length} arquivos selecionados`
+                      );
+                      // Permite selecionar de novo no celular (mesmo arquivo ou outros)
+                      input.value = '';
                     }}
                   />
                   <label
@@ -1758,10 +1780,14 @@ export default function EditarOSSimples() {
                   >
                     <FiFileText className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-sm text-gray-600">
-                      {uploadingImagens ? 'Fazendo upload...' : 'Clique para adicionar fotos ou documentos'}
+                      {uploadingImagens
+                        ? 'Fazendo upload...'
+                        : novasImagens.length > 0
+                          ? 'Toque para adicionar mais fotos'
+                          : 'Clique para adicionar fotos ou documentos'}
                     </span>
                     <span className="text-xs text-gray-400 mt-1">
-                      Formatos: JPG, PNG, PDF
+                      JPG, PNG, HEIC, PDF · várias de uma vez ou uma por uma
                     </span>
                   </label>
                 </div>

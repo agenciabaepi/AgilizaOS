@@ -49,7 +49,6 @@ export default function AuthGuard({
         }
 
         if (!session) {
-          console.log('🚫 AuthGuard: Sem sessão válida, redirecionando para login');
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
           return;
         }
@@ -62,7 +61,6 @@ export default function AuthGuard({
 
         // Se temos empresaData, verificar se está ativa
         if (empresaData && empresaData.ativo === false) {
-          console.log('🚫 AuthGuard: Empresa desativada, redirecionando');
           try {
             await supabase.auth.signOut();
           } catch (e) {

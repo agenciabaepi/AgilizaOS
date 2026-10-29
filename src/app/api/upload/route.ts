@@ -38,10 +38,15 @@ export async function POST(request: NextRequest) {
     const uploadedFiles = [];
 
     for (const file of files) {
-      // Verificar tipo de arquivo
-      if (!file.type.startsWith('image/')) {
+      const nomeLower = (file.name || '').toLowerCase();
+      const isImage = file.type.startsWith('image/');
+      const isPdf =
+        file.type === 'application/pdf' ||
+        nomeLower.endsWith('.pdf');
+
+      if (!isImage && !isPdf) {
         return NextResponse.json(
-          { error: 'Apenas imagens são permitidas' },
+          { error: 'Apenas imagens ou PDF são permitidos' },
           { status: 400 }
         );
       }
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
       // Verificar tamanho (10MB) e rejeitar vazio (RN/Expo web às vezes manda 0 bytes)
       if (!file.size || file.size < 200) {
         return NextResponse.json(
-          { error: 'Imagem inválida ou vazia. Tente outra foto.' },
+          { error: 'Arquivo inválido ou vazio. Tente outro.' },
           { status: 400 }
         );
       }

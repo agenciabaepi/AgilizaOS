@@ -11,8 +11,6 @@ export function useAutoSync(options: UseAutoSyncOptions = {}) {
 
   const syncContadores = async () => {
     try {
-      console.log('🔄 Sincronização automática iniciada...');
-      
       const response = await fetch('/api/sincronizar-contadores', {
         method: 'POST',
         headers: {
@@ -22,9 +20,7 @@ export function useAutoSync(options: UseAutoSyncOptions = {}) {
 
       const result = await response.json();
 
-      if (response.ok) {
-        console.log(`✅ Sincronização automática concluída: ${result.contadoresAtualizados} contadores atualizados`);
-      } else {
+      if (!response.ok) {
         console.error('❌ Erro na sincronização automática:', result.error);
       }
     } catch (error) {

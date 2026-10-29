@@ -15,7 +15,6 @@ export default function LogoutScreen() {
 
     // Função para forçar redirecionamento
     const forceRedirectToLogin = () => {
-      console.log('🚨 Forçando redirecionamento para login...');
       setForceRedirect(true);
       // Múltiplas tentativas de redirecionamento
       setTimeout(() => window.location.replace('/login'), 100);
@@ -36,13 +35,11 @@ export default function LogoutScreen() {
 
     // Timeout de segurança mais agressivo - 5 segundos
     timeout = setTimeout(() => {
-      console.log('⏰ Timeout atingido - forçando redirecionamento');
       forceRedirectToLogin();
     }, 5000);
 
     // Timeout de emergência - 8 segundos
     const emergencyTimeout = setTimeout(() => {
-      console.log('🚨 Timeout de emergência - limpando tudo e redirecionando');
       localStorage.clear();
       sessionStorage.clear();
       document.cookie.split(";").forEach(cookie => {

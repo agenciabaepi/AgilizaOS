@@ -33,7 +33,6 @@ export type PermissionGroup = {
 /** Módulos principais de operação */
 export const PERMISSOES_PRINCIPAIS: PermissaoItem[] = [
   { key: 'dashboard', label: 'Dashboard e perfil', description: 'Visão geral, perfil e páginas institucionais' },
-  { key: 'lembretes', label: 'Lembretes', description: 'Lembretes e notificações internas' },
   { key: 'ordens', label: 'Ordens e orçamentos', description: 'OS, orçamentos e acompanhamento' },
   { key: 'bancada', label: 'Bancada', description: 'Controle de bancada técnica' },
   { key: 'caixa', label: 'Caixa e PDV', description: 'Caixa, PDV e fluxo de caixa operacional' },

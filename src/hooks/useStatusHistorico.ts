@@ -85,17 +85,6 @@ export function useStatusHistorico(osId?: string) {
         // Vamos prosseguir com NULL e deixar a função SQL lidar com isso
       }
 
-      // Registrar via função SQL
-      console.log('🔍 DEBUG: Tentando registrar histórico:', {
-        osId,
-        statusAnterior,
-        statusNovo,
-        statusTecnicoAnterior,
-        statusTecnicoNovo,
-        usuarioId,
-        motivo
-      });
-
       // ✅ NOVA ESTRATÉGIA: Tentar inserção direta primeiro (mais confiável)
       // Buscar nome do usuário se disponível
       let usuarioNome = 'Sistema';
@@ -142,8 +131,6 @@ export function useStatusHistorico(osId?: string) {
         error = resultado.error;
       }
 
-      console.log('🔍 DEBUG: Resposta da inserção direta:', { data, error });
-
       if (error) {
         console.error('❌ Erro ao inserir histórico (detalhado):', {
           error,
@@ -160,8 +147,6 @@ export function useStatusHistorico(osId?: string) {
         
         return false;
       }
-
-      console.log('✅ Histórico registrado com sucesso:', data);
 
       // Recarregar histórico se estamos visualizando esta OS
       if (osId) {

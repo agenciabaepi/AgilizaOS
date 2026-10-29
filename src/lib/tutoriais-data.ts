@@ -102,7 +102,6 @@ export const MODULOS_TUTORIAL: ModuloTutorial[] = [
       { id: 'outros-1', titulo: 'Fornecedores', url: '', duracao: '' },
       { id: 'outros-2', titulo: 'Equipamentos e categorias', url: '', duracao: '' },
       { id: 'outros-3', titulo: 'Dashboard e relatórios', url: '', duracao: '' },
-      { id: 'outros-4', titulo: 'Avisos e lembretes', url: '', duracao: '' },
     ],
   },
 ];

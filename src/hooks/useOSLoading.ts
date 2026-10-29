@@ -122,8 +122,6 @@ export const useOSLoading = (options: UseOSLoadingOptions = {}): UseOSLoadingRet
     setIsRetrying(true);
     const delay = retryDelayMs * Math.pow(2, retryCount); // Exponential backoff
     
-    console.log(`🔄 Retry ${retryCount + 1}/${retryAttempts} em ${delay}ms`);
-    
     retryTimeoutRef.current = setTimeout(() => {
       if (isUnmountedRef.current) return;
       

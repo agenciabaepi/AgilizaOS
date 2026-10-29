@@ -58,12 +58,13 @@ export function useContasAPagar(empresaId: string | undefined, filtroMes: string
   const [ordensServico, setOrdensServico] = useState<OrdemServico[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
     if (!empresaId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [catRes, ordRes, contRes] = await Promise.all([
@@ -108,9 +109,13 @@ export function useContasAPagar(empresaId: string | undefined, filtroMes: string
       setCategorias([]);
       setOrdensServico([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [empresaId]);
+
+  const patchConta = useCallback((id: string, patch: Partial<ContaPagar>) => {
+    setContas((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }, []);
 
   useEffect(() => {
     loadAll();
@@ -150,6 +155,7 @@ export function useContasAPagar(empresaId: string | undefined, filtroMes: string
     totalPendente,
     totalPago,
     contasPorTipo,
+    patchConta,
     refetch: loadAll
   };
 }

@@ -42,8 +42,6 @@ export const clearAllAuthData = () => {
       indexedDB.deleteDatabase('supabase');
     }
     
-    console.log('✅ Dados de autenticação limpos completamente');
-    
   } catch (error) {
     console.error('❌ Erro ao limpar dados de autenticação:', error);
   }

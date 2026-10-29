@@ -7,13 +7,6 @@ interface ChecklistPDFViewerSimpleProps {
 }
 
 export default function ChecklistPDFViewerSimple({ checklistData, equipamentoCategoria, styles }: ChecklistPDFViewerSimpleProps) {
-  
-  console.log('🔍 ChecklistPDFViewerSimple - INICIANDO:', {
-    hasChecklistData: !!checklistData,
-    equipamentoCategoria,
-    checklistData
-  });
-  
   if (!checklistData || checklistData === '{}' || checklistData === 'null') {
     return (
       <View style={styles.block}>

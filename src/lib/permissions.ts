@@ -133,7 +133,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   tecnico: [...TECNICO_DEFAULT_PERMISSIONS, 'suporte'],
   atendente: [
     'dashboard',
-    'lembretes',
     'clientes',
     'ordens',
     'equipamentos',
@@ -143,7 +142,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   ],
   financeiro: [
     'dashboard',
-    'lembretes',
     'clientes',
     'ordens',
     'equipamentos',
@@ -264,7 +262,6 @@ export function getHomePathForUser(
   const effective = resolveUserPermissions(nivel, rawPermissoes);
   const candidates: { perm: string; path: string }[] = [
     { perm: 'ordens', path: '/ordens' },
-    { perm: 'lembretes', path: '/lembretes' },
     { perm: 'clientes', path: '/clientes' },
     { perm: 'bancada', path: '/bancada' },
     { perm: 'caixa', path: '/caixa/pdv' },

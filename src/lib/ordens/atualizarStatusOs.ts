@@ -333,7 +333,12 @@ export async function atualizarStatusOs(
 
     const laudoTexto = textoPlanoLaudo(updateData.laudo);
     const laudoAnterior = textoPlanoLaudo((osAnterior as { laudo?: string }).laudo);
-    const laudoNovoPreenchido = laudoTexto.length > 0 && laudoTexto !== laudoAnterior;
+    // Só considera laudo "novo" na 1ª vez que passa a ter conteúdo.
+    // Edição HTML do TipTap / anexar foto sem mudar o texto NÃO deve auto-mudar status.
+    const laudoNovoPreenchido =
+      typeof updateData.laudo === 'string' &&
+      laudoTexto.length > 0 &&
+      laudoAnterior.length === 0;
 
     const nomesStatusIguaisLocal = (a: string, b: string) => {
       const na = normalizeStatus(a).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();

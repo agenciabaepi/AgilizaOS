@@ -16,7 +16,7 @@ const keyMatches = [...grantableContent.matchAll(/key:\s*'([^']+)'/g)];
 const GRANTABLE_KEYS = [...new Set(keyMatches.map((m) => m[1]))];
 
 const MENU_KEYS = [
-  'dashboard', 'lembretes', 'ordens', 'caixa', 'movimentacao-caixa', 'clientes',
+  'dashboard', 'ordens', 'caixa', 'movimentacao-caixa', 'clientes',
   'fornecedores', 'equipamentos', 'catalogo', 'financeiro', 'vendas', 'contas-a-pagar',
   'lucro-desempenho', 'bancada', 'comissoes', 'suporte', 'assinatura', 'configuracoes',
 ];
@@ -38,7 +38,7 @@ const CONFIG_TABS = [
 ];
 
 const TEST_PATHS = [
-  '/dashboard-atendente', '/ordens', '/lembretes', '/clientes', '/financeiro',
+  '/dashboard-atendente', '/ordens', '/clientes', '/financeiro',
   '/configuracoes', '/configuracoes/usuarios', '/configuracoes/status',
   '/suporte', '/bancada', '/comissoes', '/catalogo', '/assinatura', '/perfil',
 ];
@@ -79,8 +79,8 @@ function resolveUserPermissions(nivel, raw) {
 
 const ROLE_DEFAULTS = {
   tecnico: ['dashboard', 'bancada', 'comissoes', 'suporte'],
-  atendente: ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'caixa', 'catalogo', 'suporte'],
-  financeiro: ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas', 'movimentacao-caixa', 'contas-a-pagar', 'lucro-desempenho', 'caixa', 'suporte', 'assinatura'],
+  atendente: ['dashboard', 'clientes', 'ordens', 'equipamentos', 'caixa', 'catalogo', 'suporte'],
+  financeiro: ['dashboard', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas', 'movimentacao-caixa', 'contas-a-pagar', 'lucro-desempenho', 'caixa', 'suporte', 'assinatura'],
 };
 
 function normalizePermissoes(raw) {
@@ -145,7 +145,7 @@ function canAccessPath(pathname, permissoes, nivel, raw) {
 
 const scenarios = [
   { name: 'tecnico restrito (só bancada)', nivel: 'tecnico', permissoes: ['dashboard', 'bancada', 'comissoes'] },
-  { name: 'atendente sem ordens', nivel: 'atendente', permissoes: ['dashboard', 'lembretes', 'clientes', 'caixa'] },
+  { name: 'atendente sem ordens', nivel: 'atendente', permissoes: ['dashboard', 'clientes', 'caixa'] },
   { name: 'atendente legado (sem permissoes)', nivel: 'atendente', permissoes: [] },
   { name: 'financeiro só financeiro', nivel: 'financeiro', permissoes: ['dashboard', 'financeiro', 'vendas'] },
   { name: 'atendente config parcial', nivel: 'atendente', permissoes: ['dashboard', 'configuracoes', 'empresa', 'status'] },

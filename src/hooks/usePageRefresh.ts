@@ -25,8 +25,6 @@ export const usePageRefresh = (options: PageRefreshOptions = {}) => {
       return;
     }
 
-    console.log('🔄 Fazendo refresh da página:', pathname);
-    
     // Usar router.refresh() do Next.js ao invés de window.location.reload()
     router.refresh();
   }, [pathname, router, excludePaths]);
@@ -36,7 +34,6 @@ export const usePageRefresh = (options: PageRefreshOptions = {}) => {
     if (!refreshOnNavigation) return;
 
     const timeoutId = setTimeout(() => {
-      console.log('🔄 Auto-refresh após navegação para:', pathname);
       refreshPage();
     }, refreshDelay);
 

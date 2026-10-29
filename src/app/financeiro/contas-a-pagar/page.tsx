@@ -118,6 +118,7 @@ function ContasAPagarPageContent() {
     categorias,
     ordensServico,
     contasPorTipo,
+    patchConta,
     refetch
   } = useContasAPagar(empresaData?.id, filtroMes);
 
@@ -504,43 +505,45 @@ function ContasAPagarPageContent() {
   };
 
   const handleStatusChange = async (id: string, status: 'pendente' | 'pago') => {
-    // Encontrar a conta
     const conta = contas.find(c => c.id === id);
-    
+    if (!conta) return;
+
     // Verificação básica para contas fixas já pagas no mesmo mês
-    if (conta?.conta_fixa) {
+    if (conta.conta_fixa) {
       const hoje = new Date();
       const mesAtual = hoje.toISOString().slice(0, 7);
       const dataVencimento = new Date(conta.data_vencimento);
       const mesVencimento = dataVencimento.toISOString().slice(0, 7);
-      
-      // Se a conta fixa já foi paga e estamos tentando marcar como pago novamente no mesmo mês
+
       if (conta.status === 'pago' && status === 'pago' && mesVencimento === mesAtual) {
         addToast('info', 'Esta conta fixa já foi paga neste mês.');
         return;
       }
     }
-    
+
+    const statusAnterior = conta.status;
+    const dataPagamentoAnterior = conta.data_pagamento;
+    const dataPagamento =
+      status === 'pago' ? new Date().toISOString().split('T')[0] : null;
+
+    // Atualização otimista: mantém a posição na lista sem remount/scroll
+    patchConta(id, { status, data_pagamento: dataPagamento ?? undefined });
+
     try {
-      const updateData: any = { status };
-      if (status === 'pago') {
-        updateData.data_pagamento = new Date().toISOString().split('T')[0];
-      } else {
-        updateData.data_pagamento = null;
-      }
-      
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('contas_pagar')
-        .update(updateData)
+        .update({ status, data_pagamento: dataPagamento })
         .eq('id', id);
-      
+
       if (error) throw error;
-      
+
       addToast('success', `Conta marcada como ${status}!`);
-      refetch();
-      
     } catch (error) {
       console.error('Erro ao alterar status:', error);
+      patchConta(id, {
+        status: statusAnterior,
+        data_pagamento: dataPagamentoAnterior,
+      });
       addToast('error', 'Erro ao alterar status');
     }
   };
@@ -994,35 +997,44 @@ function ContasAPagarPageContent() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex gap-2">
-                                {(conta.status || '').toLowerCase() === 'pendente' ? (
+                              <div className="flex items-center gap-2">
+                                {(conta.status || '').toLowerCase() === 'pendente' ||
+                                (conta.status || '').toLowerCase() === 'vencido' ? (
                                   <button
+                                    type="button"
                                     onClick={() => handleStatusChange(conta.id, 'pago')}
-                                    className="text-green-600 hover:text-green-900"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 transition hover:bg-emerald-100 hover:text-emerald-800"
                                     title="Marcar como pago"
+                                    aria-label="Marcar como pago"
                                   >
                                     <FiCheck className="w-4 h-4" />
                                   </button>
                                 ) : (
                                   <button
+                                    type="button"
                                     onClick={() => handleStatusChange(conta.id, 'pendente')}
-                                    className="text-yellow-600 hover:text-yellow-900"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-200 transition hover:bg-amber-100 hover:text-amber-800"
                                     title="Marcar como pendente"
+                                    aria-label="Marcar como pendente"
                                   >
                                     <FiX className="w-4 h-4" />
                                   </button>
                                 )}
                                 <button
+                                  type="button"
                                   onClick={() => handleEdit(conta)}
-                                  className="text-blue-600 hover:text-blue-900"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600 ring-1 ring-blue-200 transition hover:bg-blue-100 hover:text-blue-800"
                                   title="Editar"
+                                  aria-label="Editar"
                                 >
                                   <FiEdit className="w-4 h-4" />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteClick(conta)}
-                                  className="text-red-600 hover:text-red-900"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-200 transition hover:bg-red-100 hover:text-red-800"
                                   title="Excluir"
+                                  aria-label="Excluir"
                                 >
                                   <FiTrash2 className="w-4 h-4" />
                                 </button>

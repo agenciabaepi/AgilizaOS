@@ -20,26 +20,13 @@ export default function AuthGuardTest({ children }: AuthGuardTestProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('🔍 AuthGuardTest: Verificando autenticação...');
-        
-        // Verificar sessão do Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('📊 AuthGuardTest: Resultado da verificação:', {
-          hasSession: !!session,
-          hasError: !!error,
-          error: error?.message
-        });
 
-        // Se não há sessão, redirecionar para login
         if (error || !session) {
-          console.log('🚫 AuthGuardTest: Sem sessão válida, redirecionando para login');
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
           return;
         }
 
-        // Se há sessão, permitir acesso
-        console.log('✅ AuthGuardTest: Sessão válida, permitindo acesso');
         setIsChecking(false);
 
       } catch (error) {
@@ -48,10 +35,8 @@ export default function AuthGuardTest({ children }: AuthGuardTestProps) {
       }
     };
 
-    // Timeout de segurança
     const timeout = setTimeout(() => {
       if (isChecking) {
-        console.log('⚠️ AuthGuardTest: Timeout - redirecionando para login');
         router.replace('/login');
       }
     }, 2000);
@@ -61,7 +46,6 @@ export default function AuthGuardTest({ children }: AuthGuardTestProps) {
     return () => clearTimeout(timeout);
   }, [pathname, router]);
 
-  // Enquanto está verificando
   if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -76,6 +60,5 @@ export default function AuthGuardTest({ children }: AuthGuardTestProps) {
     );
   }
 
-  // Se chegou até aqui, está autorizado
   return <>{children}</>;
 }

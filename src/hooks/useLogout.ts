@@ -11,7 +11,6 @@ export const useLogout = () => {
     
     // Timeout de segurança para o processo completo
     const logoutTimeout = setTimeout(() => {
-      console.log('🚨 Timeout no logout - forçando redirecionamento');
       localStorage.clear();
       sessionStorage.clear();
       window.location.replace('/login');

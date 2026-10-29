@@ -20,7 +20,6 @@ export const useQuickAuthCheck = () => {
         ]) as any;
 
         if (error || !session) {
-          console.log('🚨 Quick check: Usuário não autenticado');
           setIsAuthenticated(false);
           setIsCheckingAuth(false);
           
@@ -32,7 +31,6 @@ export const useQuickAuthCheck = () => {
           return;
         }
 
-        console.log('✅ Quick check: Usuário autenticado');
         setIsAuthenticated(true);
         setIsCheckingAuth(false);
 

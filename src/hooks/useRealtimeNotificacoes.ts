@@ -71,17 +71,12 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
       const isAtendente = usuarioData?.nivel === 'atendente';
       
       if (!isAtendente) {
-        console.log('🔔 [NOTIF] Modal de orçamento não exibida - usuário não é atendente');
         return;
       }
       
-      console.log('🔔 [NOTIF] Exibindo modal de orçamento com som...');
-      
       // Reproduzir som imediatamente
       playNotificationSound().then(success => {
-        if (success) {
-          console.log('✅ [NOTIF] Som reproduzido com sucesso!');
-        } else {
+        if (!success) {
           console.warn('⚠️ [NOTIF] Falha ao reproduzir som - criando botão de ativação');
           // Criar botão de ativação de áudio se o som falhar
           createAudioActivationButton();
@@ -173,12 +168,8 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     if (!osId || !isBrowser) return;
     if (intervalsRef.current[osId]) return; // já ativo
     
-    console.log(`⏰ [NOTIF] Iniciando lembretes automáticos para OS ${osId} a cada 5 minutos`);
-    
     intervalsRef.current[osId] = setInterval(async () => {
       try {
-        console.log(`🔔 [NOTIF] Verificando status da OS ${osId}...`);
-        
         const { data } = await supabase
           .from('ordens_servico')
           .select('status, status_tecnico, numero_os')
@@ -186,14 +177,12 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
           .single();
           
         if (!data) {
-          console.log(`⚠️ [NOTIF] OS ${osId} não encontrada, parando lembretes`);
           clearInterval(intervalsRef.current[osId]);
           delete intervalsRef.current[osId];
           return;
         }
         
         if (shouldKeepAlerting(data.status as any, (data as any).status_tecnico)) {
-          console.log(`🔔 [NOTIF] OS ${osId} ainda pendente, exibindo modal com som...`);
           presentPopup({ 
             tipo: 'orcamento_enviado', 
             os_id: osId, 
@@ -201,7 +190,6 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
             mensagem: 'Orçamento enviado. Aguardando sua aprovação.' 
           });
         } else {
-          console.log(`✅ [NOTIF] OS ${osId} não está mais pendente, parando lembretes`);
           clearInterval(intervalsRef.current[osId]);
           delete intervalsRef.current[osId];
         }

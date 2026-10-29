@@ -61,14 +61,6 @@ export function useHistoricoOS() {
     observacoes?: string
   ): Promise<boolean> => {
     try {
-      console.log('🔍 Registrando histórico:', {
-        osId,
-        acao,
-        categoria,
-        descricao,
-        usuarioId: user?.id
-      });
-
       // Obter IP do usuário (se disponível)
       let ipAddress = null;
       try {
@@ -129,7 +121,6 @@ export function useHistoricoOS() {
         }
       }
 
-      console.log('✅ Histórico registrado com sucesso');
       return true;
     } catch (error) {
       console.error('❌ Erro ao registrar histórico:', error);
@@ -145,15 +136,11 @@ export function useHistoricoOS() {
     setError(null);
 
     try {
-      console.log('🔍 Buscando histórico para OS:', osId);
-      
       const { data, error } = await supabase
         .from('os_historico')
         .select('*')
         .eq('os_id', osId)
         .order('created_at', { ascending: false });
-
-      console.log('📊 Resultado da busca:', { data, error, count: data?.length });
 
       if (error) {
         console.error('❌ Erro na query:', error);
@@ -161,7 +148,6 @@ export function useHistoricoOS() {
       }
 
       setHistorico(data || []);
-      console.log('✅ Histórico carregado:', data?.length || 0, 'registros');
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
       setError(error instanceof Error ? error.message : 'Erro ao carregar histórico');

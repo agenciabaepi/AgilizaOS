@@ -373,10 +373,6 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {podeVerWhatsApp && matchesSearch('WhatsApp') && (
             <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
           )}
-                  {/* Lembretes */}
-                  {podeVer('lembretes') && matchesSearch('Lembretes') && (
-                    <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
-                  )}
           {podeVer('ordens') && matchesSearch('Orçamentos') && (
             <SidebarButton path="/orcamentos" icon={<FiClipboard size={22} strokeWidth={1.75} />} label="Orçamentos" isActive={pathname === '/orcamentos' || pathname?.startsWith('/orcamentos/')} menuRecolhido={false} />
           )}
@@ -590,10 +586,6 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               )}
               {podeVerWhatsApp && (
                 <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
-              )}
-              {/* Lembretes */}
-              {podeVer('lembretes') && (
-                <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
               )}
               {podeVer('ordens') && (
                 <SidebarButton path="/orcamentos" icon={<FiClipboard size={22} strokeWidth={1.75} />} label="Orçamentos" isActive={pathname === '/orcamentos' || pathname?.startsWith('/orcamentos/')} menuRecolhido={false} />

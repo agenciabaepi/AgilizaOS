@@ -47,12 +47,6 @@ export function useSnapshotFinanceiro(
       
       if (dataInicio && dataFim) {
         // Usar função para período específico
-        console.log('📞 Chamando função RPC get_snapshot_financeiro_periodo:', {
-          empresa_uuid: empresaData.id,
-          data_inicio: dataInicio,
-          data_fim: dataFim
-        });
-        
         const { data, error: functionError } = await supabase.rpc(
           'get_snapshot_financeiro_periodo',
           {
@@ -113,20 +107,7 @@ export function useSnapshotFinanceiro(
           return;
         }
         
-        console.log('📊 Dados retornados da função RPC:', { 
-          data, 
-          length: data?.length,
-          dataInicio,
-          dataFim,
-          empresaId: empresaData.id
-        });
-        
         if (data && data.length > 0 && data[0]) {
-          console.log('📊 Primeiro registro retornado:', data[0]);
-          console.log('💰 Lucro calculado:', data[0].lucro);
-          console.log('💰 Receita:', data[0].receita);
-          console.log('💰 Despesas pagas:', data[0].despesas_pagas);
-          
           // Sempre usar os dados retornados, mesmo se forem zero
           setSnapshot(data[0]);
         } else {

@@ -5,9 +5,6 @@ export const PAGE_PERMISSIONS = {
   '/dashboard-atendente': 'dashboard',
   '/dashboard-tecnico': 'dashboard',
 
-  // Lembretes
-  '/lembretes': 'lembretes',
-
   // Ordens de Serviço e orçamentos
   '/ordens': 'ordens',
   '/ordens/[id]': 'ordens',

@@ -197,7 +197,7 @@ function OsChatPopupWindow({
         type="button"
         onClick={onToggleMinimize}
         style={{ right: rightOffset, bottom: CHAT_FAB_BOTTOM_PX }}
-        className="fixed z-[55] flex h-11 w-[220px] items-center gap-2 rounded-2xl bg-blue-600 px-3 text-left text-sm font-semibold text-white shadow-lg hover:bg-blue-700"
+        className="fixed z-[55] flex h-11 w-[220px] items-center gap-2 rounded-2xl bg-emerald-600 px-3 text-left text-sm font-semibold text-white shadow-lg hover:bg-emerald-700"
       >
         <FiMessageCircle className="h-4 w-4 shrink-0" />
         <span className="truncate flex-1">{tituloOs(numeroOs)}</span>
@@ -225,28 +225,40 @@ function OsChatPopupWindow({
   return (
     <div
       style={{ right: rightOffset, bottom: CHAT_FAB_BOTTOM_PX, width: CHAT_WINDOW_W }}
-      className="fixed z-[55] flex h-[min(560px,calc(100vh-7.5rem))] flex-col overflow-hidden rounded-2xl border border-gray-200/90 dark:border-zinc-600 bg-white dark:bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
+      className="fixed z-[55] flex h-[min(560px,calc(100vh-7.5rem))] flex-col overflow-hidden rounded-2xl border border-gray-200/90 dark:border-zinc-700 bg-white dark:bg-black shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
     >
-      <header className="flex shrink-0 items-center gap-2.5 bg-blue-600 px-3.5 py-3 text-white">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+      <header className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-black px-3.5 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400">
           <FiMessageCircle className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-[15px] font-semibold tracking-tight">{tituloOs(numeroOs)}</div>
-          <div className="truncate text-[11px] text-blue-100/90">Chat da equipe</div>
+          <div className="truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">
+            {tituloOs(numeroOs)}
+          </div>
+          <div className="truncate text-[11px] text-gray-500 dark:text-zinc-400">Chat da equipe</div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 text-gray-500 dark:text-zinc-300">
           <Link
             href={`/ordens/${osId}`}
-            className="rounded-full p-1.5 hover:bg-white/15"
+            className="rounded-full p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-900"
             title="Abrir O.S."
           >
             <FiExternalLink className="h-4 w-4" />
           </Link>
-          <button type="button" onClick={onToggleMinimize} className="rounded-full p-1.5 hover:bg-white/15" title="Minimizar">
+          <button
+            type="button"
+            onClick={onToggleMinimize}
+            className="rounded-full p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-900"
+            title="Minimizar"
+          >
             <FiMinus className="h-4 w-4" />
           </button>
-          <button type="button" onClick={onClose} className="rounded-full p-1.5 hover:bg-white/15" title="Fechar">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-900"
+            title="Fechar"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
@@ -254,7 +266,7 @@ function OsChatPopupWindow({
 
       <div
         ref={listRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f0f2f5] dark:bg-zinc-950 px-3 py-3 space-y-2.5 [scrollbar-width:thin]"
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-white dark:bg-black px-3 py-3 space-y-3 [scrollbar-width:thin]"
       >
         {loading && mensagens.length === 0 ? (
           <p className="text-center text-xs text-gray-500 py-10">Carregando...</p>
@@ -270,46 +282,69 @@ function OsChatPopupWindow({
               getOsChatAnexoDisplayUrl(m.anexo_url) ||
               (m.anexo_url?.startsWith('http') ? m.anexo_url : null);
             const vistoLabel = mine ? formatVistoAs(m.visto_em) : null;
+            const initials = (m.autor?.nome || '?')
+              .trim()
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((w) => w[0]?.toUpperCase())
+              .join('');
             return (
-              <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-[13px] shadow-sm ${
-                    mine
-                      ? 'bg-blue-600 text-white rounded-br-md'
-                      : 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 rounded-bl-md'
-                  }`}
-                >
+              <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
+                {!mine ? (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-600 text-[11px] font-bold text-white">
+                    {initials || '?'}
+                  </div>
+                ) : null}
+                <div className={`max-w-[72%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                   {!mine && (
-                    <div className="mb-1 text-[11px] font-semibold text-blue-600 dark:text-blue-300">
+                    <div className="mb-1 ml-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                       {m.autor?.nome || 'Usuário'}
                     </div>
                   )}
-                  {img ? <ChatAnexoImage src={img} mine={mine} /> : null}
-                  {m.mensagem ? (
-                    <p className="whitespace-pre-wrap break-words leading-snug">{m.mensagem}</p>
-                  ) : null}
                   <div
-                    className={`mt-1 flex items-center justify-end gap-1 text-[10px] leading-none ${
-                      mine ? 'text-white/70' : 'text-gray-400'
+                    className={`rounded-2xl px-3.5 py-2.5 text-[14px] leading-snug ${
+                      mine
+                        ? 'bg-emerald-600 text-white rounded-br-md'
+                        : 'bg-gray-100 dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 border border-gray-200 dark:border-zinc-800 rounded-bl-md'
                     }`}
-                    title={vistoLabel || undefined}
                   >
-                    <span>{formatMsgHora(m.created_at)}</span>
-                    {mine ? (
-                      m.visto_em ? (
-                        <span className="inline-flex items-center text-sky-200">
-                          <FiCheck className="h-3 w-3" />
-                          <FiCheck className="h-3 w-3 -ml-1.5" />
-                        </span>
-                      ) : (
-                        <FiCheck className="h-3 w-3 opacity-80" />
-                      )
+                    {img ? <ChatAnexoImage src={img} mine={mine} /> : null}
+                    {m.mensagem ? (
+                      <p className="whitespace-pre-wrap break-words">{m.mensagem}</p>
+                    ) : null}
+                    <div
+                      className={`mt-1 flex items-center justify-end gap-1 text-[10px] leading-none ${
+                        mine ? 'text-white/70' : 'text-gray-400 dark:text-zinc-500'
+                      }`}
+                      title={vistoLabel || undefined}
+                    >
+                      <span>{formatMsgHora(m.created_at)}</span>
+                      {mine ? (
+                        m.visto_em ? (
+                          <span className="inline-flex items-center text-emerald-100">
+                            <FiCheck className="h-3 w-3" />
+                            <FiCheck className="h-3 w-3 -ml-1.5" />
+                          </span>
+                        ) : (
+                          <FiCheck className="h-3 w-3 opacity-80" />
+                        )
+                      ) : null}
+                    </div>
+                    {mine && vistoLabel ? (
+                      <div className="mt-0.5 text-right text-[9px] text-emerald-100/90">{vistoLabel}</div>
                     ) : null}
                   </div>
-                  {mine && vistoLabel ? (
-                    <div className="mt-0.5 text-right text-[9px] text-sky-100/90">{vistoLabel}</div>
-                  ) : null}
                 </div>
+                {mine ? (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-600 text-[11px] font-bold text-white">
+                    {(usuarioData?.nome || '?')
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((w) => w[0]?.toUpperCase())
+                      .join('') || '?'}
+                  </div>
+                ) : null}
               </div>
             );
           })
@@ -317,17 +352,23 @@ function OsChatPopupWindow({
       </div>
 
       {previewUrl && (
-        <div className="shrink-0 border-t border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 pt-2">
-          <div className="relative inline-block">
+        <div className="shrink-0 border-t border-gray-100 dark:border-zinc-800 bg-white dark:bg-black px-3 pt-2">
+          <div className="relative inline-flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-2 pr-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="Prévia" className="h-14 w-14 rounded-xl object-cover" />
+            <img src={previewUrl} alt="Prévia" className="h-11 w-11 rounded-lg object-cover" />
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                Foto
+              </div>
+              <div className="text-xs font-semibold text-gray-800 dark:text-zinc-100">Pronta para enviar</div>
+            </div>
             <button
               type="button"
               onClick={() => {
                 setFile(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
               }}
-              className="absolute -right-1.5 -top-1.5 rounded-full bg-gray-900 text-white p-0.5"
+              className="absolute -right-1.5 -top-1.5 rounded-full bg-white dark:bg-black text-gray-700 dark:text-zinc-200 border border-gray-200 dark:border-zinc-700 p-0.5"
             >
               <FiX className="h-3 w-3" />
             </button>
@@ -335,8 +376,8 @@ function OsChatPopupWindow({
         </div>
       )}
 
-      <footer className="shrink-0 border-t border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-2.5">
-        <div className="flex items-center gap-1.5">
+      <footer className="shrink-0 border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-black px-3 py-2.5">
+        <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -348,7 +389,7 @@ function OsChatPopupWindow({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={sending}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 disabled:opacity-50"
           >
             <FiImage className="h-5 w-5" />
           </button>
@@ -357,7 +398,7 @@ function OsChatPopupWindow({
             onChange={(e) => setTexto(e.target.value)}
             rows={1}
             placeholder="Escrever mensagem..."
-            className="flex-1 resize-none rounded-full border-0 bg-gray-100 dark:bg-zinc-800 px-3.5 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-24 leading-5"
+            className="flex-1 resize-none rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 px-3.5 py-2.5 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-24 leading-5"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -369,7 +410,7 @@ function OsChatPopupWindow({
             type="button"
             onClick={() => void handleSend()}
             disabled={sending || (!texto.trim() && !file)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white"
           >
             <FiSend className="h-4 w-4" />
           </button>
@@ -758,7 +799,7 @@ export default function OsChatMessenger() {
           setInboxOpen((v) => !v);
           void carregarConversas();
         }}
-        className="fixed bottom-5 right-[5.5rem] z-[57] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-105 transition-transform max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
+        className="fixed bottom-5 right-[5.5rem] z-[57] flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl hover:bg-emerald-700 hover:scale-105 transition-transform max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
         title="Chats das O.S."
         aria-label="Abrir chats das O.S."
       >

@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiBold, FiItalic, FiUnderline, FiList, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiZap, FiLoader } from 'react-icons/fi';
 import { useToast } from '@/components/Toast';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -38,6 +38,9 @@ export default function LaudoEditor({
     setMounted(true);
   }, []);
 
+  // Evita onChange quando o TipTap só reformata HTML (setContent), sem edição do usuário
+  const syncingContentRef = useRef(false);
+
   // Configurar editor TipTap
   const editor = useEditor({
     extensions: [
@@ -52,6 +55,7 @@ export default function LaudoEditor({
     ],
     content: value || '',
     onUpdate: ({ editor }) => {
+      if (syncingContentRef.current) return;
       onChange(editor.getHTML());
     },
     immediatelyRender: false,
@@ -65,7 +69,15 @@ export default function LaudoEditor({
   // Atualizar conteúdo do editor quando value mudar externamente
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || '');
+      syncingContentRef.current = true;
+      try {
+        editor.commands.setContent(value || '', { emitUpdate: false });
+      } catch {
+        editor.commands.setContent(value || '');
+      }
+      requestAnimationFrame(() => {
+        syncingContentRef.current = false;
+      });
     }
   }, [value, editor]);
 

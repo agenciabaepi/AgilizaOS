@@ -25,7 +25,6 @@ export const SYSTEM_FEATURES = [
   'Bancada do técnico',
   'Multi-usuários e permissões',
   'Impressão e PDF',
-  'Lembretes e alertas',
   'Fornecedores e equipamentos',
   'Sistema de notas fiscais (NFC)',
 ] as const;

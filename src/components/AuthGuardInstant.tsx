@@ -18,24 +18,15 @@ export default function AuthGuardInstant({ children }: AuthGuardInstantProps) {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    console.log('⚡ AuthGuardInstant: Verificação instantânea...');
-    
     const checkAuth = async () => {
       try {
-        // Verificação mais rápida possível
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('📊 AuthGuardInstant: Sessão:', !!session);
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          console.log('🚫 AuthGuardInstant: Redirecionamento instantâneo...');
-          // Usar router.replace para evitar loops
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
           return;
         }
         
-        // Se tem sessão, autorizar imediatamente
-        console.log('✅ AuthGuardInstant: Autorizado!');
         setIsAuthorized(true);
         
       } catch (err) {
@@ -44,25 +35,20 @@ export default function AuthGuardInstant({ children }: AuthGuardInstantProps) {
       }
     };
 
-    // Executar imediatamente
     checkAuth();
     
-    // Timeout ultra curto apenas como backup
     const timeout = setTimeout(() => {
       if (!isAuthorized) {
-        console.log('⚠️ AuthGuardInstant: Timeout - redirecionando...');
         router.replace('/login');
       }
-    }, 100); // Apenas 100ms de backup
+    }, 100);
     
     return () => clearTimeout(timeout);
   }, []);
 
-  // Se não está autorizado, não renderizar nada
   if (!isAuthorized) {
     return null;
   }
 
-  // Se está autorizado, renderizar conteúdo
   return <>{children}</>;
 }

@@ -17,36 +17,26 @@ export default function AuthGuardMinimal({ children }: AuthGuardMinimalProps) {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    console.log('🚀 AuthGuardMinimal: Iniciando verificação...');
-    
     const checkAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('📊 AuthGuardMinimal: Sessão encontrada:', !!session);
-        console.log('📊 AuthGuardMinimal: Erro:', error?.message || 'Nenhum');
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          console.log('🚫 AuthGuardMinimal: Redirecionando para login...');
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-          return; // Não renderizar nada se vai redirecionar
-        } else {
-          console.log('✅ AuthGuardMinimal: Sessão válida!');
-          setIsChecking(false); // Permitir renderização
+          return;
         }
+
+        setIsChecking(false);
       } catch (err) {
         console.error('❌ AuthGuardMinimal: Erro:', err);
         router.replace('/login');
       }
     };
 
-    // Executar imediatamente
     checkAuth();
     
-    // Timeout de segurança reduzido
     const timeout = setTimeout(() => {
       if (isChecking) {
-        console.log('⚠️ AuthGuardMinimal: Timeout - redirecionando...');
         router.replace('/login');
       }
     }, 500);
@@ -54,11 +44,9 @@ export default function AuthGuardMinimal({ children }: AuthGuardMinimalProps) {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Se está verificando, não renderizar nada
   if (isChecking) {
     return null;
   }
 
-  // Se chegou até aqui, renderizar o conteúdo
   return <>{children}</>;
 }
