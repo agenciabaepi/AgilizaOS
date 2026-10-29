@@ -533,22 +533,26 @@ export default function ListaOrdensPage() {
         aparelho_imagem_url
       `;
       const selectComAparelhoSemConserto = `${baseSelect}, aparelho_sem_conserto`;
+      // 1ª página menor = dados chegam mais rápido; depois busca o restante em lotes maiores
+      const FIRST_PAGE_SIZE = 150;
       const ORDENS_PAGE_SIZE = 1000;
       const fetchAllOrdens = async (selectFields: string) => {
         const rows: any[] = [];
         let from = 0;
+        let pageSize = FIRST_PAGE_SIZE;
         while (true) {
           const { data: page, error } = await supabase
             .from('ordens_servico')
             .select(selectFields)
             .eq('empresa_id', empresaId)
             .order('created_at', { ascending: false })
-            .range(from, from + ORDENS_PAGE_SIZE - 1);
+            .range(from, from + pageSize - 1);
           if (error) return { data: rows.length > 0 ? rows : null, error };
           const items = page || [];
           rows.push(...items);
-          if (items.length < ORDENS_PAGE_SIZE) break;
-          from += ORDENS_PAGE_SIZE;
+          if (items.length < pageSize) break;
+          from += pageSize;
+          pageSize = ORDENS_PAGE_SIZE;
         }
         return { data: rows, error: null };
       };
@@ -641,32 +645,34 @@ export default function ListaOrdensPage() {
         // ✅ Executar todas as queries de relacionamento em paralelo (em lotes — evita falha do .in() com muitos IDs)
         const fetchClientesBatched = async (ids: string[]) => {
           if (ids.length === 0) return [] as any[];
-          const rows: any[] = [];
-          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
-            const { data, error } = await supabase
-              .from('clientes')
-              .select('id, nome, telefone, email')
-              .in('id', chunk);
-            if (error) throw error;
-            if (data) rows.push(...data);
-          }
-          return rows;
+          const parts = await Promise.all(
+            chunkArray(ids, SUPABASE_IN_CHUNK_SIZE).map(async (chunk) => {
+              const { data, error } = await supabase
+                .from('clientes')
+                .select('id, nome, telefone, email')
+                .in('id', chunk);
+              if (error) throw error;
+              return data || [];
+            })
+          );
+          return parts.flat();
         };
 
         const fetchTecnicosBatched = async (ids: string[]) => {
           if (ids.length === 0) return [] as any[];
-          const byId: any[] = [];
-          const byAuth: any[] = [];
-          for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
-            const [idRes, authRes] = await Promise.all([
-              supabase.from('usuarios').select('id, nome, auth_user_id').in('id', chunk),
-              supabase.from('usuarios').select('id, nome, auth_user_id').in('auth_user_id', chunk),
-            ]);
-            if (idRes.error) throw idRes.error;
-            if (authRes.error) throw authRes.error;
-            if (idRes.data) byId.push(...idRes.data);
-            if (authRes.data) byAuth.push(...authRes.data);
-          }
+          const parts = await Promise.all(
+            chunkArray(ids, SUPABASE_IN_CHUNK_SIZE).map(async (chunk) => {
+              const [idRes, authRes] = await Promise.all([
+                supabase.from('usuarios').select('id, nome, auth_user_id').in('id', chunk),
+                supabase.from('usuarios').select('id, nome, auth_user_id').in('auth_user_id', chunk),
+              ]);
+              if (idRes.error) throw idRes.error;
+              if (authRes.error) throw authRes.error;
+              return { byId: idRes.data || [], byAuth: authRes.data || [] };
+            })
+          );
+          const byId = parts.flatMap((p) => p.byId);
+          const byAuth = parts.flatMap((p) => p.byAuth);
           const seen = new Set(byId.map((u: any) => u.id));
           return [...byId, ...byAuth.filter((u: any) => !seen.has(u.id))];
         };
@@ -721,13 +727,126 @@ export default function ListaOrdensPage() {
           console.error('❌ Erro ao buscar usuários da empresa:', usuariosEmpresaResult.reason);
         }
 
-        // ✅ OTIMIZADO: Buscar vendas e contas_pagar apenas para OSs que realmente precisam (lazy loading)
+        const mapOrdens = (
+          rows: any[],
+          vendasDict: Record<string, any>,
+          custosPorOS: Record<string, number>
+        ) =>
+          rows.map((item: any) => {
+            const valorFaturado = parseValorMonetarioBR(item.valor_faturado);
+            const vendaOS = vendasDict[item.id];
+            const aparelhoSemConserto = inferirAparelhoSemConsertoOs(item, !!vendaOS);
+
+            const entregaCalc = item.data_entrega
+              ? item.data_entrega
+              : estimarDataEntregaDeGarantia(item.vencimento_garantia);
+            const garantiaCalc = resolverVencimentoGarantiaOs({
+              ...item,
+              aparelho_sem_conserto: aparelhoSemConserto,
+            });
+
+            const atendenteId = item.atendente_id || null;
+            const responsavelInfo = resolveResponsavel(responsaveisLookup, atendenteId, item.atendente);
+            const responsavelNome = responsavelInfo?.nome || item.atendente || '';
+            const responsavelAvatar = responsavelInfo?.foto_url || null;
+            const responsavelId = atendenteId;
+
+            const subtotal =
+              ((item.valor_peca || 0) * (item.qtd_peca || 1)) +
+              ((item.valor_servico || 0) * (item.qtd_servico || 1));
+            const valorPrevisto = subtotal - (item.desconto || 0);
+            const custoPrevisto = Number(custosPorOS[item.id] || 0);
+            const lucroPrevisto = valorPrevisto - custoPrevisto;
+
+            const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
+
+            let tecnicoNome = 'Sem técnico';
+            if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
+              tecnicoNome = tecnicosDict[item.tecnico_id];
+            } else if (item.tecnico_id) {
+              tecnicoNome = 'Técnico não encontrado';
+            }
+
+            const statusTecnicoDb = normStatusVal(item.status_tecnico) || '';
+            const statusTecnico = aparelhoSemConserto ? 'SEM REPARO' : statusTecnicoDb;
+
+            return {
+              id: item.id,
+              numero: item.numero_os,
+              cliente: clienteInfo?.nome || 'Sem nome',
+              clienteTelefone: clienteInfo?.telefone ? formatPhoneNumber(clienteInfo.telefone) : '',
+              clienteEmail: clienteInfo?.email || '',
+              aparelho: item.modelo || item.marca || item.categoria || '',
+              aparelhoCategoria: item.categoria || '',
+              aparelhoMarca: item.marca || '',
+              aparelhoImagemUrl: item.aparelho_imagem_url || null,
+              servico: item.servico || '',
+              statusOS: normStatusVal(item.status) || '',
+              statusTecnico,
+              entrada: item.created_at || '',
+              tecnico: tecnicoNome,
+              atendente: item.atendente || '',
+              entrega: entregaCalc,
+              prazoEntrega: item.prazo_entrega || '',
+              garantia: garantiaCalc,
+              valorPeca: item.valor_peca || 0,
+              valorServico: item.valor_servico || 0,
+              desconto: item.desconto || 0,
+              valorTotal:
+                ((item.valor_peca || 0) * (item.qtd_peca || 1)) +
+                ((item.valor_servico || 0) * (item.qtd_servico || 1)),
+              valorComDesconto:
+                ((item.valor_peca || 0) * (item.qtd_peca || 1)) +
+                ((item.valor_servico || 0) * (item.qtd_servico || 1)) -
+                (item.desconto || 0),
+              valorFaturado: valorFaturado,
+              tipo: item.tipo || 'Nova',
+              clienteRecusou: item.cliente_recusou || false,
+              aparelhoSemConserto,
+              foiFaturada:
+                !item.cliente_recusou &&
+                !aparelhoSemConserto &&
+                statusOsConsideradaFechada(item) &&
+                !!vendaOS &&
+                (valorFaturado > 0 || parseValorMonetarioBR(vendaOS?.total) > 0),
+              faturamentoSemVendaVinculada:
+                !item.cliente_recusou &&
+                !aparelhoSemConserto &&
+                statusOsConsideradaFechada(item) &&
+                !vendaOS,
+              formaPagamento: getFormaPagamento(item, vendaOS),
+              observacao: item.observacao || null,
+              problema_relatado: item.problema_relatado || null,
+              valorPrevisto,
+              custoPrevisto,
+              lucroPrevisto,
+              responsavelId,
+              responsavelNome,
+              responsavelAvatar,
+            };
+          });
+
+        // 1ª pintura: libera a lista sem esperar vendas/contas (maior gargalo)
+        const mappedRapido = mapOrdens(data, {}, {});
+        setOrdens(mappedRapido);
+        setTotalOS(mappedRapido.length);
+        {
+          const hoje = new Date();
+          const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+          const retornosMes = mappedRapido.filter(
+            (o: any) => o.tipo === 'Retorno' && new Date(o.entrada) >= inicioMes
+          ).length;
+          setPercentualRetornos(
+            mappedRapido.length > 0 ? Math.round((retornosMes / mappedRapido.length) * 100) : 0
+          );
+        }
+        setLoadingOrdens(false);
+        setLoading(false);
+
+        // 2ª fase (background): faturamento / custos — atualiza a lista sem bloquear o skeleton
         const vendasDict: Record<string, any> = {};
         const custosPorOS: Record<string, number> = {};
-        
         const osIds = data.map((d: any) => d.id);
-        // Buscar vendas para qualquer OS da lista (não só as com valor_faturado > 0 no registro —
-        // muitas OS entregues têm venda no caixa mas valor_faturado ainda 0 ou desatualizado no banco).
         const precisaBuscarVendas = data.some(
           (os: any) => !os.cliente_recusou && !os.aparelho_sem_conserto
         );
@@ -735,48 +854,65 @@ export default function ListaOrdensPage() {
         if (precisaBuscarVendas) {
           try {
             const fetchContasPagarBatched = async (ids: string[]) => {
-              const rows: any[] = [];
-              for (const chunk of chunkArray(ids, SUPABASE_IN_CHUNK_SIZE)) {
-                const { data, error } = await supabase
-                  .from('contas_pagar')
-                  .select('id, os_id, valor, status, tipo')
-                  .eq('empresa_id', empresaId)
-                  .in('os_id', chunk);
-                if (error) throw error;
-                if (data) rows.push(...data);
-              }
-              return rows;
+              const parts = await Promise.all(
+                chunkArray(ids, SUPABASE_IN_CHUNK_SIZE).map(async (chunk) => {
+                  const { data: contas, error } = await supabase
+                    .from('contas_pagar')
+                    .select('id, os_id, valor, status, tipo')
+                    .eq('empresa_id', empresaId)
+                    .in('os_id', chunk);
+                  if (error) throw error;
+                  return contas || [];
+                })
+              );
+              return parts.flat();
             };
 
-            // Buscar vendas e contas em paralelo
             const [vendasResult, contasResult] = await Promise.allSettled([
               supabase
                 .from('vendas')
                 .select('id, cliente_id, forma_pagamento, total, status, observacoes, data_venda')
                 .eq('empresa_id', empresaId)
                 .order('data_venda', { ascending: false })
-                .limit(5000),
+                .limit(2000),
               fetchContasPagarBatched(osIds),
             ]);
 
-            // Processar vendas — vincular por nº da OS nas observações (prioridade) para todas as linhas
             if (vendasResult.status === 'fulfilled' && vendasResult.value.data) {
               const todasVendas = vendasResult.value.data;
+              // Índice por nº OS nas observações — evita O(N×M) com findVendaParaOS
+              const vendasPorNumero = new Map<string, any[]>();
+              for (const v of todasVendas) {
+                const num = extrairNumeroOSDaObservacao(v.observacoes);
+                if (!num) continue;
+                const list = vendasPorNumero.get(num) || [];
+                list.push(v);
+                vendasPorNumero.set(num, list);
+              }
+
               data.forEach((os: any) => {
                 if (os.cliente_recusou || os.aparelho_sem_conserto) return;
-                const vendaOS = findVendaParaOS(os, todasVendas);
+                const num = String(os.numero_os ?? '').trim();
+                let vendaOS: any | undefined;
+                if (num && vendasPorNumero.has(num)) {
+                  const candidatos = vendasPorNumero.get(num)!;
+                  vendaOS =
+                    (os.cliente_id && candidatos.find((v: any) => v.cliente_id === os.cliente_id)) ||
+                    candidatos[0];
+                } else {
+                  vendaOS = findVendaParaOS(os, todasVendas);
+                }
                 if (vendaOS) {
                   vendasDict[os.id] = {
                     id: vendaOS.id,
                     forma_pagamento: vendaOS.forma_pagamento,
                     total: vendaOS.total,
-                    status: vendaOS.status
+                    status: vendaOS.status,
                   };
                 }
               });
             }
 
-            // Processar contas_pagar
             if (contasResult.status === 'fulfilled') {
               (contasResult.value || []).forEach((c: any) => {
                 const valor = Number(c.valor || 0);
@@ -784,137 +920,14 @@ export default function ListaOrdensPage() {
                 custosPorOS[c.os_id] += valor;
               });
             }
+
+            if (Object.keys(vendasDict).length > 0 || Object.keys(custosPorOS).length > 0) {
+              setOrdens(mapOrdens(data, vendasDict, custosPorOS));
+            }
           } catch (e) {
             console.warn('⚠️ Erro ao buscar vendas/contas:', e);
-            // Continuar sem dados
           }
         }
-
-        const mapped = data.map((item: any) => {
-          const valorFaturado = parseValorMonetarioBR(item.valor_faturado);
-          const vendaOS = vendasDict[item.id];
-          const aparelhoSemConserto = inferirAparelhoSemConsertoOs(item, !!vendaOS);
-
-          // manter datas como YYYY-MM-DD para evitar timezone
-          const entregaCalc = item.data_entrega
-            ? item.data_entrega
-            : estimarDataEntregaDeGarantia(item.vencimento_garantia);
-          const garantiaCalc = resolverVencimentoGarantiaOs({
-            ...item,
-            aparelho_sem_conserto: aparelhoSemConserto,
-          });
-          
-          // Buscar atendente_id separadamente se necessário
-          const atendenteId = item.atendente_id || null;
-          const responsavelInfo = resolveResponsavel(responsaveisLookup, atendenteId, item.atendente);
-          const responsavelNome = responsavelInfo?.nome || item.atendente || '';
-          const responsavelAvatar = responsavelInfo?.foto_url || null;
-          const responsavelId = atendenteId;
-          
-          // Previsão de valores (para qualquer OS, especialmente as não finalizadas)
-          const subtotal = ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1));
-          const valorPrevisto = subtotal - (item.desconto || 0);
-          const custoPrevisto = Number(custosPorOS[item.id] || 0);
-          const lucroPrevisto = valorPrevisto - custoPrevisto;
-
-          const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
-          
-          let tecnicoNome = 'Sem técnico';
-          if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
-            tecnicoNome = tecnicosDict[item.tecnico_id];
-          } else if (item.tecnico_id) {
-            tecnicoNome = 'Técnico não encontrado';
-          }
-
-          const statusTecnicoDb = normStatusVal(item.status_tecnico) || '';
-          const statusTecnico = aparelhoSemConserto ? 'SEM REPARO' : statusTecnicoDb;
-
-          return {
-          id: item.id,
-            numero: item.numero_os,
-            cliente: clienteInfo?.nome || 'Sem nome',
-            clienteTelefone: clienteInfo?.telefone ? formatPhoneNumber(clienteInfo.telefone) : '',
-            clienteEmail: clienteInfo?.email || '',
-            aparelho: item.modelo || item.marca || item.categoria || '',
-            aparelhoCategoria: item.categoria || '',
-            aparelhoMarca: item.marca || '',
-            aparelhoImagemUrl: item.aparelho_imagem_url || null,
-            servico: item.servico || '',
-            statusOS: normStatusVal(item.status) || '',
-            statusTecnico,
-            entrada: item.created_at || '',
-            tecnico: tecnicoNome,
-            atendente: item.atendente || '',
-            entrega: entregaCalc,
-            prazoEntrega: item.prazo_entrega || '',
-            garantia: garantiaCalc,
-          valorPeca: item.valor_peca || 0,
-          valorServico: item.valor_servico || 0,
-          desconto: item.desconto || 0,
-            valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
-            valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
-            valorFaturado: valorFaturado,
-            tipo: item.tipo || 'Nova',
-            clienteRecusou: item.cliente_recusou || false, // Campo para marcar se cliente recusou
-            aparelhoSemConserto,
-            // Faturado: OS fechada + venda encontrada + (valor na OS ou total na venda > 0)
-            foiFaturada:
-              !item.cliente_recusou &&
-              !aparelhoSemConserto &&
-              statusOsConsideradaFechada(item) &&
-              !!vendaOS &&
-              (valorFaturado > 0 || parseValorMonetarioBR(vendaOS?.total) > 0),
-            faturamentoSemVendaVinculada:
-              !item.cliente_recusou &&
-              !aparelhoSemConserto &&
-              statusOsConsideradaFechada(item) &&
-              !vendaOS,
-            formaPagamento: getFormaPagamento(item, vendaOS),
-            observacao: item.observacao || null,
-            problema_relatado: item.problema_relatado || null,
-            valorPrevisto,
-            custoPrevisto,
-            lucroPrevisto,
-            responsavelId,
-            responsavelNome,
-            responsavelAvatar,
-          };
-        });
-
-        setOrdens(mapped);
-
-        // Calcular métricas dos cards
-        const hoje = new Date();
-        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-        const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-        const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-
-        const totalOS = mapped.length;
-        const totalMes = mapped.filter((o: any) => new Date(o.entrada) >= inicioMes).length;
-        const retornosMes = mapped.filter((o: any) => o.tipo === 'Retorno' && new Date(o.entrada) >= inicioMes).length;
-        const percentualRetornos = totalOS > 0 ? Math.round((retornosMes / totalOS) * 100) : 0;
-
-        // Calcular crescimento
-        const ordensSemana = mapped.filter((o: any) => new Date(o.entrada) >= inicioSemana).length;
-        const ordensSemanaAnterior = mapped.filter((o: any) => {
-          const data = new Date(o.entrada);
-          const semanaAnterior = new Date(inicioSemana);
-          semanaAnterior.setDate(semanaAnterior.getDate() - 7);
-          return data >= semanaAnterior && data < inicioSemana;
-        }).length;
-
-        const ordensMesAnterior = mapped.filter((o: any) => {
-          const data = new Date(o.entrada);
-          return data >= mesAnterior && data < inicioMes;
-        }).length;
-    
-    const calcPercent = (atual: number, anterior: number) => {
-      if (anterior === 0) return atual > 0 ? 100 : 0;
-      return Math.round(((atual - anterior) / anterior) * 100);
-    };
-
-        setTotalOS(totalOS);
-        setPercentualRetornos(percentualRetornos);
       } else {
         // Se não houver dados, limpar ordens e métricas
         setOrdens([]);
@@ -1041,7 +1054,8 @@ export default function ListaOrdensPage() {
     }
 
     let isMounted = true;
-    
+    setLoadingOrdens(true);
+
     const loadData = async () => {
       try {
         await Promise.all([
@@ -1056,12 +1070,11 @@ export default function ListaOrdensPage() {
       }
     };
 
-    // Delay pequeno para evitar chamadas múltiplas
-    const timeoutId = setTimeout(loadData, 200);
-    
+    // Carrega imediatamente — delay artificial só atrasa a 1ª pintura
+    loadData();
+
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
   }, [empresaId, addToast]); // Dependências mínimas
 

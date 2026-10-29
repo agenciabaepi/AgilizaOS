@@ -100,9 +100,31 @@ export async function GET(req: NextRequest) {
       return q;
     };
 
-    let query = buildQuery(admin, LIST_SELECT);
+    const fetchAll = async (selectFields: string) => {
+      // Com limit explícito (busca/autocomplete), uma query basta
+      if (limit > 0) {
+        return buildQuery(admin, selectFields);
+      }
 
-    let { data, error } = await query;
+      // Sem limit: busca em páginas para não cortar no max_rows do PostgREST (~1000)
+      const PAGE = 1000;
+      const rows: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data: page, error: pageError } = await buildQuery(admin, selectFields).range(
+          from,
+          from + PAGE - 1
+        );
+        if (pageError) return { data: rows.length ? rows : null, error: pageError };
+        const items = (page || []) as any[];
+        rows.push(...items);
+        if (items.length < PAGE) break;
+        from += PAGE;
+      }
+      return { data: rows, error: null as null };
+    };
+
+    let { data, error } = await fetchAll(LIST_SELECT);
 
     if (error) {
       const isJoinError =
@@ -110,7 +132,7 @@ export async function GET(req: NextRequest) {
         (error as { code?: string }).code === 'PGRST204';
       if (isJoinError) {
         const fallbackSelect = LIST_SELECT.replace(',grupos_produtos(nome)', '');
-        const fallback = await buildQuery(admin, fallbackSelect);
+        const fallback = await fetchAll(fallbackSelect);
         data = fallback.data;
         error = fallback.error;
       }

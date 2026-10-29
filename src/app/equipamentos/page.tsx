@@ -552,15 +552,71 @@ export default function ProdutosServicosPage() {
 
                 <div className="min-w-0">
                 {carregando ? (
-                  <div className="py-10 text-center text-sm text-gray-500">Carregando produtos...</div>
+                  <div className="py-10 text-center text-sm text-gray-500 dark:text-zinc-400">Carregando produtos...</div>
+                ) : filtered.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-gray-500 dark:text-zinc-400">
+                    Nenhum {abaSelecionada === 'produto' ? 'produto' : 'serviço'} encontrado.
+                  </div>
                 ) : (
-                <DataTable
-  columns={columns}
-  data={paginated}
-  rowKey="id"
-  onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
-  onDelete={row => excluir(row.id)}
-/>
+                  <>
+                    <DataTable
+                      columns={columns}
+                      data={paginated}
+                      rowKey="id"
+                      onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
+                      onDelete={row => excluir(row.id)}
+                    />
+
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-zinc-400">
+                        <span>
+                          Mostrando {filtered.length === 0 ? 0 : startIndex + 1}
+                          –{Math.min(startIndex + pageSize, filtered.length)} de {filtered.length}
+                        </span>
+                        <label className="inline-flex items-center gap-1.5 ml-2">
+                          <span className="text-xs">Por página</span>
+                          <select
+                            value={pageSize}
+                            onChange={(e) => {
+                              setPageSize(Number(e.target.value));
+                              setPage(1);
+                            }}
+                            className="border border-gray-300 dark:border-zinc-600 rounded-md px-2 py-1 text-sm bg-white dark:bg-zinc-900 dark:text-zinc-100"
+                          >
+                            {[10, 25, 50, 100].map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          >
+                            Anterior
+                          </Button>
+                          <span className="text-sm text-gray-600 dark:text-zinc-400 px-1">
+                            Página {page} de {totalPages}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={page >= totalPages}
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          >
+                            Próxima
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
                 </div>
               </section>
