@@ -714,7 +714,7 @@ export default function Home() {
             <p className={`mt-4 text-base md:text-lg font-light max-w-xl mx-auto ${
               isDarkMode ? 'text-white/50' : 'text-gray-500'
             }`}>
-              Telas reais do Consert — passe o mouse para pausar
+              Telas reais do Consert — arraste, use as setas ou veja mais detalhes
             </p>
           </div>
         </div>

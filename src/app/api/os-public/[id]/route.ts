@@ -71,16 +71,19 @@ export async function GET(
       return NextResponse.json({ notFound: true }, { status: 404 });
     }
 
-    // Buscar link_publico_ativo da empresa
+    // Buscar link_publico_ativo e nome da empresa
     let linkPublicoAtivo = true;
+    let empresaNome = '';
     if (os.empresa_id) {
       try {
         const { data: empresa } = await supabase
           .from('empresas')
-          .select('link_publico_ativo')
+          .select('nome, link_publico_ativo')
           .eq('id', os.empresa_id)
           .maybeSingle();
-        linkPublicoAtivo = (empresa as { link_publico_ativo?: boolean } | null)?.link_publico_ativo ?? true;
+        const emp = empresa as { nome?: string; link_publico_ativo?: boolean } | null;
+        linkPublicoAtivo = emp?.link_publico_ativo ?? true;
+        empresaNome = emp?.nome ?? '';
       } catch {
         linkPublicoAtivo = true;
       }
@@ -91,6 +94,7 @@ export async function GET(
       osId: os.id,
       numeroOs: os.numero_os,
       empresaId: os.empresa_id,
+      empresaNome,
       linkPublicoAtivo: !!linkPublicoAtivo,
       desativado: !linkPublicoAtivo,
     });

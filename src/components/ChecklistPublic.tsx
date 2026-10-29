@@ -87,12 +87,12 @@ export default function ChecklistPublic({
     // Se o aparelho não liga, mostrar mensagem especial
     if (checklist.aparelhoNaoLiga) {
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+        <div className="bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-700 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <div className="w-2 h-2 mt-1.5 bg-red-500 dark:bg-red-400 rounded-full shrink-0" />
             <div>
-              <h4 className="text-xs font-medium text-red-800">Aparelho não liga</h4>
-              <p className="text-xs text-red-700 mt-1">
+              <h4 className="text-xs font-semibold text-red-800 dark:text-red-200">Aparelho não liga</h4>
+              <p className="text-xs text-red-700 dark:text-red-100/90 mt-1 leading-relaxed">
                 Como o aparelho não liga, não é possível realizar o checklist para verificar quais funcionalidades estão operacionais.
               </p>
             </div>
@@ -105,11 +105,11 @@ export default function ChecklistPublic({
       return (
         <div className="space-y-3">
           <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4 mb-4" />
             <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4" />
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3" />
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2" />
             </div>
           </div>
         </div>
@@ -118,8 +118,8 @@ export default function ChecklistPublic({
 
     if (itens.length === 0) {
       return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-700 text-sm">
+        <div className="bg-yellow-50 dark:bg-yellow-950/50 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-100 text-sm">
             {equipamentoCategoria 
               ? `Nenhum item de checklist configurado para a categoria "${equipamentoCategoria}".`
               : `Nenhum item de checklist configurado para esta empresa.`
@@ -136,11 +136,11 @@ export default function ChecklistPublic({
       <div className="space-y-2">
         {itensAprovados.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-green-700 mb-1 text-left">Funciona</h4>
+            <h4 className="text-xs font-medium text-green-700 dark:text-green-300 mb-1 text-left">Funciona</h4>
             <div className="grid grid-cols-2 gap-1">
               {itensAprovados.map(item => (
-                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700 dark:text-zinc-200">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
                   <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
@@ -150,11 +150,11 @@ export default function ChecklistPublic({
 
         {itensReprovados.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-red-600 mb-1 text-left">Não funciona</h4>
+            <h4 className="text-xs font-medium text-red-600 dark:text-red-300 mb-1 text-left">Não funciona</h4>
             <div className="grid grid-cols-2 gap-1">
               {itensReprovados.map(item => (
-                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700 dark:text-zinc-200">
+                  <div className="w-2 h-2 bg-red-500 rounded-full" />
                   <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
@@ -164,11 +164,11 @@ export default function ChecklistPublic({
 
         {itensSemResposta.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-600 mb-1 text-left">Não informado</h4>
+            <h4 className="text-xs font-medium text-gray-600 dark:text-zinc-300 mb-1 text-left">Não informado</h4>
             <div className="grid grid-cols-2 gap-1">
               {itensSemResposta.map((item) => (
-                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-500">
-                  <div className="w-2 h-2 bg-gray-300 rounded-full" />
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-500 dark:text-zinc-400">
+                  <div className="w-2 h-2 bg-gray-300 dark:bg-zinc-500 rounded-full" />
                   <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
@@ -177,8 +177,8 @@ export default function ChecklistPublic({
         )}
 
         {itensAprovados.length === 0 && itensReprovados.length === 0 && itensSemResposta.length === 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
-            <p className="text-gray-600 text-xs">
+          <div className="bg-gray-50 dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-600 rounded-lg p-2">
+            <p className="text-gray-600 dark:text-zinc-300 text-xs">
               Nenhum teste foi realizado no checklist de entrada.
             </p>
           </div>
@@ -187,8 +187,8 @@ export default function ChecklistPublic({
     );
   } catch (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-600 text-sm">Erro ao carregar checklist</p>
+      <div className="bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-700 rounded-lg p-4">
+        <p className="text-red-700 dark:text-red-200 text-sm">Erro ao carregar checklist</p>
       </div>
     );
   }

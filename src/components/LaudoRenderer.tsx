@@ -14,12 +14,29 @@ export default function LaudoRenderer({ content, className = '' }: LaudoRenderer
 
   // Função simples para sanitizar HTML básico (remove scripts, iframes, etc)
   const sanitizeHTML = (html: string): string => {
-    // Remove tags perigosas
+    // Remove tags perigosas e cores inline (quebram contraste no dark mode)
     let sanitized = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-      .replace(/on\w+="[^"]*"/gi, '') // Remove event handlers
-      .replace(/on\w+='[^']*'/gi, ''); // Remove event handlers com aspas simples
+      .replace(/on\w+="[^"]*"/gi, '')
+      .replace(/on\w+='[^']*'/gi, '')
+      .replace(/\scolor\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/style\s*=\s*"([^"]*)"/gi, (_m, styles: string) => {
+        const cleaned = styles
+          .replace(/(?:^|;)\s*color\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*background(?:-color)?\s*:[^;]*/gi, '')
+          .replace(/^;+|;+$/g, '')
+          .trim();
+        return cleaned ? `style="${cleaned}"` : '';
+      })
+      .replace(/style\s*=\s*'([^']*)'/gi, (_m, styles: string) => {
+        const cleaned = styles
+          .replace(/(?:^|;)\s*color\s*:[^;]*/gi, '')
+          .replace(/(?:^|;)\s*background(?:-color)?\s*:[^;]*/gi, '')
+          .replace(/^;+|;+$/g, '')
+          .trim();
+        return cleaned ? `style='${cleaned}'` : '';
+      });
 
     return sanitized;
   };
@@ -27,13 +44,9 @@ export default function LaudoRenderer({ content, className = '' }: LaudoRenderer
   const sanitizedContent = sanitizeHTML(content);
 
   return (
-    <div 
-      className={`prose prose-sm max-w-none ${className}`}
+    <div
+      className={`prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-zinc-100 leading-relaxed ${className}`}
       dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-      style={{
-        lineHeight: '1.6',
-        color: '#374151'
-      }}
     />
   );
 }

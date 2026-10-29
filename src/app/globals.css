@@ -417,27 +417,15 @@ html.dark {
   animation-play-state: paused;
 }
 
-@keyframes system-showcase-marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.system-showcase-marquee {
+.system-showcase-scroller {
   mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.system-showcase-track {
-  animation: system-showcase-marquee 75s linear infinite;
-  will-change: transform;
-}
-
-.system-showcase-marquee:hover .system-showcase-track {
-  animation-play-state: paused;
+.system-showcase-scroller::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -454,17 +442,10 @@ html.dark {
     overflow: visible;
   }
 
-  .system-showcase-track {
-    animation: none;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: center;
-  }
-
-  .system-showcase-marquee {
+  .system-showcase-scroller {
     mask-image: none;
     -webkit-mask-image: none;
-    overflow: visible;
+    scroll-behavior: auto;
   }
 }
 
