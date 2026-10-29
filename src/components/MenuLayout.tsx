@@ -47,6 +47,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getDashboardPathForNivel, isUserHomePath } from '@/lib/dashboardRouting';
 import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
+import OsChatMessenger from '@/components/os-chat/OsChatMessenger';
 
 type MenuTheme = { accentColor: string; inverted: boolean };
 const MenuAccentContext = createContext<MenuTheme>({ accentColor: MENU_ACCENT_DEFAULT, inverted: false });
@@ -940,7 +941,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
       
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
-      
+
+      {/* Chat global estilo Messenger — todas as telas com MenuLayout */}
+      {!isLoggingOut && <OsChatMessenger />}
       
     </div>
     </MenuAccentContext.Provider>

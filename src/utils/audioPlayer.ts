@@ -24,6 +24,25 @@ export class AudioPlayer {
     this.setupUserInteractionDetection();
   }
 
+  /** Destrava o elemento de áudio (autoplay policy) com play mudo. */
+  async unlockSound(soundUrl: string): Promise<void> {
+    try {
+      const audio = this.preloadSound(soundUrl);
+      const prevVolume = audio.volume;
+      audio.muted = true;
+      audio.volume = 0;
+      audio.currentTime = 0;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = prevVolume || DEFAULT_VOLUME;
+      this.userInteracted = true;
+    } catch {
+      /* ainda bloqueado */
+    }
+  }
+
   static getInstance(): AudioPlayer {
     if (!AudioPlayer.instance) {
       AudioPlayer.instance = new AudioPlayer();
@@ -54,6 +73,8 @@ export class AudioPlayer {
     if (!this.permissionRequested) {
       this.permissionRequested = true;
       await this.requestAudioPermission();
+      await this.unlockSound(NOTIFICATION_SOUND_PATH);
+      await this.unlockSound(ORCAMENTO_SOUND_PATH);
     }
 
     if (this.pendingSoundUrl) {
@@ -77,6 +98,37 @@ export class AudioPlayer {
 
   warmupOrcamentoAudio(): void {
     this.preloadSound(ORCAMENTO_SOUND_PATH);
+  }
+
+  warmupNotificationAudio(): void {
+    this.preloadSound(NOTIFICATION_SOUND_PATH);
+    void this.initialize();
+  }
+
+  /** Beep curto via Web Audio (fallback se o mp3 falhar após unlock). */
+  async playBeepFallback(): Promise<boolean> {
+    try {
+      await this.requestAudioPermission();
+      if (!this.audioContext) return false;
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      const ctx = this.audioContext;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.08;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      osc.start(now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.stop(now + 0.2);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async initialize(): Promise<boolean> {
@@ -146,7 +198,10 @@ export class AudioPlayer {
   }
 
   async playNotificationSound(soundUrl: string = NOTIFICATION_SOUND_PATH): Promise<boolean> {
-    return this.playSound(soundUrl);
+    const ok = await this.playSound(soundUrl, 5);
+    if (ok) return true;
+    // Fallback imediato (não espera próximo clique)
+    return this.playBeepFallback();
   }
 
   async playOrcamentoSound(): Promise<boolean> {
@@ -297,6 +352,18 @@ export const requestAudioPermission = async (): Promise<boolean> => {
 
 export const warmupOrcamentoAudio = (): void => {
   AudioPlayer.getInstance().warmupOrcamentoAudio();
+};
+
+export const warmupNotificationAudio = (): void => {
+  AudioPlayer.getInstance().warmupNotificationAudio();
+};
+
+/** Chamar em clique do usuário (ex.: bolha do chat) para liberar autoplay. */
+export const unlockNotificationAudio = async (): Promise<void> => {
+  const player = AudioPlayer.getInstance();
+  player.warmupNotificationAudio();
+  await player.requestAudioPermission();
+  await player.unlockSound(NOTIFICATION_SOUND_PATH);
 };
 
 export const createAudioActivationButton = (): HTMLElement | null => {

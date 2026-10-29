@@ -46,7 +46,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verificar tamanho (10MB)
+      // Verificar tamanho (10MB) e rejeitar vazio (RN/Expo web às vezes manda 0 bytes)
+      if (!file.size || file.size < 200) {
+        return NextResponse.json(
+          { error: 'Imagem inválida ou vazia. Tente outra foto.' },
+          { status: 400 }
+        );
+      }
       if (file.size > 10 * 1024 * 1024) {
         return NextResponse.json(
           { error: 'Arquivo muito grande. Máximo 10MB por arquivo' },
