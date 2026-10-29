@@ -625,11 +625,11 @@ REGRA DE BLOQUEIO:
 - Avalie a ÚLTIMA mensagem do usuário
 
 FERRAMENTAS (use quando ajudar):
-- pesquisar_internet: use para informação atual, problemas de update, boletins, defeitos conhecidos de modelo, procedimentos/peças quando você não tiver certeza. Prefira fontes do fabricante, iFixit, fóruns técnicos (ex.: Reddit r/AskAMechanic / comunidades de reparo, Badcaps, Apple Support, XDA). Monte a consulta com marca + modelo + sintoma.
-- dados_os: use para ler dados de uma O.S. da empresa (cliente, aparelho, relato, laudo, status)
-- casos_similares: use para buscar O.S. da empresa com marca/modelo/sintoma parecidos e reaproveitar o que já foi diagnosticado no histórico interno
-- Para dúvida básica/óbvia, pode responder direto sem ferramenta
-- Se pesquisou, sintetize em português técnico objetivo; cite 1–3 fontes/URLs quando a ferramenta trouxer links. Não invente links.
+- pesquisar_internet: OBRIGATÓRIA para qualquer pergunta sobre atualização/versão de sistema (iOS, Android, Windows, firmware), bugs recentes, problemas conhecidos “da atualização”, datas, ou informação que muda com o tempo. Também use quando não tiver certeza sobre modelo/peça/procedimento.
+- Prefira fontes do fabricante, Apple/Google Support, iFixit e fóruns técnicos. Monte a consulta com marca + modelo + sintoma + ano atual.
+- dados_os / casos_similares: use para dados internos da empresa
+- NUNCA invente versão de iOS/Android nem cite release antiga (ex.: iOS 17 de 2023) como se fosse a atual — se não pesquisou, diga que vai precisar pesquisar ou chame a ferramenta
+- Se pesquisou, sintetize em português técnico objetivo; cite 1–3 fontes/URLs. Não invente links.
 
 REGRAS GERAIS (dentro do escopo):
 - Português brasileiro; objetivo e conversacional
@@ -737,13 +737,40 @@ function limparUrlFonte(url: string): string {
   }
 }
 
+function precisaPesquisaAtual(texto: string): boolean {
+  const t = texto.toLowerCase();
+  return (
+    /atualiza|update|vers[aã]o|ios\s*\d|ipados|android\s*\d|watchos|firmware|patch|release|changelog/.test(
+      t
+    ) ||
+    /bug conhecido|problema conhecido|est[aá] dando|reinici|superaquec|boot\s*loop|depois (da|do) update/.test(
+      t
+    ) ||
+    /202[4-9]|hoje|recente|nova atualiza|mais recente/.test(t)
+  );
+}
+
+function extrairTextoUltimaMsgUsuario(messages: LaudoChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === 'user' && typeof m.content === 'string' && m.content.trim()) {
+      return m.content
+        .replace(/\[NÃO gere laudo[\s\S]*$/i, '')
+        .replace(/\[O técnico pediu laudo[\s\S]*$/i, '')
+        .replace(/\[Chame o técnico[\s\S]*$/i, '')
+        .trim();
+    }
+  }
+  return '';
+}
+
 async function pesquisarInternetLaudo(client: OpenAI, consulta: string): Promise<string> {
+  const ano = new Date().getFullYear();
   const resposta = await client.responses.create({
     model: process.env.OPENAI_PESQUISA_MODEL?.trim() || 'gpt-4o-mini',
     tools: [{ type: 'web_search' as const }],
-    instructions:
-      'Você pesquisa para um técnico de assistência técnica de eletrônicos no Brasil. Responda em português, direto e técnico, em no máximo 14 linhas: causas/problemas conhecidos em ordem de probabilidade, testes antes de trocar peça, peça/código quando houver. Prefira fabricante, Apple/Google Support, iFixit e fóruns técnicos. Não invente; se não achar, diga. Inclua links quando disponíveis.',
-    input: consulta,
+    instructions: `Hoje é ${new Date().toISOString().slice(0, 10)} (ano ${ano}). Você pesquisa para um técnico de assistência técnica de eletrônicos no Brasil. Use APENAS informação atual da web (prefira ${ano} e ${ano - 1}). Responda em português, direto e técnico, em no máximo 14 linhas: versão/atualização mais recente relevante, problemas conhecidos em ordem de probabilidade, testes antes de trocar peça, peça/código quando houver. Prefira fabricante, Apple/Google Support, iFixit e fóruns técnicos. NÃO use conhecimento antigo de treinamento se contradizer a busca. Não invente; se não achar, diga. Inclua links quando disponíveis.`,
+    input: `${consulta}\n\nFoque em informação atual de ${ano}/${ano - 1}. Ignore releases antigas (ex.: 2023) salvo se forem o único dado encontrado — nesse caso deixe explícito que é antigo.`,
     max_output_tokens: 1400,
   });
 
@@ -954,24 +981,93 @@ function toLaudoApiMessage(
   };
 }
 
+function unwrapLaudoJsonPayload(raw: string): {
+  message?: string;
+  laudo?: string | null;
+  pecas?: unknown;
+} | null {
+  let text = raw.trim();
+  if (!text) return null;
+
+  // Remove cercas markdown ```json ... ```
+  const fence = text.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
+  if (fence?.[1]) text = fence[1].trim();
+
+  const tryParse = (s: string) => {
+    try {
+      const parsed = JSON.parse(s) as {
+        message?: unknown;
+        laudo?: unknown;
+        pecas?: unknown;
+      };
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  let parsed = tryParse(text);
+  if (!parsed) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      parsed = tryParse(text.slice(start, end + 1));
+    }
+  }
+  if (!parsed) return null;
+
+  // Se "message" veio como JSON stringificado de novo, desembrulha
+  let message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+  if (message.startsWith('{') && /"message"\s*:/.test(message)) {
+    const nested = tryParse(message);
+    if (nested && typeof nested.message === 'string') {
+      message = nested.message.trim();
+      if (parsed.laudo == null && nested.laudo != null) parsed.laudo = nested.laudo;
+      if (parsed.pecas == null && nested.pecas != null) parsed.pecas = nested.pecas;
+    }
+  }
+
+  return {
+    message,
+    laudo: typeof parsed.laudo === 'string' ? parsed.laudo : parsed.laudo === null ? null : undefined,
+    pecas: parsed.pecas,
+  };
+}
+
 function parseLaudoChatReply(raw: string): LaudoChatReply | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  try {
-    const parsed = JSON.parse(trimmed) as {
-      message?: string;
-      laudo?: string | null;
-      pecas?: unknown;
-    };
-    const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+
+  const unwrapped = unwrapLaudoJsonPayload(trimmed);
+  if (unwrapped) {
+    const message = (unwrapped.message || '').trim();
     const laudo =
-      typeof parsed.laudo === 'string' && parsed.laudo.trim() ? parsed.laudo.trim() : null;
-    const pecas = parsePecasSugeridas(parsed.pecas);
+      typeof unwrapped.laudo === 'string' && unwrapped.laudo.trim()
+        ? unwrapped.laudo.trim()
+        : null;
+    const pecas = parsePecasSugeridas(unwrapped.pecas);
     if (!message && !laudo && pecas.length === 0) return null;
     return { message, laudo, ...(pecas.length > 0 ? { pecas } : {}) };
-  } catch {
+  }
+
+  // Texto puro (sem JSON): usa como message
+  if (!trimmed.startsWith('{')) {
     return { message: trimmed, laudo: null };
   }
+
+  // JSON quebrado: tenta extrair "message":"..." com regex
+  const msgMatch = trimmed.match(/"message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (msgMatch?.[1]) {
+    try {
+      const message = JSON.parse(`"${msgMatch[1]}"`) as string;
+      if (message.trim()) return { message: message.trim(), laudo: null };
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1047,6 +1143,9 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
       ? LAUDO_CHAT_TOOLS
       : LAUDO_CHAT_TOOLS.filter((t) => t.type === 'function' && t.function.name === 'pesquisar_internet');
 
+    const ultimaPergunta = extrairTextoUltimaMsgUsuario(recent);
+    const forcarPesquisa = precisaPesquisaAtual(ultimaPergunta);
+
     const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemContent },
       ...recent.map((m, i) => toLaudoApiMessage(m, i === lastUserImageIdx ? 'high' : 'low')),
@@ -1059,7 +1158,7 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
         const consulta = String(args.consulta ?? '').trim();
         if (!consulta) return 'Consulta vazia.';
         if (pesquisas >= LAUDO_CHAT_MAX_SEARCHES) {
-          return 'Limite de pesquisas desta mensagem atingido; responda com o que já tem.';
+          return 'Limite de pesquisas desta mensagem atingido; responda com o que já tem da pesquisa anterior.';
         }
         pesquisas += 1;
         try {
@@ -1069,7 +1168,7 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
             '[laudo-chat] pesquisar_internet:',
             err instanceof Error ? err.message : err
           );
-          return 'Falha ao pesquisar na internet. Responda com o conhecimento disponível e avise a limitação.';
+          return 'Falha ao pesquisar na internet. Avise o técnico que a busca falhou e NÃO invente versões/datas.';
         }
       }
 
@@ -1093,18 +1192,52 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
       return `Ferramenta desconhecida: ${nome}`;
     };
 
+    // Perguntas de update/versão: pesquisa já, antes do modelo “chutar” dado antigo
+    if (forcarPesquisa) {
+      const consultaSeed =
+        ultimaPergunta
+          .replace(/\s+/g, ' ')
+          .slice(0, 280) || 'problemas conhecidos da atualização mais recente de iPhone/iOS';
+      try {
+        const resultado = await executarTool('pesquisar_internet', {
+          consulta: `${consultaSeed} problemas conhecidos versão mais recente ${new Date().getFullYear()}`,
+        });
+        apiMessages.push({
+          role: 'system',
+          content: `RESULTADO OBRIGATÓRIO DA PESQUISA WEB (use como fonte principal; não use releases antigas se houver dado atual):\n${resultado.slice(0, 7000)}`,
+        });
+      } catch (err) {
+        console.error('[laudo-chat] pesquisa prévia:', err instanceof Error ? err.message : err);
+      }
+    }
+
     let rawFinal: string | null = null;
 
     for (let rodada = 0; rodada <= LAUDO_CHAT_MAX_TOOL_ROUNDS; rodada++) {
       const isLast = rodada === LAUDO_CHAT_MAX_TOOL_ROUNDS;
+      const forceSearchTool =
+        !isLast && forcarPesquisa && pesquisas === 0 && rodada === 0
+          ? ({
+              type: 'function' as const,
+              function: { name: 'pesquisar_internet' },
+            } as const)
+          : null;
+
       const completion = await client.chat.completions.create({
         model,
         messages: apiMessages,
         ...(isLast
           ? { response_format: { type: 'json_object' as const } }
-          : { tools, tool_choice: 'auto' as const }),
+          : {
+              tools,
+              tool_choice: forceSearchTool
+                ? forceSearchTool
+                : forcarPesquisa && pesquisas === 0
+                  ? 'required'
+                  : 'auto',
+            }),
         max_tokens: hasPanicfull ? 3500 : 2200,
-        temperature: 0.35,
+        temperature: 0.3,
       });
 
       const msg = completion.choices[0]?.message;
@@ -1138,7 +1271,7 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
       }
     }
 
-    if (!rawFinal) {
+    if (!rawFinal || rawFinal.startsWith('{') && !unwrapLaudoJsonPayload(rawFinal)) {
       const formatCompletion = await client.chat.completions.create({
         model,
         messages: [
@@ -1146,20 +1279,20 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
           {
             role: 'user',
             content:
-              'Com base no que já foi obtido (incluindo resultados de ferramentas), retorne AGORA apenas o JSON final com message, laudo e pecas.',
+              'Com base no que já foi obtido (incluindo RESULTADO da pesquisa web), retorne AGORA apenas o JSON final {"message":"...","laudo":null,"pecas":[]}. Em "message" coloque só o texto conversacional em português, SEM JSON aninhado, SEM markdown. Use a pesquisa atual; não cite iOS/Android antigos como se fossem a atualização mais recente.',
           },
         ],
         response_format: { type: 'json_object' },
         max_tokens: hasPanicfull ? 3500 : 2200,
-        temperature: 0.3,
+        temperature: 0.25,
       });
-      rawFinal = formatCompletion.choices[0]?.message?.content?.trim() || null;
+      rawFinal = formatCompletion.choices[0]?.message?.content?.trim() || rawFinal;
     }
 
     if (!rawFinal) return null;
 
     const parsed = parseLaudoChatReply(rawFinal);
-    if (parsed) return parsed;
+    if (parsed?.message) return parsed;
 
     // Conteúdo não-JSON após tools: força formatação
     const wrap = await client.chat.completions.create({
@@ -1168,16 +1301,29 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
         {
           role: 'system',
           content:
-            'Converta a resposta do assistente técnico no JSON {"message":"...","laudo":null,"pecas":[]}. Mantenha o texto útil em message. Se não houver laudo pedido, laudo=null. pecas=[] se não houver.',
+            'Converta no JSON {"message":"...","laudo":null,"pecas":[]}. Em message coloque APENAS o texto humano (sem chaves JSON, sem markdown). Se a entrada já for JSON com campo message, copie só o valor de message.',
         },
         { role: 'user', content: rawFinal.slice(0, 6000) },
       ],
       response_format: { type: 'json_object' },
       max_tokens: 2000,
-      temperature: 0.2,
+      temperature: 0.1,
     });
     const wrapped = wrap.choices[0]?.message?.content?.trim();
-    return wrapped ? parseLaudoChatReply(wrapped) : { message: rawFinal, laudo: null };
+    const wrappedParsed = wrapped ? parseLaudoChatReply(wrapped) : null;
+    if (wrappedParsed?.message) return wrappedParsed;
+
+    // Último recurso: nunca devolver JSON cru ao app
+    const fallbackMsg =
+      unwrapLaudoJsonPayload(rawFinal)?.message?.trim() ||
+      rawFinal.replace(/^[\s\S]*?"message"\s*:\s*"/, '').replace(/"\s*,\s*"laudo"[\s\S]*$/, '').trim();
+    return {
+      message:
+        fallbackMsg && !fallbackMsg.startsWith('{')
+          ? fallbackMsg
+          : 'Não consegui formatar a resposta. Tente perguntar de novo.',
+      laudo: null,
+    };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('❌ Erro no chat de laudo:', msg);
