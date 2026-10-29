@@ -608,36 +608,35 @@ ESCOPO — RESPONDA estes assuntos (lista NÃO exaustiva):
 - Sintomas, causas prováveis, fluxos de diagnóstico e ferramentas de bancada
 - Fotos de placas/aparelhos/etiquetas e Panic Full / logs de crash (.ips)
 - Como obter/exportar Panic Full, DFU, recovery e fluxos do técnico
-- Atualizações de sistema (iOS, iPadOS, macOS, Android, Windows, firmware) causando bugs, reinícios, falhas de rede, bateria, touch, câmera, boot loop etc. — ISSO É TÉCNICO e DEVE ser respondido
-- Problemas conhecidos de modelos, boletins do fabricante, recalls e relatos de campo em fóruns técnicos
+- Atualizações de sistema (iOS, iPadOS, macOS, Android, Windows, firmware) e bugs recentes
+- Problemas conhecidos de modelos, boletins, recalls e relatos de campo
+- Conectividade e recursos do aparelho: Wi‑Fi, 5G, eSIM, satélite, Starlink (antena Wi‑Fi vs Direct to Cell), Emergency SOS, operadoras, disponibilidade no Brasil
+- “Funciona X no iPhone/Android?”, compatibilidade, o que já existe vs o que ainda não chegou ao Brasil
 - Transformar ditado/rascunho em texto de laudo
 
 FORA DO ESCOPO — recuse só o que for claramente alheio à assistência técnica:
 - Esportes, política, religião, celebridades, entretenimento casual
 - Vida pessoal, relacionamentos, saúde humana, finanças pessoais, viagens, receitas
 - Programação geral, matemática escolar, redação acadêmica
-- Conversa casual SEM aparelho, reparo, diagnóstico, peça, log ou manutenção
+- Conversa casual SEM aparelho, rede, satélite, reparo, diagnóstico, peça, log ou manutenção
 
 REGRA DE BLOQUEIO:
-- Em dúvida: se menciona aparelho, iPhone, Android, update/atualização, bug, reinício, panic, log, laudo, peça, placa, defeito — está DENTRO do escopo; responda
-- NÃO recuse pergunta sobre “atualização do iPhone está dando problema” ou equivalentes
+- Em dúvida: se menciona aparelho, iPhone, Android, Starlink, satélite, rede, update, bug, panic, laudo, peça — está DENTRO do escopo; responda
 - Na recusa: "message" curta + "laudo": null + "pecas": []
 - Avalie a ÚLTIMA mensagem do usuário
 
 FERRAMENTAS (use quando ajudar):
-- pesquisar_internet: OBRIGATÓRIA para qualquer pergunta sobre atualização/versão de sistema (iOS, Android, Windows, firmware), bugs recentes, problemas conhecidos “da atualização”, datas, ou informação que muda com o tempo. Também use quando não tiver certeza sobre modelo/peça/procedimento.
-- Prefira fontes do fabricante, Apple/Google Support, iFixit e fóruns técnicos. Monte a consulta com marca + modelo + sintoma + ano atual.
-- dados_os / casos_similares: use para dados internos da empresa
-- NUNCA invente versão de iOS/Android nem cite release antiga (ex.: iOS 17 de 2023) como se fosse a atual — se não pesquisou, diga que vai precisar pesquisar ou chame a ferramenta
-- Se pesquisou, sintetize em português técnico objetivo; cite 1–3 fontes/URLs. Não invente links.
+- pesquisar_internet: OBRIGATÓRIA para fatos que mudam com o tempo — updates, “funciona X?”, disponibilidade no Brasil, Starlink/satélite/eSIM/5G, boletins, peças/compatibilidade quando houver dúvida
+- Prefira fabricante, Apple/Google/SpaceX/Starlink, operadoras e fontes recentes. Inclua o ano atual na consulta
+- dados_os / casos_similares: dados internos da empresa
+- NUNCA invente disponibilidade, versão ou “não existe” sem base na pesquisa desta conversa
+- Se pesquisou: responda como um técnico bem informado — separe casos (ex.: Wi‑Fi via antena Mini vs Direct to Cell sem antena), diga o que vale no Brasil hoje, e cite 1–3 fontes. Não invente links
 
 REGRAS GERAIS (dentro do escopo):
-- Português brasileiro; objetivo e conversacional
-- NÃO invente defeitos/peças/testes que o técnico não mencionou nem que a pesquisa/banco não suportem
-- Pode fazer perguntas curtas se faltar contexto
-- Sem markdown pesado; parágrafos separados por linha em branco
-- Com FOTOS: leia etiquetas/silk/números; hipóteses fundamentadas
-- Com PANIC FULL: explique panicString/módulo; hipótese de peça ou reparo em placa
+- Português brasileiro; claro e útil (pode usar listas com • e títulos curtos em texto puro)
+- NÃO invente fatos que a pesquisa/banco não suportem
+- Pode fazer uma pergunta curta no final se faltar contexto
+- Com FOTOS / PANIC FULL: hipóteses fundamentadas no que leu
 - NUNCA diga que “não consegue identificar” sem listar o que leu e dar hipótese
 
 PEÇAS PROVÁVEIS (array "pecas"):
@@ -739,6 +738,14 @@ function limparUrlFonte(url: string): string {
 
 function precisaPesquisaAtual(texto: string): boolean {
   const t = texto.toLowerCase();
+  // Acks curtos / só laudo: não força busca
+  if (/^(ok|blz|beleza|valeu|obrigado|obrigada|sim|n[aã]o|ss|kkk+)\.?$/i.test(t.trim())) {
+    return false;
+  }
+  if (/\b(gerar|gera|gere|redigir|escrever)\b.*\blaudo\b|\blaudo\b.*\b(gerar|gera|gere)\b/.test(t)) {
+    return false;
+  }
+
   return (
     /atualiza|update|vers[aã]o|ios\s*\d|ipados|android\s*\d|watchos|firmware|patch|release|changelog/.test(
       t
@@ -746,7 +753,17 @@ function precisaPesquisaAtual(texto: string): boolean {
     /bug conhecido|problema conhecido|est[aá] dando|reinici|superaquec|boot\s*loop|depois (da|do) update/.test(
       t
     ) ||
-    /202[4-9]|hoje|recente|nova atualiza|mais recente/.test(t)
+    /202[4-9]|hoje|recente|nova atualiza|mais recente|dispon[ií]vel|j[aá] (tem|existe|lan[cç]ou)/.test(
+      t
+    ) ||
+    // Compatibilidade / recursos / “funciona X?”
+    /funciona|compat[ií]vel|suporta|consegue|d[aá] pra|da pra|sem antena|direto (no|no celular|no iphone)/.test(
+      t
+    ) ||
+    /starlink|sat[eé]lite|direct\s*to\s*cell|emergency\s*sos|esim|5g|wi-?fi\s*7|carrier\s*lock|operadora/.test(
+      t
+    ) ||
+    /iphone|android|apple|samsung|xiaomi|motorola/.test(t)
   );
 }
 
@@ -766,12 +783,23 @@ function extrairTextoUltimaMsgUsuario(messages: LaudoChatMessage[]): string {
 
 async function pesquisarInternetLaudo(client: OpenAI, consulta: string): Promise<string> {
   const ano = new Date().getFullYear();
+  const hoje = new Date().toISOString().slice(0, 10);
   const resposta = await client.responses.create({
     model: process.env.OPENAI_PESQUISA_MODEL?.trim() || 'gpt-4o-mini',
     tools: [{ type: 'web_search' as const }],
-    instructions: `Hoje é ${new Date().toISOString().slice(0, 10)} (ano ${ano}). Você pesquisa para um técnico de assistência técnica de eletrônicos no Brasil. Use APENAS informação atual da web (prefira ${ano} e ${ano - 1}). Responda em português, direto e técnico, em no máximo 14 linhas: versão/atualização mais recente relevante, problemas conhecidos em ordem de probabilidade, testes antes de trocar peça, peça/código quando houver. Prefira fabricante, Apple/Google Support, iFixit e fóruns técnicos. NÃO use conhecimento antigo de treinamento se contradizer a busca. Não invente; se não achar, diga. Inclua links quando disponíveis.`,
-    input: `${consulta}\n\nFoque em informação atual de ${ano}/${ano - 1}. Ignore releases antigas (ex.: 2023) salvo se forem o único dado encontrado — nesse caso deixe explícito que é antigo.`,
-    max_output_tokens: 1400,
+    instructions: `Hoje é ${hoje} (ano ${ano}). Pesquisa para técnico de eletrônicos no Brasil.
+
+Regras:
+- Use informação ATUAL da web (${ano}/${ano - 1}). Não invente.
+- Se a pergunta tiver variantes (ex.: Starlink Wi‑Fi via antena Mini vs Starlink Direct to Cell no celular sem antena), SEPARE os casos com clareza.
+- Digite o que já existe no Brasil vs o que ainda depende de operadora/lançamento.
+- Inclua limitações práticas (SMS/emergência vs internet plena, modelos, operadoras) quando a fonte mencionar.
+- Prefira fabricante (Apple, Google, SpaceX/Starlink), operadoras e sites confiáveis.
+- Responda em português, objetivo, até ~18 linhas, com bullets se ajudar.
+- Inclua 2–5 links de fontes no final.
+- Se não achar dado atual, diga explicitamente.`,
+    input: `${consulta}\n\nContexto: resposta para técnico/usuário no Brasil em ${ano}. Priorize fontes de ${ano}/${ano - 1}.`,
+    max_output_tokens: 1800,
   });
 
   const fontes = new Set<string>();
@@ -1192,19 +1220,21 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
       return `Ferramenta desconhecida: ${nome}`;
     };
 
-    // Perguntas de update/versão: pesquisa já, antes do modelo “chutar” dado antigo
+    // Fatos atuais / “funciona X?”: pesquisa já, antes do modelo chutar dado antigo
     if (forcarPesquisa) {
       const consultaSeed =
-        ultimaPergunta
-          .replace(/\s+/g, ' ')
-          .slice(0, 280) || 'problemas conhecidos da atualização mais recente de iPhone/iOS';
+        ultimaPergunta.replace(/\s+/g, ' ').slice(0, 320) ||
+        'recursos e compatibilidade mais recentes de iPhone no Brasil';
       try {
         const resultado = await executarTool('pesquisar_internet', {
-          consulta: `${consultaSeed} problemas conhecidos versão mais recente ${new Date().getFullYear()}`,
+          consulta: `${consultaSeed} — Brasil ${new Date().getFullYear()}; separar variantes do serviço se houver (ex.: antena Wi‑Fi vs conexão direta ao celular)`,
         });
         apiMessages.push({
           role: 'system',
-          content: `RESULTADO OBRIGATÓRIO DA PESQUISA WEB (use como fonte principal; não use releases antigas se houver dado atual):\n${resultado.slice(0, 7000)}`,
+          content: `RESULTADO OBRIGATÓRIO DA PESQUISA WEB (fonte principal desta resposta):
+${resultado.slice(0, 7000)}
+
+Na "message", responda com base nisso: separe os casos quando existirem, diga o status no Brasil, e cite fontes. Não contradiga a pesquisa com conhecimento antigo.`,
         });
       } catch (err) {
         console.error('[laudo-chat] pesquisa prévia:', err instanceof Error ? err.message : err);
