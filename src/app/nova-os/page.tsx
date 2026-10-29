@@ -8,7 +8,6 @@ import ReactSelect from 'react-select';
 import { useState, useEffect, startTransition, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
-import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -855,39 +854,46 @@ function NovaOS2Content() {
   }, [tipoEntrada]);
 
   useEffect(() => {
-    fetchProdutosServicos();
-  }, [empresaData?.id]);
-
-  useEffect(() => {
     fetchTermos();
   }, [empresaData?.id]);
 
   async function fetchProdutosServicos() {
     if (!empresaData?.id) return;
     setLoadingProdutos(true);
-    
-    const { data, error } = await interceptSupabaseQuery('produtos_servicos', async () => {
-      return await supabase
-        .from('produtos_servicos')
-        .select('id, nome, tipo, preco, unidade, ativo, codigo')
-        .eq('empresa_id', empresaData.id)
-        .eq('ativo', true)
-        .order('nome', { ascending: true });
-    });
-    
-    if (error && error.code === 'TABLE_NOT_EXISTS') {
-      // Usar dados de teste se a tabela não existir
-      setProdutosServicos([...produtosTeste, ...servicosTeste]);
-    } else if (error) {
+
+    try {
+      // API autenticada (mesma da listagem) — evita falha silenciosa do interceptor/RLS no client
+      const res = await fetch(
+        `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(empresaData.id)}&apenasAtivos=true`,
+        { cache: 'no-store', credentials: 'include' }
+      );
+      const dados = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const msg = typeof dados?.error === 'string' ? dados.error : 'Erro ao carregar produtos/serviços';
+        handleSupabaseError({ message: msg }, 'NovaOS - fetchProdutosServicos');
+        setProdutosServicos([]);
+        return;
+      }
+
+      const lista = Array.isArray(dados) ? dados : [];
+      setProdutosServicos(
+        lista.map((item: any) => ({
+          id: item.id,
+          nome: item.nome || '',
+          tipo: String(item.tipo || '').toLowerCase() === 'servico' ? 'servico' : 'produto',
+          preco: Number(item.preco) || 0,
+          unidade: item.unidade || 'un',
+          ativo: item.ativo !== false,
+          codigo: item.codigo || '',
+        }))
+      );
+    } catch (error) {
       handleSupabaseError(error, 'NovaOS - fetchProdutosServicos');
-      setProdutosServicos([...produtosTeste, ...servicosTeste]);
-    } else if (data && (data as any[])?.length > 0) {
-      setProdutosServicos(data as any[]);
-    } else {
-      // Usar dados de teste se não houver dados no banco
-      setProdutosServicos([...produtosTeste, ...servicosTeste]);
+      setProdutosServicos([]);
+    } finally {
+      setLoadingProdutos(false);
     }
-    setLoadingProdutos(false);
   }
 
   async function fetchTermos() {
@@ -917,9 +923,13 @@ function NovaOS2Content() {
     setLoadingTermos(false);
   }
 
+  // Pré-carrega ao ter empresa; ao escolher Aprovado, recarrega para garantir lista atualizada
   useEffect(() => {
-    fetchProdutosServicos();
-  }, [empresaData?.id]);
+    if (!empresaData?.id) return;
+    if (statusSelecionado === 'aprovado' || produtosServicos.length === 0) {
+      fetchProdutosServicos();
+    }
+  }, [empresaData?.id, statusSelecionado]);
 
   async function onCadastrarProdutoRapido() {
     if (!empresaData?.id || !novoProduto.nome || novoProduto.preco <= 0) {
@@ -2671,9 +2681,9 @@ function NovaOS2Content() {
                         {isMounted ? (
                         <ReactSelect
                           isMulti
-                          options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
+                          options={(produtosServicos || []).filter(p => String(p.tipo).toLowerCase() === 'produto').map(p => ({ 
                             value: p.id, 
-                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${Number(p.preco).toFixed(2)}/${p.unidade || 'un'}`,
                             data: p 
                           }))}
                           value={produtosSelecionados.map(p => ({ 
@@ -2723,9 +2733,9 @@ function NovaOS2Content() {
                         {isMounted ? (
                         <ReactSelect
                           isMulti
-                          options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
+                          options={(produtosServicos || []).filter(s => String(s.tipo).toLowerCase() === 'servico').map(s => ({ 
                             value: s.id, 
-                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${Number(s.preco).toFixed(2)}`,
                             data: s 
                           }))}
                           value={servicosSelecionados.map(s => ({ 

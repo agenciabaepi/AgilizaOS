@@ -1719,16 +1719,16 @@ export default function ListaOrdensPage() {
                 <colgroup>
                   {/* OS | Tipo | Aparelho | Serviço | Prazo | Garantia | Total | Técnico | Status | Status Téc. | Fat. */}
                   <col className="w-[12%]" />
-                  <col className="w-[4%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[15%]" />
                   <col className="w-[14%]" />
                   <col className="w-[8%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[6%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[8%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[12%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[7%]" />
                 </colgroup>
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
@@ -1791,7 +1791,7 @@ export default function ListaOrdensPage() {
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
-                    <td className="px-1.5 py-1.5 relative align-middle">
+                    <td className="px-1.5 py-1.5 relative align-middle overflow-hidden">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div
                           className="flex-shrink-0"
@@ -1799,9 +1799,9 @@ export default function ListaOrdensPage() {
                         >
                           {renderUserAvatar(os.responsavelNome || os.atendente || 'Usuário', os.responsavelAvatar, 28)}
                         </div>
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 overflow-hidden">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="font-bold text-gray-900 dark:text-zinc-100 text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors whitespace-nowrap">
+                            <span className="font-bold text-gray-900 dark:text-zinc-100 text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors whitespace-nowrap shrink-0">
                               #{os.numero}
                             </span>
                             {os.tipo === 'Retorno' && (
@@ -1823,54 +1823,54 @@ export default function ListaOrdensPage() {
                         <div className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full shadow-sm border border-white" title="Cliente recusou orçamento"></div>
                       )}
                     </td>
-                    <td className="px-1 py-1.5 align-middle">
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
                       {os.tipo === 'Retorno' ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 border border-red-300 whitespace-nowrap">
+                        <span className="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 border border-red-300 whitespace-nowrap truncate">
                           <FiRefreshCw className="w-3 h-3 mr-0.5 shrink-0" />
                           Retorno
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200 whitespace-nowrap">
+                        <span className="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200 whitespace-nowrap truncate">
                           <FiPlus className="w-3 h-3 mr-0.5 shrink-0" />
                           Nova
                         </span>
                       )}
                     </td>
-                    <td className="px-1.5 py-1.5 align-middle">
+                    <td className="px-1.5 py-1.5 align-middle overflow-hidden">
                       <div className="flex items-center gap-1 min-w-0">
                         {os.aparelhoImagemUrl && (
                           <img src={os.aparelhoImagemUrl} alt="" className="w-6 h-6 object-contain rounded bg-gray-50 flex-shrink-0" />
                         )}
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate" title={os.aparelho || undefined}>
+                        <div className="min-w-0 overflow-hidden">
+                          <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate whitespace-nowrap" title={os.aparelho || undefined}>
                             {os.aparelho || 'N/A'}
                           </div>
                           {(os.aparelhoCategoria || os.aparelhoMarca) && (
-                            <div className="text-[11px] text-gray-500 dark:text-zinc-400 truncate">
+                            <div className="text-[11px] text-gray-500 dark:text-zinc-400 truncate whitespace-nowrap">
                               {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                             </div>
                           )}
                           {os.problema_relatado && (
-                            <div className="text-[11px] text-blue-600 truncate" title={os.problema_relatado}>
+                            <div className="text-[11px] text-blue-600 truncate whitespace-nowrap" title={os.problema_relatado}>
                               💬 {os.problema_relatado}
                             </div>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-1.5 py-1.5 align-middle">
+                    <td className="px-1.5 py-1.5 align-middle overflow-hidden">
                       <div
-                        className="text-xs text-gray-900 dark:text-zinc-100 font-medium truncate"
+                        className="text-xs text-gray-900 dark:text-zinc-100 font-medium truncate whitespace-nowrap"
                         title={os.servico || undefined}
                       >
                         {os.servico || 'Aguardando'}
                       </div>
                     </td>
-                    <td className="px-1 py-1.5 align-middle">
-                      <div className="text-xs text-gray-700 dark:text-zinc-300 whitespace-nowrap">
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
+                      <div className="text-xs text-gray-700 dark:text-zinc-300 whitespace-nowrap truncate">
                         {formatDate(os.prazoEntrega) || '—'}
                       </div>
-                      <div className={`text-[11px] truncate ${
+                      <div className={`text-[11px] truncate whitespace-nowrap ${
                           os.entrega && os.entrega !== 'Aguardando retirada' 
                             ? 'text-green-600' 
                             : 'text-gray-500 dark:text-zinc-500'
@@ -1878,8 +1878,8 @@ export default function ListaOrdensPage() {
                           {formatDate(os.entrega) || 'Aguardando'}
                       </div>
                     </td>
-                    <td className="px-1 py-1.5 align-middle">
-                      <div className={`text-xs font-medium whitespace-nowrap ${
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
+                      <div className={`text-xs font-medium whitespace-nowrap truncate ${
                         os.garantia && osElegivelParaGarantia(os) && isGarantiaVencidaOs(os)
                           ? 'text-red-600'
                           : os.garantia && osElegivelParaGarantia(os)
@@ -1889,12 +1889,12 @@ export default function ListaOrdensPage() {
                           {os.garantia && osElegivelParaGarantia(os) ? formatDate(os.garantia) : '—'}
                       </div>
                     </td>
-                    <td className="px-1 py-1.5 align-middle">
-                      <div className="text-xs font-bold text-green-600 whitespace-nowrap">
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
+                      <div className="text-xs font-bold text-green-600 whitespace-nowrap truncate">
                         {formatCurrency(os.valorTotal) || 'R$ 0,00'}
                       </div>
                     </td>
-                    <td className="px-1 py-1.5 align-middle">
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
                       <div
                         className="text-xs text-gray-900 dark:text-zinc-100 truncate whitespace-nowrap"
                         title={os.tecnico || undefined}
