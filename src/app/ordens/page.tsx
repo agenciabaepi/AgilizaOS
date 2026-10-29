@@ -65,6 +65,12 @@ function isOsFaturamentoReal(os: {
   return !os.clienteRecusou && !os.aparelhoSemConserto && !!os.foiFaturada;
 }
 
+/** Na listagem basta o primeiro nome; nome completo fica no title. */
+function primeiroNomeCliente(nome?: string | null): string {
+  if (!nome?.trim()) return 'N/A';
+  return nome.trim().split(/\s+/)[0] || 'N/A';
+}
+
 function labelStatusTecnicoOrdem(os: {
   statusOS: string;
   statusTecnico: string;
@@ -341,6 +347,7 @@ export default function ListaOrdensPage() {
   }
 
   function formatFormaPagamento(forma: string) {
+    if (!forma || forma === 'N/A' || forma === '—') return '';
     const formas: Record<string, string> = {
       'dinheiro': 'Dinheiro',
       'pix': 'PIX',
@@ -350,7 +357,16 @@ export default function ListaOrdensPage() {
       'boleto': 'Boleto',
       'cheque': 'Cheque'
     };
-    return formas[forma] || forma;
+    // Já formatado na venda (ex.: "PIX R$ 60,00") — devolve como está
+    if (forma.includes(' ') || forma.includes('·') || forma.includes('+')) {
+      return forma;
+    }
+    return formas[forma.toLowerCase()] || forma;
+  }
+
+  function dataRetiradaOs(os: { entrega?: string }): string {
+    if (!os.entrega || os.entrega === 'Aguardando retirada') return '';
+    return formatDate(os.entrega) || '';
   }
 
   function formatCurrency(value: number) {
@@ -1269,7 +1285,7 @@ export default function ListaOrdensPage() {
     return (
       <AuthGuardFinal>
         <MenuLayout>
-          <div className="p-4 md:p-8">
+          <div className="px-0 py-2">
             <div className="text-center py-12">
               <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <FiAlertCircle className="w-8 h-8 text-red-600" />
@@ -1336,9 +1352,9 @@ export default function ListaOrdensPage() {
   return (
     <AuthGuardFinal>
       <MenuLayout>
-        <div className="p-4 md:p-8">
+        <div className="px-0 py-1 md:py-2">
           {/* Header com título e botão */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-5 gap-3">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-zinc-100">Ordens de Serviço</h1>
               <p className="text-gray-600 dark:text-zinc-300 mt-1 text-sm md:text-base">
@@ -1684,67 +1700,72 @@ export default function ListaOrdensPage() {
         </div>
 
         {/* Tabela - Desktop */}
-        <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600">
+        <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 overflow-hidden">
           <div className="w-full">
             <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-600">
                 <colgroup>
-                  <col className="w-20" /><col className="w-16" /><col className="w-24" /><col className="w-20" /><col className="w-16" /><col className="w-20" /><col className="w-16" /><col className="w-20" /><col className="w-20" /><col className="w-20" /><col className="w-16" />
+                  {/* OS | Tipo | Aparelho | Serviço | Prazo | Garantia | Total | Técnico | Status | Status Téc. | Fat. */}
+                  <col className="w-[12%]" />
+                  <col className="w-[4%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[6%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
                 </colgroup>
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="px-1.5 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
-                        <FiFileText className="w-3 h-3" />
-                      <span className="hidden sm:inline">OS</span>
+                        <FiFileText className="w-3 h-3 shrink-0" />
+                      <span>OS</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th className="px-1.5 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
-                        <FiRefreshCw className="w-3 h-3" />
-                      <span className="hidden sm:inline">Tipo</span>
+                        <FiSmartphone className="w-3 h-3 shrink-0" />
+                      <span>Aparelho</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="px-1.5 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                      Serviço
+                  </th>
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
-                        <FiSmartphone className="w-3 h-3" />
-                      <span className="hidden sm:inline">Aparelho</span>
+                        <FiClock className="w-3 h-3 shrink-0" />
+                      <span>Prazo</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                      <span className="hidden sm:inline">Serviço</span>
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                      Garantia
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
-                        <FiClock className="w-3 h-3" />
-                      <span className="hidden sm:inline">Prazo</span>
+                      <FiDollarSign className="w-3 h-3 shrink-0" />
+                        <span>Total</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                      <span className="hidden sm:inline">Garantia</span>
-                  </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                  <th className="px-1.5 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
-                      <FiDollarSign className="w-3 h-3" />
-                        <span className="hidden sm:inline">Total</span>
+                      <FiUser className="w-3 h-3 shrink-0" />
+                      <span>Técnico</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <FiUser className="w-3 h-3" />
-                      <span className="hidden sm:inline">Técnico</span>
-                    </div>
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                    Status
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                    <span className="hidden sm:inline">Status</span>
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                    Status Téc.
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                    <span className="hidden sm:inline">Status Técnico</span>
-                  </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <FiDollarSign className="w-3 h-3" />
-                      <span className="hidden sm:inline">Faturado</span>
-                    </div>
+                  <th className="px-1 py-2 text-left text-[11px] font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
+                    Fat.
                   </th>
                 </tr>
               </thead>
@@ -1757,182 +1778,160 @@ export default function ListaOrdensPage() {
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
-                    <td className="px-1 py-2 relative">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-shrink-0">
-                          {renderUserAvatar(os.responsavelNome || os.atendente || 'Usuário', os.responsavelAvatar, 38)}
+                    <td className="px-1.5 py-1.5 relative align-middle">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div
+                          className="flex-shrink-0"
+                          title={`Criada por ${os.responsavelNome || os.atendente || 'Usuário'}`}
+                        >
+                          {renderUserAvatar(os.responsavelNome || os.atendente || 'Usuário', os.responsavelAvatar, 28)}
                         </div>
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="flex items-center gap-1">
-                            <span className="font-bold text-gray-900 dark:text-zinc-100 text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-gray-900 dark:text-zinc-100 text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors whitespace-nowrap">
                               #{os.numero}
                             </span>
                             {os.tipo === 'Retorno' && (
-                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
+                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                             )}
+                            <span className="text-[11px] text-gray-400 dark:text-zinc-500 whitespace-nowrap truncate">
+                              {formatDate(os.entrada) || '—'}
+                            </span>
                           </div>
-                          <div className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium truncate">
-                            Criada por {os.responsavelNome || os.atendente || 'Usuário'}
+                          <div
+                            className="text-xs text-gray-700 dark:text-zinc-200 font-medium truncate whitespace-nowrap"
+                            title={os.cliente || undefined}
+                          >
+                            {primeiroNomeCliente(os.cliente)}
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-zinc-300 font-medium truncate min-w-0 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors">
-                            {os.cliente || 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">{os.clienteTelefone || 'N/A'}</div>
-                          <div className="text-xs text-gray-400 dark:text-zinc-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
                         </div>
                       </div>
-                      {/* Indicador de recusa - ponto vermelho no canto superior direito da célula */}
                       {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
                         <div className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full shadow-sm border border-white" title="Cliente recusou orçamento"></div>
                       )}
                     </td>
-                    <td className="px-1 py-2">
+                    <td className="px-1 py-1.5 align-middle">
                       {os.tipo === 'Retorno' ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-200 text-red-900 border border-red-300 shadow-sm">
-                          <FiRefreshCw className="w-3 h-3 mr-1" />
-                          <span className="hidden sm:inline">RETORNO</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 border border-red-300 whitespace-nowrap">
+                          <FiRefreshCw className="w-3 h-3 mr-0.5 shrink-0" />
+                          Retorno
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                          <FiPlus className="w-3 h-3 mr-0.5" />
-                          <span className="hidden sm:inline">Nova</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200 whitespace-nowrap">
+                          <FiPlus className="w-3 h-3 mr-0.5 shrink-0" />
+                          Nova
                         </span>
                       )}
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <td className="px-1.5 py-1.5 align-middle">
+                      <div className="flex items-center gap-1 min-w-0">
                         {os.aparelhoImagemUrl && (
-                          <img src={os.aparelhoImagemUrl} alt="" className="w-8 h-8 object-contain rounded bg-gray-50 flex-shrink-0 hidden sm:block" />
+                          <img src={os.aparelhoImagemUrl} alt="" className="w-6 h-6 object-contain rounded bg-gray-50 flex-shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">{os.aparelho || 'N/A'}</div>
+                          <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate" title={os.aparelho || undefined}>
+                            {os.aparelho || 'N/A'}
+                          </div>
                           {(os.aparelhoCategoria || os.aparelhoMarca) && (
-                            <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                            <div className="text-[11px] text-gray-500 dark:text-zinc-400 truncate">
                               {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                             </div>
                           )}
                           {os.problema_relatado && (
-                            <div className="text-xs text-blue-600 truncate mt-1" title={os.problema_relatado}>
+                            <div className="text-[11px] text-blue-600 truncate" title={os.problema_relatado}>
                               💬 {os.problema_relatado}
                             </div>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs text-gray-900 dark:text-zinc-100 min-w-0">
-                        <div className="font-medium truncate">{os.servico || 'Aguardando'}</div>
-                        <div className="text-gray-600 dark:text-zinc-400 font-semibold">{formatCurrency(os.valorTotal)}</div>
+                    <td className="px-1.5 py-1.5 align-middle">
+                      <div
+                        className="text-xs text-gray-900 dark:text-zinc-100 font-medium truncate"
+                        title={os.servico || undefined}
+                      >
+                        {os.servico || 'Aguardando'}
                       </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs text-gray-600 min-w-0">
-                        <div className="mb-1">
-                          <span className="font-medium text-gray-700 dark:text-zinc-300">
-                            {formatDate(os.prazoEntrega) || 'Não definido'}
-                          </span>
-                        </div>
-                        <div className={`text-xs ${
+                    <td className="px-1 py-1.5 align-middle">
+                      <div className="text-xs text-gray-700 dark:text-zinc-300 whitespace-nowrap">
+                        {formatDate(os.prazoEntrega) || '—'}
+                      </div>
+                      <div className={`text-[11px] truncate ${
                           os.entrega && os.entrega !== 'Aguardando retirada' 
                             ? 'text-green-600' 
                             : 'text-gray-500 dark:text-zinc-500'
                         }`}>
                           {formatDate(os.entrega) || 'Aguardando'}
-                        </div>
                       </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className={`text-xs font-medium min-w-0 ${
+                    <td className="px-1 py-1.5 align-middle">
+                      <div className={`text-xs font-medium whitespace-nowrap ${
                         os.garantia && osElegivelParaGarantia(os) && isGarantiaVencidaOs(os)
                           ? 'text-red-600'
                           : os.garantia && osElegivelParaGarantia(os)
                           ? 'text-green-600'
                           : 'text-gray-500 dark:text-zinc-400'
                       }`}>
-                        <div className="whitespace-nowrap">
                           {os.garantia && osElegivelParaGarantia(os) ? formatDate(os.garantia) : '—'}
-                        </div>
-                        {os.garantia && osElegivelParaGarantia(os) && (
-                          <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                            {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
-                              ? 'Expirada'
-                              : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
-                            }
-                          </div>
-                        )}
                       </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs font-bold text-green-600 whitespace-nowrap min-w-0">
+                    <td className="px-1 py-1.5 align-middle">
+                      <div className="text-xs font-bold text-green-600 whitespace-nowrap">
                         {formatCurrency(os.valorTotal) || 'R$ 0,00'}
                       </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs text-gray-900 dark:text-zinc-100 truncate min-w-0">{os.tecnico || 'N/A'}</div>
+                    <td className="px-1 py-1.5 align-middle">
+                      <div
+                        className="text-xs text-gray-900 dark:text-zinc-100 truncate whitespace-nowrap"
+                        title={os.tecnico || undefined}
+                      >
+                        {primeiroNomeCliente(os.tecnico)}
+                      </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusColor(os.statusOS)}`}>
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
+                      <span
+                        className={`inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap truncate ${getStatusColor(os.statusOS)}`}
+                        title={getStatusTecnicoLabel(os.statusOS, null) || undefined}
+                      >
                           {getStatusTecnicoLabel(os.statusOS, null) || 'N/A'}
                         </span>
-                        {os.tipo === 'Retorno' && (
-                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
-                        )}
-                      </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusTecnicoColor(labelStatusTecnicoOrdem(os))}`}>
+                    <td className="px-1 py-1.5 align-middle overflow-hidden">
+                        <span
+                          className={`inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap truncate ${getStatusTecnicoColor(labelStatusTecnicoOrdem(os))}`}
+                          title={labelStatusTecnicoOrdem(os)}
+                        >
                             {labelStatusTecnicoOrdem(os)}
                         </span>
-                      </div>
                     </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs min-w-0">
-                        {os.clienteRecusou ? (
-                          <>
-                            <div className="font-bold text-red-600">
-                              Recusado
-                            </div>
-                            <div className="text-xs text-red-500 font-medium mt-1">
-                              Cliente recusou
-                            </div>
-                          </>
-                        ) : os.aparelhoSemConserto ? (
-                          <>
-                            <div className="font-bold text-orange-600">
-                              Sem conserto
-                            </div>
-                            <div className="text-xs text-orange-500 font-medium mt-1">
-                              Aparelho s/ reparo
-                            </div>
-                          </>
-                        ) : os.foiFaturada ? (
-                          <>
-                            <div className="font-bold text-green-600">
-                              Faturado
-                            </div>
-                            <div className="text-xs text-blue-600 font-medium mt-1">
-                              {formatFormaPagamento(os.formaPagamento)}
-                            </div>
-                          </>
-                        ) : os.faturamentoSemVendaVinculada ? (
-                          <>
-                            <div className="font-bold text-amber-700 dark:text-amber-400">
-                              Entregue
-                            </div>
-                            <div className="text-xs text-amber-600 dark:text-amber-500 font-medium mt-1 leading-snug">
-                              Sem venda no caixa
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-gray-500 dark:text-zinc-400 font-medium">
-                              Aguardando
-                            </div>
-                          </>
-                        )}
-                      </div>
+                    <td className="px-1 py-1.5 pr-2 align-middle overflow-hidden">
+                      {os.clienteRecusou ? (
+                        <div className="text-[11px] font-medium text-red-600 truncate" title="Cliente recusou">Recusado</div>
+                      ) : os.aparelhoSemConserto ? (
+                        <div className="text-[11px] font-medium text-orange-600 truncate" title="Aparelho sem conserto">S/ conserto</div>
+                      ) : os.foiFaturada ? (
+                        <div
+                          className="min-w-0"
+                          title={[dataRetiradaOs(os), formatFormaPagamento(os.formaPagamento)].filter(Boolean).join(' · ') || 'Faturado'}
+                        >
+                          <div className="text-[11px] font-semibold text-green-600 whitespace-nowrap truncate">
+                            {dataRetiradaOs(os) || 'Faturado'}
+                          </div>
+                          <div className="text-[10px] text-gray-600 dark:text-zinc-400 truncate">
+                            {formatFormaPagamento(os.formaPagamento) || '—'}
+                          </div>
+                        </div>
+                      ) : os.faturamentoSemVendaVinculada ? (
+                        <div className="min-w-0" title="Entregue sem venda no caixa">
+                          <div className="text-[11px] font-semibold text-amber-600 whitespace-nowrap truncate">
+                            {dataRetiradaOs(os) || 'Entregue'}
+                          </div>
+                          <div className="text-[10px] text-amber-700/80 dark:text-amber-400 truncate">Sem venda</div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] font-medium text-gray-500 dark:text-zinc-400">—</div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1990,8 +1989,8 @@ export default function ListaOrdensPage() {
 
                 {/* Cliente */}
                 <div className="mb-3">
-                  <div className="text-sm font-medium text-gray-900 dark:text-zinc-100">{os.cliente || 'N/A'}</div>
-                  <div className="text-xs text-gray-600 dark:text-zinc-400">{os.clienteTelefone || 'N/A'}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate whitespace-nowrap" title={os.cliente || undefined}>{primeiroNomeCliente(os.cliente)}</div>
+                  <div className="text-xs text-gray-500 dark:text-zinc-400">{formatDate(os.entrada) || '—'}</div>
                 </div>
 
                 {/* Aparelho e Serviço */}
@@ -2026,25 +2025,31 @@ export default function ListaOrdensPage() {
                     <div className="text-gray-500 dark:text-zinc-400">Status Técnico</div>
                     <div className="font-medium text-gray-900 dark:text-zinc-100">{labelStatusTecnicoOrdem(os)}</div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right min-w-0 max-w-[50%]">
                     <div className="text-gray-500 dark:text-zinc-400">Faturado</div>
-                    <div className={`font-medium ${
-                      os.clienteRecusou ? 'text-red-600 dark:text-red-400' :
-                      os.aparelhoSemConserto ? 'text-orange-600 dark:text-orange-400' :
-                      os.foiFaturada ? 'text-green-600 dark:text-green-400' :
-                      os.faturamentoSemVendaVinculada ? 'text-amber-700 dark:text-amber-400' :
-                      'text-gray-500 dark:text-zinc-400'
-                    }`}>
-                      {os.clienteRecusou
-                        ? 'Recusado'
-                        : os.aparelhoSemConserto
-                          ? 'Sem conserto'
-                          : os.foiFaturada
-                            ? 'Faturado'
-                            : os.faturamentoSemVendaVinculada
-                              ? 'Entregue (sem venda)'
-                              : 'Aguardando'}
-                    </div>
+                    {os.clienteRecusou ? (
+                      <div className="font-medium text-red-600 dark:text-red-400">Recusado</div>
+                    ) : os.aparelhoSemConserto ? (
+                      <div className="font-medium text-orange-600 dark:text-orange-400">Sem conserto</div>
+                    ) : os.foiFaturada ? (
+                      <div className="min-w-0">
+                        <div className="font-medium text-green-600 dark:text-green-400 truncate">
+                          {dataRetiradaOs(os) || 'Faturado'}
+                        </div>
+                        <div className="text-[11px] text-gray-600 dark:text-zinc-400 truncate">
+                          {formatFormaPagamento(os.formaPagamento) || '—'}
+                        </div>
+                      </div>
+                    ) : os.faturamentoSemVendaVinculada ? (
+                      <div className="min-w-0">
+                        <div className="font-medium text-amber-700 dark:text-amber-400 truncate">
+                          {dataRetiradaOs(os) || 'Entregue'}
+                        </div>
+                        <div className="text-[11px] text-amber-700/80 dark:text-amber-400">Sem venda</div>
+                      </div>
+                    ) : (
+                      <div className="font-medium text-gray-500 dark:text-zinc-400">Aguardando</div>
+                    )}
                   </div>
                 </div>
               </div>

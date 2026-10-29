@@ -5,6 +5,7 @@ export const runtime = 'edge';
 
 import { supabase } from '@/lib/supabaseClient';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Tab } from '@headlessui/react';
 import { Input } from '@/components/Input';
@@ -21,7 +22,27 @@ import { useAuth } from '@/context/AuthContext';
 import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import TrialLimitGuard from '@/components/TrialLimitGuard';
-import { FiPlus, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiX } from 'react-icons/fi';
+
+const TAB_LABELS: Record<string, string> = {
+  dados: 'Dados',
+  fiscal: 'Fiscal',
+  imagens: 'Imagens',
+  detalhes: 'Detalhes',
+  outros: 'Outros',
+};
+
+const linkAcaoClass =
+  'text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed';
+
+const modalPanelClass =
+  'bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-xl shadow-xl border border-gray-200 dark:border-zinc-600 w-full max-w-md p-6 relative';
+
+const modalCloseClass =
+  'absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300';
+
+const currencyInputClass =
+  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900';
 
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -400,14 +421,10 @@ export default function NovoProdutoPage() {
   const grupoSelecionadoNome = grupos.find((g) => g.id === formData.grupo)?.nome;
   const categoriaSelecionadaNome = categorias.find((c) => c.id === formData.categoria)?.nome;
 
-  // Carregar categorias ao montar o componente - SEM FILTRO DE EMPRESA
-  useEffect(() => {
-      carregarCategorias();
-  }, []);
-
-  // Carregar fornecedores e marcas quando usuário ou empresa do contexto estiver disponível
+  // Recarregar categorias/fornecedores/marcas quando a empresa do contexto estiver disponível
   useEffect(() => {
     if (user || usuarioData?.empresa_id || empresaData?.id) {
+      carregarCategorias();
       carregarFornecedores();
       carregarMarcas();
     }
@@ -450,7 +467,7 @@ export default function NovoProdutoPage() {
           estoque_min: (produtoData.estoque_min ?? produtoData.estoque_minimo)?.toString() || '',
           estoque_max: produtoData.estoque_max?.toString() || '',
           estoque_atual: produtoData.estoque_atual?.toString() || '',
-          situacao: produtoData.situacao || '',
+          situacao: produtoData.situacao || (produtoData.ativo ? 'Ativo' : 'Inativo'),
           ncm: produtoData.ncm || '',
           cfop: produtoData.cfop || '',
           cst: produtoData.cst || '',
@@ -460,7 +477,7 @@ export default function NovoProdutoPage() {
           profundidade_cm: produtoData.profundidade_cm?.toString() || '',
           peso_g: produtoData.peso_g?.toString() || '',
           obs: produtoData.obs || '',
-          ativo: produtoData.ativo ? 'true' : 'false',
+          ativo: produtoData.ativo === false || produtoData.situacao === 'Inativo' ? 'false' : 'true',
           codigo_barras: produtoData.codigo_barras || '',
         });
         setExistingImageUrls(produtoData.imagens_url || produtoData.imagens || []);
@@ -480,7 +497,9 @@ export default function NovoProdutoPage() {
 
   const handleSubmit = async () => {
     // Gerar código sequencial por empresa, somente se não estiver editando (novo produto)
-    const empresa_id = localStorage.getItem('empresa_id');
+    const empresa_id =
+      (await resolveEmpresaIdForClient(empresaData, usuarioData)) ||
+      (typeof window !== 'undefined' ? localStorage.getItem('empresa_id') : null);
     if (!empresa_id) {
       addToast('error', 'Erro: empresa_id não encontrado. Faça login novamente.');
       return;
@@ -657,12 +676,12 @@ export default function NovoProdutoPage() {
         return;
       }
         
-      addToast('success', 'Produto atualizado com sucesso!');
+      addToast('success', `${data.tipo === 'servico' ? 'Serviço' : 'Produto'} atualizado com sucesso!`);
       router.push('/equipamentos');
       return;
       } catch (error) {
         console.error('❌ Erro ao atualizar produto:', error);
-        addToast('error', 'Erro ao atualizar produto');
+        addToast('error', `Erro ao atualizar ${data.tipo === 'servico' ? 'serviço' : 'produto'}`);
         return;
       }
     }
@@ -685,62 +704,76 @@ export default function NovoProdutoPage() {
           console.error('Erro não-JSON da API:', text);
           msg = text || 'Erro desconhecido';
         }
-        addToast('error', `Erro ao cadastrar produto: ${msg}`);
+        addToast('error', `Erro ao cadastrar ${data.tipo === 'servico' ? 'serviço' : 'produto'}: ${msg}`);
         return;
       }
 
-      addToast('success', 'Produto cadastrado com sucesso!');
+      addToast('success', `${data.tipo === 'servico' ? 'Serviço' : 'Produto'} cadastrado com sucesso!`);
       router.push('/equipamentos');
     } catch (error) {
       console.error(error);
-      addToast('error', 'Erro ao cadastrar produto');
+      addToast('error', `Erro ao cadastrar ${data.tipo === 'servico' ? 'serviço' : 'produto'}`);
     }
   };
+
+  const isServico = formData.tipo === 'servico';
+  const itemLabel = isServico ? 'Serviço' : 'Produto';
+  const tituloPagina = produtoId ? `Editar ${itemLabel}` : `Novo ${itemLabel}`;
+  const abas = isServico
+    ? ['dados', 'outros']
+    : ['dados', 'fiscal', 'imagens', 'detalhes', 'outros'];
 
   return (
     <TrialLimitGuard tipo="produtos">
       <MenuLayout>
-        <main className="flex flex-col items-center justify-start flex-1 px-4 py-8">
-          <div className="w-full max-w-5xl">
-            <h1 className="text-2xl font-bold mb-6">
-              {produtoId ? 'Editar Produto' : 'Novo Produto'}
+        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full">
+          <div className="flex flex-col gap-2 mb-6">
+            <Link
+              href="/equipamentos"
+              className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 w-fit"
+            >
+              <FiArrowLeft className="w-4 h-4" />
+              Voltar à lista
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+              {tituloPagina}
             </h1>
+            <p className="text-sm text-gray-600 dark:text-zinc-400">
+              Preencha os dados do {itemLabel.toLowerCase()}. Nome e preço de venda são obrigatórios.
+            </p>
+          </div>
 
-            <Tab.Group manual defaultIndex={0}>
-              <Tab.List className="flex space-x-2 border-b mb-4">
-                {(
-                  formData.tipo === 'servico'
-                    ? ['dados', 'outros']
-                    : ['dados', 'fiscal', 'imagens', 'detalhes', 'outros']
-                ).map((tabName) => (
+          <div className="rounded-xl border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-900 p-4 sm:p-6 shadow-sm">
+            <Tab.Group key={formData.tipo} manual defaultIndex={0}>
+              <Tab.List className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-zinc-700 mb-6 pb-px">
+                {abas.map((tabName) => (
                   <Tab
                     key={tabName}
                     className={({ selected }) =>
-                      `px-4 py-2 text-sm font-medium rounded-t ${
-                        selected ? 'bg-black text-white' : 'bg-muted text-black'
+                      `px-4 py-2 text-sm font-medium rounded-t-md outline-none transition-colors ${
+                        selected
+                          ? 'bg-black text-white dark:bg-zinc-100 dark:text-zinc-900'
+                          : 'bg-muted text-gray-700 dark:bg-zinc-800 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700'
                       }`
                     }
                   >
-                    {tabName.charAt(0).toUpperCase() + tabName.slice(1)}
+                    {TAB_LABELS[tabName] || tabName}
                   </Tab>
                 ))}
               </Tab.List>
 
               <Tab.Panels>
                 <Tab.Panel>
-                  {/* Conteúdo da aba Dados */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Nome */}
                     <div>
-                      <Label htmlFor="nome">Nome do Produto</Label>
+                      <Label htmlFor="nome">Nome do {itemLabel} *</Label>
                       <Input
                         id="nome"
                         value={formData.nome}
                         onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                        placeholder="Ex: Carregador Turbo"
+                        placeholder={isServico ? 'Ex: Troca de tela' : 'Ex: Carregador Turbo'}
                       />
                     </div>
-                    {/* Tipo */}
                     <div>
                       <Select
                         id="tipo"
@@ -752,14 +785,13 @@ export default function NovoProdutoPage() {
                         <option value="servico">Serviço</option>
                       </Select>
                     </div>
-                    {/* Grupo */}
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <Label htmlFor="grupo">Grupo</Label>
                         <button
                           type="button"
                           onClick={() => setModalNovoGrupo(true)}
-                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                          className={linkAcaoClass}
                         >
                           <FiPlus size={12} />
                           Novo grupo
@@ -777,7 +809,6 @@ export default function NovoProdutoPage() {
                         ))}
                       </Select>
                     </div>
-                    {/* Categoria */}
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <Label htmlFor="categoria">Categoria</Label>
@@ -785,7 +816,7 @@ export default function NovoProdutoPage() {
                           type="button"
                           onClick={() => setModalNovaCategoria(true)}
                           disabled={!formData.grupo}
-                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className={linkAcaoClass}
                         >
                           <FiPlus size={12} />
                           Nova categoria
@@ -805,7 +836,6 @@ export default function NovoProdutoPage() {
                         ))}
                       </Select>
                     </div>
-                    {/* Subcategoria */}
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <Label htmlFor="subcategoria">Subcategoria</Label>
@@ -813,7 +843,7 @@ export default function NovoProdutoPage() {
                           type="button"
                           onClick={() => setModalNovaSubcategoria(true)}
                           disabled={!formData.categoria}
-                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className={linkAcaoClass}
                         >
                           <FiPlus size={12} />
                           Nova subcategoria
@@ -833,7 +863,6 @@ export default function NovoProdutoPage() {
                         ))}
                       </Select>
                     </div>
-                    {/* Preço de Custo */}
                     <div>
                       <Label htmlFor="custo">Preço de Custo</Label>
                       <CurrencyInput
@@ -841,44 +870,40 @@ export default function NovoProdutoPage() {
                         value={formData.custo}
                         onChange={(e) => setFormData({ ...formData, custo: e.target.value })}
                         placeholder="0,00"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900"
+                        className={currencyInputClass}
                       />
                     </div>
-                    {/* Preço de Venda */}
                     <div>
-                      <Label htmlFor="preco">Preço de Venda</Label>
+                      <Label htmlFor="preco">Preço de Venda *</Label>
                       <CurrencyInput
                         id="preco"
                         value={formData.preco}
                         onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
                         placeholder="0,00"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:ring-offset-zinc-900"
+                        className={currencyInputClass}
                       />
                     </div>
-                    {/* Situação */}
                     <div>
                       <Label>Situação</Label>
                       <div className="flex gap-2">
                         <Button
                           type="button"
                           variant={formData.situacao === 'Ativo' ? 'default' : 'outline'}
-                          onClick={() => setFormData({ ...formData, situacao: 'Ativo' })}
+                          onClick={() => setFormData({ ...formData, situacao: 'Ativo', ativo: 'true' })}
                         >
                           Ativo
                         </Button>
                         <Button
                           type="button"
                           variant={formData.situacao === 'Inativo' ? 'default' : 'outline'}
-                          onClick={() => setFormData({ ...formData, situacao: 'Inativo' })}
+                          onClick={() => setFormData({ ...formData, situacao: 'Inativo', ativo: 'false' })}
                         >
                           Inativo
                         </Button>
                       </div>
                     </div>
-                    {/* Produto-specific fields */}
-                    {formData.tipo !== 'servico' && (
+                    {!isServico && (
                       <>
-                        {/* Código de barras */}
                         <div>
                           <Label htmlFor="codigo_barras">Código de barras</Label>
                           <Input
@@ -889,6 +914,8 @@ export default function NovoProdutoPage() {
                           />
                           <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             className="mt-2"
                             onClick={() => {
                               const codigoAleatorio = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
@@ -898,7 +925,6 @@ export default function NovoProdutoPage() {
                             Gerar Código
                           </Button>
                         </div>
-                        {/* Unidade de Medida */}
                         <div>
                           <Select
                             id="unidade"
@@ -913,14 +939,13 @@ export default function NovoProdutoPage() {
                             <option value="Pacote">Pacote</option>
                           </Select>
                         </div>
-                        {/* Fornecedor */}
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <Label htmlFor="fornecedor">Fornecedor</Label>
                             <button
                               type="button"
                               onClick={() => setModalNovoFornecedor(true)}
-                              className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                              className={linkAcaoClass}
                             >
                               <FiPlus size={12} />
                               Novo fornecedor
@@ -940,14 +965,13 @@ export default function NovoProdutoPage() {
                             ))}
                           </Select>
                         </div>
-                        {/* Marca */}
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <Label htmlFor="marca">Marca</Label>
                             <button
                               type="button"
                               onClick={() => setModalNovaMarca(true)}
-                              className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                              className={linkAcaoClass}
                             >
                               <FiPlus size={12} />
                               Nova marca
@@ -971,7 +995,6 @@ export default function NovoProdutoPage() {
                               )}
                           </Select>
                         </div>
-                        {/* Estoque Mínimo */}
                         <div>
                           <Label htmlFor="estoqueMin">Estoque Mínimo</Label>
                           <Input
@@ -981,7 +1004,6 @@ export default function NovoProdutoPage() {
                             onChange={(e) => setFormData({ ...formData, estoque_min: e.target.value })}
                           />
                         </div>
-                        {/* Estoque Máximo */}
                         <div>
                           <Label htmlFor="estoqueMax">Estoque Máximo</Label>
                           <Input
@@ -991,7 +1013,6 @@ export default function NovoProdutoPage() {
                             onChange={(e) => setFormData({ ...formData, estoque_max: e.target.value })}
                           />
                         </div>
-                        {/* Estoque Atual */}
                         <div>
                           <Label htmlFor="estoqueAtual">Estoque Atual</Label>
                           <Input
@@ -1005,10 +1026,9 @@ export default function NovoProdutoPage() {
                     )}
                   </div>
                 </Tab.Panel>
-                {formData.tipo !== 'servico' && (
+                {!isServico && (
                   <>
                     <Tab.Panel>
-                      {/* Conteúdo da aba Fiscal */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="ncm">NCM</Label>
@@ -1049,7 +1069,6 @@ export default function NovoProdutoPage() {
                       </div>
                     </Tab.Panel>
                     <Tab.Panel>
-                      {/* Conteúdo da aba Imagens */}
                       <Label htmlFor="imagens">Upload de Imagens</Label>
                       <Input
                         id="imagens"
@@ -1058,7 +1077,6 @@ export default function NovoProdutoPage() {
                         accept="image/*"
                         onChange={(e) => {
                           const files = Array.from(e.target.files || []);
-                          console.log('📁 Arquivos selecionados:', files.length);
 
                           const oversized = files.filter((file) => file.size > 3 * 1024 * 1024);
                           if (oversized.length > 0) {
@@ -1069,28 +1087,32 @@ export default function NovoProdutoPage() {
                           const totalImages = selectedImages.length + validFiles.length;
 
                           if (totalImages > 5) {
-                            addToast('error', "Você pode enviar no máximo 5 imagens de até 3MB cada.");
+                            addToast('error', 'Você pode enviar no máximo 5 imagens de até 3MB cada.');
                             return;
                           }
 
-                          console.log('✅ Arquivos válidos adicionados:', validFiles.length);
                           setSelectedImages((prev) => [...prev, ...validFiles]);
                         }}
                       />
-                      <p className="text-sm text-muted-foreground mt-2">Adicione fotos para facilitar a identificação visual do produto.</p>
-                      {/* Pré-visualização das imagens */}
+                      <p className="text-sm text-gray-600 dark:text-zinc-400 mt-2">
+                        Adicione fotos para facilitar a identificação visual do produto. Máximo 5 imagens de até 3MB.
+                      </p>
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                         {existingImageUrls.map((url, index) => (
-                          <div key={`exist-${index}`} className="border rounded p-2">
+                          <div
+                            key={`exist-${index}`}
+                            className="border border-gray-200 dark:border-zinc-600 rounded-lg p-2 bg-gray-50 dark:bg-zinc-950"
+                          >
                             <img
                               src={url}
                               alt={`Existing ${index}`}
-                              className="w-full h-auto object-contain"
+                              className="w-full h-auto object-contain rounded"
                             />
                             <Button
                               type="button"
                               variant="outline"
-                              className="mt-2 text-xs"
+                              size="sm"
+                              className="mt-2 w-full text-xs"
                               onClick={() =>
                                 setExistingImageUrls(prev => prev.filter((_, i) => i !== index))
                               }
@@ -1100,17 +1122,21 @@ export default function NovoProdutoPage() {
                           </div>
                         ))}
                         {selectedImages.map((file, index) => (
-                          <div key={index} className="border rounded p-2">
+                          <div
+                            key={index}
+                            className="border border-gray-200 dark:border-zinc-600 rounded-lg p-2 bg-gray-50 dark:bg-zinc-950"
+                          >
                             <img
                               src={URL.createObjectURL(file)}
                               alt={`Preview ${index}`}
-                              className="w-full h-auto object-contain"
+                              className="w-full h-auto object-contain rounded"
                             />
-                            <p className="text-xs mt-2 break-words">{file.name}</p>
+                            <p className="text-xs mt-2 break-words text-gray-600 dark:text-zinc-400">{file.name}</p>
                             <Button
                               type="button"
                               variant="outline"
-                              className="mt-2 text-xs"
+                              size="sm"
+                              className="mt-2 w-full text-xs"
                               onClick={() =>
                                 setSelectedImages(prev => prev.filter((_, i) => i !== index))
                               }
@@ -1122,9 +1148,8 @@ export default function NovoProdutoPage() {
                       </div>
                     </Tab.Panel>
                     <Tab.Panel>
-                      {/* Conteúdo da aba Detalhes */}
                       <div className="grid grid-cols-1 gap-4">
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div>
                             <Label htmlFor="largura">Largura (cm)</Label>
                             <Input
@@ -1156,7 +1181,7 @@ export default function NovoProdutoPage() {
                             />
                           </div>
                         </div>
-                        <div>
+                        <div className="max-w-xs">
                           <Label htmlFor="peso">Peso (g)</Label>
                           <Input
                             id="peso"
@@ -1171,23 +1196,23 @@ export default function NovoProdutoPage() {
                   </>
                 )}
                 <Tab.Panel>
-                  {/* Conteúdo da aba Outros */}
                   <div>
                     <Label htmlFor="obs">Observações</Label>
                     <Textarea
                       id="obs"
                       value={formData.obs}
                       onChange={(e) => setFormData({ ...formData, obs: e.target.value })}
-                      placeholder="Observações adicionais sobre o produto..."
+                      placeholder={`Observações adicionais sobre o ${itemLabel.toLowerCase()}...`}
+                      className="dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
                     />
                   </div>
                 </Tab.Panel>
               </Tab.Panels>
             </Tab.Group>
 
-            <div className="mt-6 flex gap-4">
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-zinc-700 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
               <Button type="button" onClick={handleSubmit}>
-                {produtoId ? 'Atualizar Produto' : 'Salvar Produto'}
+                {produtoId ? `Atualizar ${itemLabel}` : `Salvar ${itemLabel}`}
               </Button>
               <Button
                 type="button"
@@ -1198,14 +1223,14 @@ export default function NovoProdutoPage() {
                     confirmText: 'Sim, cancelar',
                     cancelText: 'Continuar editando',
                   });
-                  if (ok) router.back();
+                  if (ok) router.push('/equipamentos');
                 }}
               >
                 Cancelar
               </Button>
             </div>
           </div>
-        </main>
+        </div>
 
         {/* Modal: novo grupo */}
         {modalNovoGrupo && (
@@ -1214,18 +1239,18 @@ export default function NovoProdutoPage() {
             onClick={() => !salvandoGrupo && setModalNovoGrupo(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              className={modalPanelClass}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setModalNovoGrupo(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className={modalCloseClass}
                 aria-label="Fechar"
               >
                 <FiX size={20} />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo grupo</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Novo grupo</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="novo-grupo-nome">Nome *</Label>
@@ -1266,21 +1291,22 @@ export default function NovoProdutoPage() {
             onClick={() => !salvandoSubcategoria && setModalNovaSubcategoria(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              className={modalPanelClass}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setModalNovaSubcategoria(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className={modalCloseClass}
                 aria-label="Fechar"
               >
                 <FiX size={20} />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Nova subcategoria</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-1">Nova subcategoria</h3>
               {categoriaSelecionadaNome && (
-                <p className="text-sm text-gray-500 mb-4">
-                  Categoria: <span className="font-medium text-gray-700">{categoriaSelecionadaNome}</span>
+                <p className="text-sm text-gray-500 dark:text-zinc-400 mb-4">
+                  Categoria:{' '}
+                  <span className="font-medium text-gray-700 dark:text-zinc-200">{categoriaSelecionadaNome}</span>
                 </p>
               )}
               <div className="space-y-4">
@@ -1323,21 +1349,22 @@ export default function NovoProdutoPage() {
             onClick={() => !salvandoCategoria && setModalNovaCategoria(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              className={modalPanelClass}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setModalNovaCategoria(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className={modalCloseClass}
                 aria-label="Fechar"
               >
                 <FiX size={20} />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Nova categoria</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-1">Nova categoria</h3>
               {grupoSelecionadoNome && (
-                <p className="text-sm text-gray-500 mb-4">
-                  Grupo: <span className="font-medium text-gray-700">{grupoSelecionadoNome}</span>
+                <p className="text-sm text-gray-500 dark:text-zinc-400 mb-4">
+                  Grupo:{' '}
+                  <span className="font-medium text-gray-700 dark:text-zinc-200">{grupoSelecionadoNome}</span>
                 </p>
               )}
               <div className="space-y-4">
@@ -1380,18 +1407,18 @@ export default function NovoProdutoPage() {
             onClick={() => !salvandoFornecedor && setModalNovoFornecedor(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              className={modalPanelClass}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setModalNovoFornecedor(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className={modalCloseClass}
                 aria-label="Fechar"
               >
                 <FiX size={20} />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo fornecedor</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Novo fornecedor</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="novo-forn-nome">Nome *</Label>
@@ -1451,18 +1478,18 @@ export default function NovoProdutoPage() {
             onClick={() => !salvandoMarca && setModalNovaMarca(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              className={modalPanelClass}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setModalNovaMarca(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className={modalCloseClass}
                 aria-label="Fechar"
               >
                 <FiX size={20} />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Nova marca</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Nova marca</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="nova-marca-nome">Nome *</Label>
