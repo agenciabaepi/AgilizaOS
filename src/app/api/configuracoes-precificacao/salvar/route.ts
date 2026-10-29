@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { clampParcelasExibicao, PARCELAS_MAX } from '@/lib/pricingCalculator';
 
 function parseNum(v: unknown, fallback = 0): number {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.'));
@@ -54,6 +55,9 @@ export async function POST(request: NextRequest) {
           ? 'parcelado_destaque'
           : 'separado',
       desconto_vista_percent: parseNum(dadosCompletos.desconto_vista_percent),
+      max_parcelas_exibicao: clampParcelasExibicao(
+        parseNum(dadosCompletos.max_parcelas_exibicao, PARCELAS_MAX)
+      ),
       mensagem_whatsapp: String(dadosCompletos.mensagem_whatsapp ?? '').trim(),
       configurado: true,
       updated_at: new Date().toISOString(),

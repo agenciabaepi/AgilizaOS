@@ -13,6 +13,8 @@ export interface ConfiguracaoPrecificacao {
   frete_valor: number;
   modo_exibicao_cliente: ModoExibicaoPrecoCliente;
   desconto_vista_percent: number;
+  /** Máximo de parcelas na tabela (2–12). Definido nas configurações. */
+  max_parcelas_exibicao: number;
   mensagem_whatsapp: string;
   configurado: boolean;
 }
@@ -40,7 +42,7 @@ export const MODO_EXIBICAO_CLIENTE_OPTIONS: {
   {
     value: 'parcelado_destaque',
     label: 'Parcelado em destaque com desconto à vista',
-    description: 'Ex: R$ 120,00 parcelado em até 12x — 17% de desconto à vista.',
+    description: 'Ex: R$ 120,00 parcelado em até Nx — 17% de desconto à vista.',
   },
 ];
 

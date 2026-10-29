@@ -63,6 +63,8 @@ function ResumoTaxas({ config }: { config: ConfiguracaoPrecificacao }) {
       {modoLabel && (
         <p className="text-xs text-gray-500">
           Exibição ao cliente: <strong className="text-gray-700">{modoLabel}</strong>
+          {' · '}
+          Parcelas: <strong className="text-gray-700">até {config.max_parcelas_exibicao}x</strong>
           {config.modo_exibicao_cliente === 'parcelado_destaque' && config.desconto_vista_percent > 0 && (
             <>
               {' · '}
@@ -98,7 +100,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
       try {
         const { data, error } = await supabase
           .from('configuracoes_precificacao')
-          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, modo_exibicao_cliente, desconto_vista_percent, mensagem_whatsapp, configurado')
+          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, modo_exibicao_cliente, desconto_vista_percent, max_parcelas_exibicao, mensagem_whatsapp, configurado')
           .eq('empresa_id', usuarioData.empresa_id)
           .maybeSingle();
 
@@ -110,6 +112,10 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
         }
 
         if (data) {
+          const maxParcelasConfig = clampParcelasExibicao(
+            Number(data.max_parcelas_exibicao ?? PARCELAS_MAX)
+          );
+          setParcelasExibir(maxParcelasConfig);
           setConfig({
             markup_percent: Number(data.markup_percent ?? 0),
             imposto_percent: Number(data.imposto_percent ?? 0),
@@ -118,6 +124,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
             modo_exibicao_cliente:
               data.modo_exibicao_cliente === 'parcelado_destaque' ? 'parcelado_destaque' : 'separado',
             desconto_vista_percent: Number(data.desconto_vista_percent ?? 0),
+            max_parcelas_exibicao: maxParcelasConfig,
             mensagem_whatsapp: String(data.mensagem_whatsapp ?? ''),
             configurado: Boolean(data.configurado),
           });

@@ -9,7 +9,14 @@ import { Input } from '@/components/Input';
 import { Textarea } from '@/components/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabaseClient';
-import { parsePercentInput, MODO_EXIBICAO_CLIENTE_OPTIONS, type ModoExibicaoPrecoCliente } from '@/lib/pricingCalculator';
+import {
+  parsePercentInput,
+  clampParcelasExibicao,
+  listaParcelasExibicao,
+  MODO_EXIBICAO_CLIENTE_OPTIONS,
+  PARCELAS_MAX,
+  type ModoExibicaoPrecoCliente,
+} from '@/lib/pricingCalculator';
 import { CurrencyInput } from '@/components/CurrencyInput';
 import { parseCurrencyNumber } from '@/lib/currencyMask';
 import { FiPercent, FiDollarSign, FiSave } from 'react-icons/fi';
@@ -24,6 +31,7 @@ interface ConfigPrecificacao {
   frete_valor: number;
   modo_exibicao_cliente: ModoExibicaoPrecoCliente;
   desconto_vista_percent: number;
+  max_parcelas_exibicao: number;
   mensagem_whatsapp: string;
   configurado: boolean;
 }
@@ -36,6 +44,7 @@ function formFromData(d: ConfigPrecificacao) {
     frete_valor: String(d.frete_valor ?? ''),
     modo_exibicao_cliente: (d.modo_exibicao_cliente ?? 'separado') as ModoExibicaoPrecoCliente,
     desconto_vista_percent: String(d.desconto_vista_percent ?? ''),
+    max_parcelas_exibicao: clampParcelasExibicao(Number(d.max_parcelas_exibicao ?? PARCELAS_MAX)),
     mensagem_whatsapp: d.mensagem_whatsapp ?? '',
   };
 }
@@ -54,6 +63,7 @@ export default function PrecificacaoPage() {
     frete_valor: '',
     modo_exibicao_cliente: 'separado' as ModoExibicaoPrecoCliente,
     desconto_vista_percent: '',
+    max_parcelas_exibicao: PARCELAS_MAX,
     mensagem_whatsapp: '',
   });
 
@@ -107,6 +117,7 @@ export default function PrecificacaoPage() {
         frete_valor: parseCurrencyNumber(form.frete_valor),
         modo_exibicao_cliente: form.modo_exibicao_cliente,
         desconto_vista_percent: parsePercentInput(form.desconto_vista_percent),
+        max_parcelas_exibicao: clampParcelasExibicao(form.max_parcelas_exibicao),
         mensagem_whatsapp: form.mensagem_whatsapp.trim(),
         configurado: true,
         updated_at: new Date().toISOString(),
@@ -214,7 +225,9 @@ export default function PrecificacaoPage() {
                 />
                 <FiPercent className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Percentual de juros sobre o valor à vista (aplicado no total parcelado). Na calculadora você escolhe até quantas vezes exibir, de 2x a 12x.</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Percentual de juros sobre o valor à vista (aplicado no total parcelado).
+              </p>
             </div>
 
             <div>
@@ -258,10 +271,40 @@ export default function PrecificacaoPage() {
                   />
                   <span>
                     <span className="block text-sm font-medium text-gray-900">{opcao.label}</span>
-                    <span className="block text-xs text-gray-500 mt-0.5">{opcao.description}</span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      {opcao.value === 'parcelado_destaque'
+                        ? `Ex: R$ 120,00 parcelado em até ${form.max_parcelas_exibicao}x — 17% de desconto à vista.`
+                        : opcao.description}
+                    </span>
                   </span>
                 </label>
               ))}
+            </div>
+
+            <div className="max-w-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Parcelas na tabela de precificação
+              </label>
+              <select
+                value={form.max_parcelas_exibicao}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    max_parcelas_exibicao: clampParcelasExibicao(Number(e.target.value)),
+                  }))
+                }
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+              >
+                {listaParcelasExibicao().map((n) => (
+                  <option key={n} value={n}>
+                    Até {n}x
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Define até quantas parcelas aparecem na calculadora, no cupom e no WhatsApp (de 2x a 12x).
+                Na hora de enviar o orçamento ainda dá para ajustar.
+              </p>
             </div>
 
             {form.modo_exibicao_cliente === 'parcelado_destaque' && (
@@ -307,7 +350,7 @@ export default function PrecificacaoPage() {
             <ol className="list-decimal list-inside space-y-0.5 text-xs">
               <li>Soma o custo da peça com o frete e aplica markup e imposto</li>
               <li>Adiciona o valor de mão de obra informado na calculadora</li>
-              <li>Na calculadora você escolhe até quantas parcelas mostrar (2x a 12x). A mensagem do WhatsApp é a configurada nesta tela</li>
+              <li>As parcelas da tabela seguem o máximo definido acima (ajustável também ao enviar o orçamento). A mensagem do WhatsApp é a configurada nesta tela</li>
             </ol>
           </div>
 
