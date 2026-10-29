@@ -630,12 +630,14 @@ FERRAMENTAS (use quando ajudar):
 - Prefira fabricante, Apple/Google/SpaceX/Starlink, operadoras e fontes recentes. Inclua o ano atual na consulta
 - dados_os / casos_similares: dados internos da empresa
 - NUNCA invente disponibilidade, versão ou “não existe” sem base na pesquisa desta conversa
-- Se pesquisou: responda como um técnico bem informado — separe casos (ex.: Wi‑Fi via antena Mini vs Direct to Cell sem antena), diga o que vale no Brasil hoje, e cite 1–3 fontes. Não invente links
+- Se pesquisou: responda como um técnico bem informado — separe só o essencial (ex.: antena Wi‑Fi vs Direct to Cell), diga o status no Brasil, e no máximo 1–2 links. Não invente links
 
 REGRAS GERAIS (dentro do escopo):
-- Português brasileiro; claro e útil (pode usar listas com • e títulos curtos em texto puro)
+- Português brasileiro; RESPOSTA CURTA no celular: ideal 4–8 linhas, no máximo ~900 caracteres em "message"
+- Vá direto ao ponto; 3–5 bullets com • se precisar; SEM markdown (** ## etc.)
+- Não faça texto de marketing nem lista longa de planos/preços — só o que o técnico precisa saber
 - NÃO invente fatos que a pesquisa/banco não suportem
-- Pode fazer uma pergunta curta no final se faltar contexto
+- No máximo UMA pergunta curta no final, se faltar contexto
 - Com FOTOS / PANIC FULL: hipóteses fundamentadas no que leu
 - NUNCA diga que “não consegue identificar” sem listar o que leu e dar hipótese
 
@@ -793,13 +795,13 @@ Regras:
 - Use informação ATUAL da web (${ano}/${ano - 1}). Não invente.
 - Se a pergunta tiver variantes (ex.: Starlink Wi‑Fi via antena Mini vs Starlink Direct to Cell no celular sem antena), SEPARE os casos com clareza.
 - Digite o que já existe no Brasil vs o que ainda depende de operadora/lançamento.
-- Inclua limitações práticas (SMS/emergência vs internet plena, modelos, operadoras) quando a fonte mencionar.
+- Inclua limitações práticas só se forem decisivas (ex.: SMS vs internet plena; depende de operadora).
 - Prefira fabricante (Apple, Google, SpaceX/Starlink), operadoras e sites confiáveis.
-- Responda em português, objetivo, até ~18 linhas, com bullets se ajudar.
-- Inclua 2–5 links de fontes no final.
+- Resumo em português, bem objetivo, no máximo ~12 linhas (o chat final ainda será enxugado).
+- Inclua até 3 links no final.
 - Se não achar dado atual, diga explicitamente.`,
-    input: `${consulta}\n\nContexto: resposta para técnico/usuário no Brasil em ${ano}. Priorize fontes de ${ano}/${ano - 1}.`,
-    max_output_tokens: 1800,
+    input: `${consulta}\n\nContexto: técnico no Brasil em ${ano}. Priorize fontes de ${ano}/${ano - 1}. Seja factual e curto.`,
+    max_output_tokens: 1200,
   });
 
   const fontes = new Set<string>();
@@ -1234,7 +1236,7 @@ REGRA OBRIGATÓRIA: em TODA resposta em "message", inicie chamando o técnico po
           content: `RESULTADO OBRIGATÓRIO DA PESQUISA WEB (fonte principal desta resposta):
 ${resultado.slice(0, 7000)}
 
-Na "message", responda com base nisso: separe os casos quando existirem, diga o status no Brasil, e cite fontes. Não contradiga a pesquisa com conhecimento antigo.`,
+Na "message": resposta CURTA (4–8 linhas, ~900 caracteres), só o essencial, bullets com • se precisar, sem markdown **, no máximo 1–2 links. Separe casos só se forem diferentes na prática. Não contradiga a pesquisa.`,
         });
       } catch (err) {
         console.error('[laudo-chat] pesquisa prévia:', err instanceof Error ? err.message : err);
@@ -1309,7 +1311,7 @@ Na "message", responda com base nisso: separe os casos quando existirem, diga o 
           {
             role: 'user',
             content:
-              'Com base no que já foi obtido (incluindo RESULTADO da pesquisa web), retorne AGORA apenas o JSON final {"message":"...","laudo":null,"pecas":[]}. Em "message" coloque só o texto conversacional em português, SEM JSON aninhado, SEM markdown. Use a pesquisa atual; não cite iOS/Android antigos como se fossem a atualização mais recente.',
+              'Com base no que já foi obtido (incluindo RESULTADO da pesquisa web), retorne AGORA apenas o JSON final {"message":"...","laudo":null,"pecas":[]}. Em "message": texto CURTO (4–8 linhas, ~900 caracteres), português, sem JSON aninhado, sem markdown **. Só o essencial + no máx. 1–2 links. Use a pesquisa atual.',
           },
         ],
         response_format: { type: 'json_object' },
