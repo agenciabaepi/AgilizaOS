@@ -1,8 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { countUnreadForOs } from '@/lib/os-chat/readReceipts';
+import {
+  isOsChatBalcaoNivel,
+  isOsChatParticipantSync,
+  matchesOsChatUserId,
+} from '@/lib/os-chat/participants';
 
 export type OsChatConversa = {
   osId: string;
@@ -14,6 +19,13 @@ export type OsChatConversa = {
   lastAutorNome: string | null;
   hasAnexo: boolean;
   unreadCount: number;
+};
+
+type ChatUserFilter = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  tecnico_id?: string | null;
+  nivel?: string | null;
 };
 
 type RawRow = {
@@ -28,6 +40,8 @@ type RawRow = {
     id: string;
     numero_os: number | null;
     equipamento: string | null;
+    tecnico_id?: string | null;
+    atendente_id?: string | null;
     cliente?: { nome: string | null } | { nome: string | null }[] | null;
   } | null;
 };
@@ -41,12 +55,22 @@ function clienteNomeFromOrdem(ordem: RawRow['ordem']): string | null {
 
 function groupConversas(
   rows: RawRow[],
-  meuId: string | null | undefined,
+  user: ChatUserFilter | null | undefined,
   lastReadByOs: Map<string, string>
 ): OsChatConversa[] {
+  const meuId = user?.id ?? null;
+  const authoredOsIds = new Set<string>();
+  if (meuId) {
+    for (const row of rows) {
+      if (row.autor_id === meuId) authoredOsIds.add(row.os_id);
+    }
+  }
+
   const map = new Map<string, OsChatConversa>();
   for (const row of rows) {
     if (map.has(row.os_id)) continue;
+    if (!isOsChatParticipantSync(user, row.ordem, authoredOsIds.has(row.os_id))) continue;
+
     const unreadCount = meuId
       ? countUnreadForOs({
           osId: row.os_id,
@@ -73,12 +97,24 @@ function groupConversas(
 export function useOsChatConversas(
   empresaId: string | null | undefined,
   usuarioId: string | null | undefined,
-  enabled: boolean
+  enabled: boolean,
+  user?: ChatUserFilter | null
 ) {
   const [conversas, setConversas] = useState<OsChatConversa[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
   const knownRef = useRef(false);
+  const filterUser = useMemo<ChatUserFilter | null>(() => {
+    if (user?.id) {
+      return {
+        id: user.id,
+        auth_user_id: user.auth_user_id ?? null,
+        tecnico_id: user.tecnico_id ?? null,
+        nivel: user.nivel ?? null,
+      };
+    }
+    return usuarioId ? { id: usuarioId } : null;
+  }, [user?.id, user?.auth_user_id, user?.tecnico_id, user?.nivel, usuarioId]);
 
   const carregar = useCallback(async () => {
     if (!empresaId || !supabase) return;
@@ -91,7 +127,7 @@ export function useOsChatConversas(
             `
           id, os_id, autor_id, mensagem, anexo_url, created_at,
           autor:autor_id(nome),
-          ordem:os_id(id, numero_os, equipamento, cliente:cliente_id(nome))
+          ordem:os_id(id, numero_os, equipamento, tecnico_id, atendente_id, cliente:cliente_id(nome))
         `
           )
           .eq('empresa_id', empresaId)
@@ -113,7 +149,7 @@ export function useOsChatConversas(
         lastReadByOs.set(l.os_id, l.last_read_at);
       }
 
-      const grouped = groupConversas(rows, usuarioId, lastReadByOs);
+      const grouped = groupConversas(rows, filterUser, lastReadByOs);
       setConversas(grouped);
       setTotalUnread(grouped.reduce((acc, c) => acc + (c.unreadCount || 0), 0));
       knownRef.current = true;
@@ -122,7 +158,7 @@ export function useOsChatConversas(
     } finally {
       setLoading(false);
     }
-  }, [empresaId, usuarioId]);
+  }, [empresaId, usuarioId, filterUser]);
 
   useEffect(() => {
     if (!enabled || !empresaId) return;
@@ -173,10 +209,10 @@ export function useOsChatConversas(
 
       let query = supabase
         .from('ordens_servico')
-        .select('id, numero_os, equipamento, cliente:cliente_id(nome)')
+        .select('id, numero_os, equipamento, tecnico_id, atendente_id, cliente:cliente_id(nome)')
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(40);
 
       if (/^\d+$/.test(q)) {
         query = query.eq('numero_os', Number(q));
@@ -187,7 +223,16 @@ export function useOsChatConversas(
       const { data, error } = await query;
       if (error) return [];
 
-      return (data || []).map((o: any) => ({
+      const balcao = isOsChatBalcaoNivel(filterUser?.nivel);
+      const filtered = (data || []).filter((o: any) => {
+        if (balcao || !filterUser?.id) return true;
+        return (
+          matchesOsChatUserId(filterUser, o.tecnico_id) ||
+          matchesOsChatUserId(filterUser, o.atendente_id)
+        );
+      });
+
+      return filtered.slice(0, 20).map((o: any) => ({
         osId: o.id as string,
         numeroOs: o.numero_os ?? null,
         equipamento: o.equipamento ?? null,
@@ -199,7 +244,7 @@ export function useOsChatConversas(
         unreadCount: 0,
       }));
     },
-    [empresaId]
+    [empresaId, filterUser]
   );
 
   return { conversas, loading, totalUnread, carregar, buscarOrdens };

@@ -187,6 +187,8 @@ const VisualizarOrdemServicoPage = () => {
             imagens_tecnico,
             videos_tecnico,
             checklist_entrada,
+            checklist_entrega,
+            checklist_entrega_em,
             termo_garantia:termo_garantia_id (
               id,
               nome,
@@ -1161,6 +1163,92 @@ const VisualizarOrdemServicoPage = () => {
                   />
                 </div>
               )}
+
+              {/* Checklist de entrega (GCList) */}
+              {ordem.checklist_entrega && (() => {
+                let entrega: {
+                  summary?: { total?: number; passed?: number; failed?: number; skipped?: number };
+                  submitted_at?: string;
+                  technician_note?: string | null;
+                  device?: { modelName?: string; osName?: string; osVersion?: string } | null;
+                  tests?: Array<{ id: string; label: string; status: string; note?: string | null }>;
+                } | null = null;
+                try {
+                  entrega =
+                    typeof ordem.checklist_entrega === 'string'
+                      ? JSON.parse(ordem.checklist_entrega)
+                      : ordem.checklist_entrega;
+                } catch {
+                  entrega = null;
+                }
+                if (!entrega) return null;
+                const when = ordem.checklist_entrega_em || entrega.submitted_at;
+                return (
+                  <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-gray-100 dark:bg-zinc-700 rounded-lg">
+                        <FiCheckCircle className="w-5 h-5 text-gray-800 dark:text-zinc-100" />
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                          Checklist de entrega (GCList)
+                        </h2>
+                        {when && (
+                          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                            Enviado em {new Date(when).toLocaleString('pt-BR')}
+                            {entrega.device?.modelName
+                              ? ` · ${entrega.device.modelName}${entrega.device.osName ? ` (${entrega.device.osName} ${entrega.device.osVersion || ''})` : ''}`
+                              : ''}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {entrega.summary && (
+                      <div className="grid grid-cols-4 gap-3 mb-4">
+                        {[
+                          { label: 'Total', value: entrega.summary.total ?? 0, className: 'text-gray-900 dark:text-zinc-100' },
+                          { label: 'OK', value: entrega.summary.passed ?? 0, className: 'text-green-600 dark:text-green-400' },
+                          { label: 'Falha', value: entrega.summary.failed ?? 0, className: 'text-red-600 dark:text-red-400' },
+                          { label: 'Pulado', value: entrega.summary.skipped ?? 0, className: 'text-amber-600 dark:text-amber-400' },
+                        ].map((s) => (
+                          <div key={s.label} className="rounded-lg border border-gray-200 dark:border-zinc-600 p-3 text-center">
+                            <div className={`text-xl font-bold ${s.className}`}>{s.value}</div>
+                            <div className="text-xs text-gray-500 dark:text-zinc-400">{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {entrega.technician_note ? (
+                      <p className="text-sm text-gray-700 dark:text-zinc-300 mb-4">
+                        <span className="font-medium">Observação:</span> {entrega.technician_note}
+                      </p>
+                    ) : null}
+                    <div className="divide-y divide-gray-100 dark:divide-zinc-700">
+                      {(entrega.tests || []).map((t) => (
+                        <div key={t.id} className="flex items-center justify-between py-2.5 gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">{t.label}</p>
+                            {t.note ? (
+                              <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">{t.note}</p>
+                            ) : null}
+                          </div>
+                          <span
+                            className={`shrink-0 text-xs font-semibold uppercase px-2 py-1 rounded-full ${
+                              t.status === 'pass'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                : t.status === 'fail'
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                  : 'bg-gray-100 text-gray-600 dark:bg-zinc-700 dark:text-zinc-300'
+                            }`}
+                          >
+                            {t.status === 'pass' ? 'OK' : t.status === 'fail' ? 'Falha' : t.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {(ordem.senha_aparelho || ordem.senha_padrao || (linkPublicoAtivo && ordem.senha_acesso)) && (
                 <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                   <div className="flex items-center gap-3 mb-4">

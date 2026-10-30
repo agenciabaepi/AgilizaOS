@@ -154,8 +154,9 @@ function buildResumoCupom(
     linhas.push(`<p class="resumo-note">Parcelado em até ${maxParcelas}x</p>`);
     const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
     if (desconto) {
-      linhas.push(`<p class="resumo-note">${escapeHtml(desconto)}</p>`);
-      linhas.push(linhaResumo('À vista:', formatCupomValor(precoVistaCliente)));
+      linhas.push(
+        `<p class="resumo-note">À vista: ${escapeHtml(formatCupomValor(precoVistaCliente))} (${escapeHtml(desconto)})</p>`
+      );
     }
     return linhas.join('');
   }

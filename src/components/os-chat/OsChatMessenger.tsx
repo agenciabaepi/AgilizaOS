@@ -26,6 +26,8 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 import { formatVistoAs } from '@/lib/os-chat/readReceipts';
 import { getOsChatAnexoDisplayUrl } from '@/lib/os-chat/anexoUrl';
+import { isOsChatParticipantForUser } from '@/lib/os-chat/participants';
+import { osChatUserColor } from '@/lib/os-chat/userColor';
 
 export type OpenOsChatDetail = {
   osId: string;
@@ -288,16 +290,34 @@ function OsChatPopupWindow({
               .slice(0, 2)
               .map((w) => w[0]?.toUpperCase())
               .join('');
+            const autorColor = osChatUserColor(m.autor_id || m.autor?.nome);
+            const autorFoto = m.autor?.foto_url || null;
             return (
               <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
                 {!mine ? (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-600 text-[11px] font-bold text-white">
-                    {initials || '?'}
-                  </div>
+                  autorFoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={autorFoto}
+                      alt={m.autor?.nome || 'Usuário'}
+                      className="h-8 w-8 shrink-0 rounded-full object-cover"
+                      style={{ borderWidth: 1, borderColor: `${autorColor}55` }}
+                    />
+                  ) : (
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                      style={{ backgroundColor: autorColor, borderWidth: 1, borderColor: `${autorColor}55` }}
+                    >
+                      {initials || '?'}
+                    </div>
+                  )
                 ) : null}
                 <div className={`max-w-[72%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                   {!mine && (
-                    <div className="mb-1 ml-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <div
+                      className="mb-1 ml-0.5 text-[11px] font-semibold"
+                      style={{ color: autorColor }}
+                    >
                       {m.autor?.nome || 'Usuário'}
                     </div>
                   )}
@@ -527,10 +547,20 @@ export default function OsChatMessenger() {
   const windowsRef = useRef<ChatWindowState[]>([]);
   const seenMsgIdsRef = useRef<Set<string>>(new Set());
 
+  const chatUser = usuarioData
+    ? {
+        id: usuarioData.id,
+        auth_user_id: (usuarioData as { auth_user_id?: string | null }).auth_user_id ?? null,
+        tecnico_id: (usuarioData as { tecnico_id?: string | null }).tecnico_id ?? null,
+        nivel: usuarioData.nivel ?? null,
+      }
+    : null;
+
   const { conversas, loading, totalUnread, carregar: carregarConversas, buscarOrdens } = useOsChatConversas(
     empresaId,
     meuId,
-    true
+    true,
+    chatUser
   );
 
   useEffect(() => {
@@ -606,6 +636,14 @@ export default function OsChatMessenger() {
             }
             if (row.autor_id === meuId) return;
 
+            const podeReceber = await isOsChatParticipantForUser(row.os_id, {
+              id: meuId,
+              auth_user_id: usuarioData?.auth_user_id ?? null,
+              tecnico_id: (usuarioData as { tecnico_id?: string | null } | null)?.tecnico_id,
+              nivel: usuarioData?.nivel,
+            });
+            if (!podeReceber) return;
+
             const focused = windowsRef.current.find((w) => w.osId === row.os_id && !w.minimized);
             if (focused && document.visibilityState === 'visible') return;
 
@@ -643,7 +681,7 @@ export default function OsChatMessenger() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [empresaId, meuId, addToast, carregarConversas]);
+  }, [empresaId, meuId, addToast, carregarConversas, usuarioData]);
 
   // Na página da O.S., oferece atalho no topo do inbox
   const osIdFromPath = useMemo(() => {

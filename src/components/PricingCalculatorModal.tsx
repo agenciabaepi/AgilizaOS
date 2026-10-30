@@ -8,9 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import {
   calcularPrecificacao,
+  calcularPrecoVistaExibicao,
   clampParcelasExibicao,
   filtrarOpcoesParcelamento,
   formatBRL,
+  formatDescontoVistaTexto,
   handleMoneyInputChange,
   isConfiguracaoValida,
   listaParcelasExibicao,
@@ -159,6 +161,24 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
     [resultado, maxParcelas]
   );
 
+  const precoVistaCliente = useMemo(() => {
+    if (!resultado || !config) return 0;
+    return calcularPrecoVistaExibicao(
+      resultado.precoVenda,
+      resultado.precoParcelado,
+      config.desconto_vista_percent
+    );
+  }, [resultado, config]);
+
+  const descontoVistaTexto = useMemo(() => {
+    if (!resultado || !config) return '';
+    return formatDescontoVistaTexto(
+      resultado.precoVenda,
+      resultado.precoParcelado,
+      config.desconto_vista_percent
+    );
+  }, [resultado, config]);
+
   if (!isOpen) return null;
 
   const configurado = isConfiguracaoValida(config);
@@ -254,25 +274,53 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                 </div>
               </div>
 
-              {temValorInformado && resultado && (
+              {temValorInformado && resultado && config && (
                 <div className="space-y-3">
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-                    <div className="flex justify-between items-center gap-3">
-                      <span className="text-sm text-gray-600">Preço à vista</span>
-                      <span className="text-lg font-bold text-gray-900 tabular-nums shrink-0">
-                        {formatBRL(resultado.precoVenda)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
-                      <span className="text-sm text-gray-600">Total parcelado</span>
-                      <span className="text-base font-semibold text-gray-800 tabular-nums shrink-0">
-                        {formatBRL(resultado.precoParcelado)}
-                      </span>
-                    </div>
-                    {resultado.jurosPercent > 0 && (
-                      <p className="text-xs text-gray-500">
-                        Juros de {resultado.jurosPercent}% sobre o valor à vista
-                      </p>
+                    {config.modo_exibicao_cliente === 'parcelado_destaque' ? (
+                      <>
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="min-w-0">
+                            <span className="text-sm text-gray-600">Total parcelado</span>
+                            {resultado.jurosPercent > 0 && (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Com todas as taxas e juros de {resultado.jurosPercent}%
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xl font-bold text-gray-900 tabular-nums shrink-0">
+                            {formatBRL(resultado.precoParcelado)}
+                          </span>
+                        </div>
+                        {descontoVistaTexto && (
+                          <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
+                            <span className="text-xs text-gray-500">{descontoVistaTexto}</span>
+                            <span className="text-sm font-medium text-gray-600 tabular-nums shrink-0">
+                              {formatBRL(precoVistaCliente)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center gap-3">
+                          <span className="text-sm text-gray-600">Preço à vista</span>
+                          <span className="text-lg font-bold text-gray-900 tabular-nums shrink-0">
+                            {formatBRL(resultado.precoVenda)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
+                          <span className="text-sm text-gray-600">Total parcelado</span>
+                          <span className="text-base font-semibold text-gray-800 tabular-nums shrink-0">
+                            {formatBRL(resultado.precoParcelado)}
+                          </span>
+                        </div>
+                        {resultado.jurosPercent > 0 && (
+                          <p className="text-xs text-gray-500">
+                            Juros de {resultado.jurosPercent}% sobre o valor à vista
+                          </p>
+                        )}
+                      </>
                     )}
                     <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
                       <span className="text-sm text-gray-600 flex items-center gap-1">

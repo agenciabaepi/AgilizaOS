@@ -293,11 +293,26 @@ export async function atualizarStatusOs(
       ...updateData
     };
 
+    // valor_faturado / data_entrega só na entrega explícita (newStatus ENTREGUE).
+    // Bancada do técnico pode mandar valor_servico + "REPARO CONCLUÍDO"; gravar valor_faturado
+    // fazia a OS parecer faturada/encerrada sem a recepção ter entregue.
+    if (!seraFinalizada) {
+      delete dadosAtualizacao.valor_faturado;
+      delete dadosAtualizacao.data_entrega;
+    }
+
     // Definir data_entrega automaticamente se a OS está sendo finalizada
     if (seraFinalizada && !updateData.data_entrega) {
       const dataStr = toDateOnlyLocal();
       dadosAtualizacao.data_entrega = dataStr;
       console.log('📅 Data de entrega definida automaticamente:', dataStr);
+    }
+
+    // Na entrega, garantir valor_faturado a partir dos valores da O.S. (não depende da bancada)
+    if (seraFinalizada && (dadosAtualizacao.valor_faturado === undefined || dadosAtualizacao.valor_faturado === null || dadosAtualizacao.valor_faturado === '')) {
+      const vs = Number(dadosAtualizacao.valor_servico ?? (osAnterior as any).valor_servico ?? 0) || 0;
+      const vp = Number(dadosAtualizacao.valor_peca ?? (osAnterior as any).valor_peca ?? 0) || 0;
+      dadosAtualizacao.valor_faturado = String(vs + vp);
     }
 
     // Garantia legal: 90 dias a partir da entrega — somente reparo com conserto

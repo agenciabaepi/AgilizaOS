@@ -507,9 +507,7 @@ export default function DetalheBancadaPage() {
         // ✅ Sempre atualizar valores monetários (permitir zerar quando removidos)
         valor_peca: produtosValidos.length > 0 ? calcularTotalProdutos().toString() : '0',
         valor_servico: servicosValidos.length > 0 ? calcularTotalServicos().toString() : '0',
-        valor_faturado: (produtosValidos.length > 0 || servicosValidos.length > 0) 
-          ? (calcularTotalProdutos() + calcularTotalServicos()).toString() 
-          : '0',
+        // NÃO gravar valor_faturado aqui: faturamento/encerramento só na entrega pelo atendente.
         // ✅ PRESERVAR dados existentes se não há novos dados (apenas para laudo e observações)
         ...(laudo && { laudo }),
         ...(observacoes && { observacao: observacoes }),
@@ -555,7 +553,6 @@ export default function DetalheBancadaPage() {
           status_tecnico: statusTecnicoParaSalvar,
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
-          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
         });
       }
 

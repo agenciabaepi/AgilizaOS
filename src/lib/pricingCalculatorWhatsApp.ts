@@ -69,8 +69,7 @@ function buildBlocoPrecosWhatsApp(data: OrcamentoWhatsAppData): string[] {
     ];
     const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
     if (desconto) {
-      linhas.push(desconto);
-      linhas.push(`À vista: ${formatBRL(precoVistaCliente)}`);
+      linhas.push(`${formatBRL(precoVistaCliente)} — ${desconto}`);
     }
     if (exibirParcelamento && opcoesParcelamento.length > 0) {
       linhas.push('', `*Opções de parcelamento:*`);

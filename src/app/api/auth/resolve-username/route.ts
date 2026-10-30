@@ -5,21 +5,33 @@ import { avaliarGateVerificacao } from '@/lib/verification-gate';
 
 /**
  * Resolve nome de usuário ou e-mail → e-mail canônico do Auth (onde a senha é validada).
- * Usa admin client para ignorar RLS na tabela usuarios.
+ * Usado pelo login web, mobile e GCList.
+ *
+ * Mapeamento:
+ * - se o valor contém `@` → busca `usuarios.email`
+ * - senão → busca `usuarios.usuario` (login / username, lowercase)
+ * Depois lê o e-mail real em `auth.users` via `auth_user_id`.
+ *
+ * Body aceito: `{ login }`, `{ username }` ou `{ email }`.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const login = String(body.username ?? body.login ?? '').trim().toLowerCase();
+    const login = String(body.username ?? body.login ?? body.email ?? '')
+      .trim()
+      .toLowerCase();
     if (!login) {
       return NextResponse.json({ error: 'Login obrigatório' }, { status: 400 });
     }
 
     const admin = getSupabaseAdmin();
 
+    const selectFields =
+      'auth_user_id, email, usuario, email_verificado, email_verificado_em, verificacao_liberada_admin, nivel, empresa_id';
+
     const usuarioQuery = login.includes('@')
-      ? admin.from('usuarios').select('auth_user_id, email_verificado, email_verificado_em, verificacao_liberada_admin, nivel, empresa_id').eq('email', login).maybeSingle()
-      : admin.from('usuarios').select('auth_user_id, email_verificado, email_verificado_em, verificacao_liberada_admin, nivel, empresa_id').eq('usuario', login).maybeSingle();
+      ? admin.from('usuarios').select(selectFields).eq('email', login).maybeSingle()
+      : admin.from('usuarios').select(selectFields).eq('usuario', login).maybeSingle();
 
     const { data: usuario, error } = await usuarioQuery;
 
@@ -41,6 +53,7 @@ export async function POST(request: NextRequest) {
     if (!SMS_VERIFICATION_ENABLED) {
       return NextResponse.json({
         email: authUser.user.email,
+        usuario: (usuario as { usuario?: string | null }).usuario ?? null,
         email_verificado: true,
         nivel: usuario.nivel,
         empresa_verificada: true,
@@ -52,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       email: authUser.user.email,
+      usuario: (usuario as { usuario?: string | null }).usuario ?? null,
       email_verificado: gate.email_verificado,
       nivel: usuario.nivel,
       empresa_verificada: gate.empresa_verificada,

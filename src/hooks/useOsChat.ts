@@ -14,7 +14,7 @@ export type OsChatMensagem = {
   anexo_url: string | null;
   anexo_tipo: string | null;
   created_at: string;
-  autor?: { id: string; nome: string | null } | null;
+  autor?: { id: string; nome: string | null; foto_url?: string | null } | null;
   anexo_display_url?: string | null;
   /** ISO do primeiro outro usuário que leu (mensagens próprias) */
   visto_em?: string | null;
@@ -87,9 +87,13 @@ function applyVistos(
 
 async function enrichAutor(raw: OsChatMensagem): Promise<OsChatMensagem> {
   let autor = raw.autor;
-  if (!autor?.nome && raw.autor_id && supabase) {
-    const { data } = await supabase.from('usuarios').select('id, nome').eq('id', raw.autor_id).maybeSingle();
-    autor = data;
+  if ((!autor?.nome || !autor?.foto_url) && raw.autor_id && supabase) {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('id, nome, foto_url')
+      .eq('id', raw.autor_id)
+      .maybeSingle();
+    if (data) autor = { ...autor, ...data };
   }
   return {
     ...raw,
@@ -143,7 +147,7 @@ export function useOsChat(osId: string | null | undefined, meuId?: string | null
         supabase
           .from('os_chat_mensagens')
           .select(
-            'id, empresa_id, os_id, autor_id, mensagem, anexo_url, anexo_tipo, created_at, autor:autor_id(id, nome)'
+            'id, empresa_id, os_id, autor_id, mensagem, anexo_url, anexo_tipo, created_at, autor:autor_id(id, nome, foto_url)'
           )
           .eq('os_id', osId)
           .order('created_at', { ascending: true }),
@@ -309,7 +313,7 @@ export function useOsChat(osId: string | null | undefined, meuId?: string | null
             anexo_tipo,
           })
           .select(
-            'id, empresa_id, os_id, autor_id, mensagem, anexo_url, anexo_tipo, created_at, autor:autor_id(id, nome)'
+            'id, empresa_id, os_id, autor_id, mensagem, anexo_url, anexo_tipo, created_at, autor:autor_id(id, nome, foto_url)'
           )
           .single();
         if (error) throw error;
