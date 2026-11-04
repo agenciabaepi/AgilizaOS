@@ -100,15 +100,15 @@ function relNome(value: RelNome): string | null {
   return nome || null;
 }
 
-/** Prioridade: categorias_produtos > grupos_produtos > texto legado `categoria`. */
+/** Prioridade: grupos_produtos (nível principal) > categorias_produtos > texto legado. */
 export function resolveCategoriaProduto(row: {
   categoria?: string | null;
   categorias_produtos?: RelNome;
   grupos_produtos?: RelNome;
 }): string | null {
   return (
-    relNome(row.categorias_produtos) ||
     relNome(row.grupos_produtos) ||
+    relNome(row.categorias_produtos) ||
     (typeof row.categoria === 'string' ? row.categoria.trim() : '') ||
     null
   );
