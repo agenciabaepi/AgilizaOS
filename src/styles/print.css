@@ -1,7 +1,7 @@
 @media print {
   /* Importante: não ocultar todo o documento por padrão.
      O comportamento de imprimir somente o cupom agora é OPT-IN
-     usando a classe body.only-cupom. Assim, páginas como /catalogo
+     usando a classe body.only-cupom. Assim, páginas como /tabela-precos
      imprimem normalmente. */
 
   /* Modo somente cupom (usar adicionando class="only-cupom" no body quando necessário) */

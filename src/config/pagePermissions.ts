@@ -50,9 +50,9 @@ export const PAGE_PERMISSIONS = {
   '/equipamentos/novo': 'equipamentos',
   '/equipamentos/categorias': 'equipamentos',
 
-  // Catálogo
-  '/catalogo': 'catalogo',
-  '/catalogo/imprimir': 'catalogo',
+  // Tabela de Preços
+  '/tabela-precos': 'catalogo',
+  '/tabela-precos/imprimir': 'catalogo',
 
   // Financeiro
   '/financeiro': 'financeiro',
@@ -102,6 +102,8 @@ export const PAGE_PERMISSIONS = {
   '/configuracoes/checklist-novo': 'checklist',
   '/configuracoes/termos': 'termos-config',
   '/configuracoes/status': 'status',
+  '/configuracoes/tabela-precos': 'catalogo-config',
+  '/configuracoes/catalogo-loja': 'catalogo-config',
   '/configuracoes/catalogo': 'catalogo-config',
   '/configuracoes/comissoes': 'regras-comissoes',
   '/configuracoes/precificacao': 'precificacao',

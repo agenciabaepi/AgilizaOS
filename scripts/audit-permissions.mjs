@@ -32,7 +32,7 @@ const CONFIG_TABS = [
   { name: 'Termos', key: 'termos-config' },
   { name: 'Status', key: 'status' },
   { name: 'Link Público', key: 'link-publico' },
-  { name: 'Catálogo', key: 'catalogo-config' },
+  { name: 'Tabela de Preços', key: 'catalogo-config' },
   { name: 'WhatsApp', key: 'whatsapp' },
   { name: 'Avisos', key: 'avisos' },
 ];
@@ -40,7 +40,7 @@ const CONFIG_TABS = [
 const TEST_PATHS = [
   '/dashboard-atendente', '/ordens', '/clientes', '/financeiro',
   '/configuracoes', '/configuracoes/usuarios', '/configuracoes/status',
-  '/suporte', '/bancada', '/comissoes', '/catalogo', '/assinatura', '/perfil',
+  '/suporte', '/bancada', '/comissoes', '/tabela-precos', '/catalogo', '/assinatura', '/perfil',
 ];
 
 const LEGACY = {

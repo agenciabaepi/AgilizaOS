@@ -18,7 +18,7 @@ import { warmupNotificationAudio, warmupOrcamentoAudio } from '@/utils/audioPlay
 import dynamic from 'next/dynamic';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
-import PricingCalculatorFAB from '@/components/PricingCalculatorFAB';
+import FloatingActionsMenu from '@/components/FloatingActionsMenu';
 
 const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
 import { Analytics } from '@vercel/analytics/react';
@@ -52,9 +52,15 @@ function isAdminRoute(pathname: string | null): boolean {
   return pathname?.startsWith('/admin-login') === true || pathname?.startsWith('/admin-saas') === true;
 }
 
-/** Catálogo público de peças — layout leve, sem auth/FAB/banners do sistema. */
-function isPecasPublicRoute(pathname: string | null): boolean {
-  return pathname === '/pecas' || pathname?.startsWith('/pecas/') === true;
+/** Rotas públicas leves — sem auth/FAB/banners do sistema. */
+function isLightPublicRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    pathname === '/pecas' ||
+    pathname.startsWith('/pecas/') ||
+    pathname === '/catalogo' ||
+    pathname.startsWith('/catalogo/')
+  );
 }
 
 export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
@@ -69,7 +75,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
     warmupNotificationAudio();
   }, []);
 
-  if (isAdminRoute(pathname) || isPecasPublicRoute(pathname)) {
+  if (isAdminRoute(pathname) || isLightPublicRoute(pathname)) {
     return (
       <html lang="pt-BR" suppressHydrationWarning>
         <head>
@@ -128,7 +134,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
                         <LaudoProntoAlert />
                       </>
                     )}
-                    <PricingCalculatorFAB />
+                    <FloatingActionsMenu />
                     <>{children}</>
                   </AuthContent>
                   <DynamicToaster />

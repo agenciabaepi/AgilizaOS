@@ -16,7 +16,7 @@ export const PAGE_RESOURCES = {
 
 /** Permissão de aba em /configuracoes?tab=N → módulo premium */
 export const CONFIG_TAB_PREMIUM_MODULES: Record<number, string> = {
-  11: 'whatsapp_crm',
+  12: 'whatsapp_crm',
 };
 
 export function getRequiredResource(pathname: string): string | null {

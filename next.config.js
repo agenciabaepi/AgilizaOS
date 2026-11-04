@@ -98,9 +98,12 @@ const nextConfig = {
     pagesBufferLength: 2,
   },
 
-  // Rate limiting (se necessário)
+  // Rotas legadas da antiga Tabela de Preços em /catalogo/*
   async redirects() {
-    return []
+    return [
+      { source: '/catalogo/imprimir', destination: '/tabela-precos/imprimir', permanent: true },
+      { source: '/configuracoes/catalogo', destination: '/configuracoes/tabela-precos', permanent: true },
+    ]
   },
 
   // Suporte a SVG via SVGR (webpack)

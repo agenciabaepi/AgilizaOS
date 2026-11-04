@@ -5,13 +5,12 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
-export default function CatalogoConfigPage() {
+export default function TabelaPrecosConfigPage() {
   const { empresaData } = useAuth();
   const { podeAcessar } = useConfigPermission('catalogo-config');
   const [habilitado, setHabilitado] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Cadastro e listagem foram movidos para /catalogo
 
   useEffect(() => {
     if (!empresaData?.id) return;
@@ -41,21 +40,19 @@ export default function CatalogoConfigPage() {
         .select();
       
       if (error) {
-        console.error('❌ Erro ao salvar configuração do catálogo:', error);
+        console.error('❌ Erro ao salvar configuração da tabela de preços:', error);
         alert('Erro ao salvar: ' + error.message);
         throw error;
       }
       
-      console.log('✅ Configuração do catálogo salva com sucesso:', data);
-      alert(`Catálogo ${habilitado ? 'habilitado' : 'desabilitado'} com sucesso! O menu será atualizado automaticamente.`);
+      console.log('✅ Configuração da tabela de preços salva com sucesso:', data);
+      alert(`Tabela de Preços ${habilitado ? 'habilitada' : 'desabilitada'} com sucesso! O menu será atualizado automaticamente.`);
     } catch (error) {
       console.error('Erro ao salvar:', error);
     } finally {
       setSaving(false);
     }
   };
-
-  // Handlers do cadastro removidos aqui
 
   if (!podeAcessar) {
     return <AcessoNegadoComponent />;
@@ -64,15 +61,15 @@ export default function CatalogoConfigPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Catálogo</h2>
-        <p className="text-gray-600 text-sm">Habilite a página pública de catálogo e configure como deseja exibir seus serviços.</p>
+        <h2 className="text-xl font-semibold text-gray-900">Tabela de Preços</h2>
+        <p className="text-gray-600 text-sm">Habilite a tabela de preços e configure como deseja exibir seus serviços.</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 p-4 bg-white">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-medium text-gray-900">Habilitar Catálogo Público</div>
-            <div className="text-sm text-gray-600">Exibe a página <span className="font-mono">/catalogo</span> com os serviços e preços da empresa.</div>
+            <div className="font-medium text-gray-900">Habilitar Tabela de Preços</div>
+            <div className="text-sm text-gray-600">Exibe a página <span className="font-mono">/tabela-precos</span> com os serviços e preços da empresa.</div>
           </div>
           <label className="inline-flex items-center cursor-pointer">
             <input type="checkbox" className="sr-only" checked={habilitado} onChange={(e) => setHabilitado(e.target.checked)} />
@@ -88,15 +85,11 @@ export default function CatalogoConfigPage() {
         </div>
       </div>
 
-      {/* Gestão removida: use a página /catalogo para cadastrar e listar itens */}
-
       <div className="rounded-xl border border-gray-200 p-4 bg-white">
         <div className="font-medium text-gray-900 mb-1">Atalho</div>
-        <p className="text-sm text-gray-600 mb-3">Abra a página de catálogo para visualizar como seus clientes verão os serviços.</p>
-        <a href="/catalogo" className="inline-flex px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900">Abrir Catálogo</a>
+        <p className="text-sm text-gray-600 mb-3">Abra a tabela de preços para visualizar e gerenciar os serviços cadastrados.</p>
+        <a href="/tabela-precos" className="inline-flex px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900">Abrir Tabela de Preços</a>
       </div>
     </div>
   );
 }
-
-

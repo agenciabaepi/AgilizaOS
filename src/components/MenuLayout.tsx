@@ -428,7 +428,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               )}
             </>
           )}
-          {podeVer('equipamentos') && (matchesSearch('Produtos/Serviços') || matchesSearch('Produtos') || matchesSearch('Categorias') || matchesSearch('Catálogo')) && (
+          {podeVer('equipamentos') && (matchesSearch('Produtos/Serviços') || matchesSearch('Produtos') || matchesSearch('Categorias') || matchesSearch('Catálogo') || matchesSearch('Tabela de Preços') || matchesSearch('Tabela')) && (
             <>
               <SidebarSectionHeader
                 icon={<FiBox size={22} strokeWidth={1.75} />}
@@ -441,15 +441,15 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   <SidebarButton path="/equipamentos" label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} isSubmenu />
                   <SidebarButton path="/equipamentos/categorias" label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} isSubmenu />
                   {catalogoHabilitado && podeVer('catalogo') && (
-                    <SidebarButton path="/catalogo" label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} isSubmenu />
+                    <SidebarButton path="/tabela-precos" label="Tabela de Preços" isActive={pathname === '/tabela-precos' || pathname.startsWith('/tabela-precos/')} menuRecolhido={false} isSubmenu />
                   )}
                 </SidebarSubmenuPanel>
               )}
             </>
           )}
-          {/* Catálogo independente - se usuário tem permissão de catálogo mas não de equipamentos */}
-          {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && matchesSearch('Catálogo') && (
-            <SidebarButton path="/catalogo" icon={<FiStar size={22} strokeWidth={1.75} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
+          {/* Tabela de Preços independente - se usuário tem permissão mas não de equipamentos */}
+          {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (matchesSearch('Catálogo') || matchesSearch('Tabela de Preços') || matchesSearch('Tabela')) && (
+            <SidebarButton path="/tabela-precos" icon={<FiStar size={22} strokeWidth={1.75} />} label="Tabela de Preços" isActive={pathname === '/tabela-precos' || pathname.startsWith('/tabela-precos/')} menuRecolhido={false} />
           )}
           {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos')) && (
             <>
@@ -655,14 +655,14 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                       <SidebarButton path="/equipamentos" label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} isSubmenu />
                       <SidebarButton path="/equipamentos/categorias" label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} isSubmenu />
                       {catalogoHabilitado && podeVer('catalogo') && (
-                        <SidebarButton path="/catalogo" label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} isSubmenu />
+                        <SidebarButton path="/tabela-precos" label="Tabela de Preços" isActive={pathname === '/tabela-precos' || pathname.startsWith('/tabela-precos/')} menuRecolhido={false} isSubmenu />
                       )}
                     </SidebarSubmenuPanel>
                   )}
                 </>
               )}
-              {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && matchesSearch('Catálogo') && (
-                <SidebarButton path="/catalogo" icon={<FiStar size={22} strokeWidth={1.75} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
+              {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (matchesSearch('Catálogo') || matchesSearch('Tabela de Preços') || matchesSearch('Tabela')) && (
+                <SidebarButton path="/tabela-precos" icon={<FiStar size={22} strokeWidth={1.75} />} label="Tabela de Preços" isActive={pathname === '/tabela-precos' || pathname.startsWith('/tabela-precos/')} menuRecolhido={false} />
               )}
               {podeVerModulo('financeiro', 'financeiro') && (
                 <>

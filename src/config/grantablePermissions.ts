@@ -66,7 +66,7 @@ export const PERMISSOES_CONTATOS: { principal: PermissaoItem; sub: PermissaoItem
 /** Produtos e serviços */
 export const PERMISSOES_PRODUTOS: { principal: PermissaoItem; sub: PermissaoItem[] } = {
   principal: { key: 'equipamentos', label: 'Produtos e serviços', description: 'Cadastro, categorias e listagem' },
-  sub: [{ key: 'catalogo', label: 'Catálogo', description: 'Catálogo público de produtos' }],
+  sub: [{ key: 'catalogo', label: 'Tabela de Preços', description: 'Tabela de preços de serviços para impressão' }],
 };
 
 /** Configurações — cada subárea corresponde a uma aba em /configuracoes */
@@ -87,7 +87,7 @@ export const PERMISSOES_CONFIGURACOES: { principal: PermissaoItem; sub: Permissa
     { key: 'termos-config', label: 'Termos (config)', description: 'Modelos de termos de garantia' },
     { key: 'status', label: 'Status de OS', description: 'Fluxo e cores dos status' },
     { key: 'link-publico', label: 'Link público', description: 'Página de acompanhamento da OS' },
-    { key: 'catalogo-config', label: 'Catálogo (config)', description: 'Configuração do catálogo' },
+    { key: 'catalogo-config', label: 'Catálogo / Tabela de Preços (config)', description: 'Configuração do catálogo público e da tabela de preços' },
     { key: 'avisos', label: 'Avisos internos', description: 'Comunicados para a equipe' },
     { key: 'whatsapp', label: 'WhatsApp', description: 'Integração com WhatsApp' },
   ],
@@ -125,7 +125,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     id: 'produtos',
     label: 'Produtos',
-    description: 'Produtos, serviços e catálogo',
+    description: 'Produtos, serviços e tabela de preços',
     color: 'purple',
     entries: [{ type: 'module' as const, principal: PERMISSOES_PRODUTOS.principal, sub: PERMISSOES_PRODUTOS.sub }],
   },

@@ -15,7 +15,7 @@ export const SYSTEM_FEATURES = [
   'Comissões de técnicos',
   'Contas a pagar',
   'Financeiro e lucro',
-  'Produtos, estoque e catálogo',
+  'Produtos, estoque e tabela de preços',
   'Gestão de clientes',
   'Caixa e fluxo financeiro',
   'Laudos com IA',

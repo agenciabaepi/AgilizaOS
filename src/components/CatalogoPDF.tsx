@@ -198,7 +198,7 @@ export function CatalogoPDF({ empresaData, itens, agrupadosPorCategoria }: Catal
             </Text>
           </View>
           <View style={styles.catalogBlock}>
-            <Text style={styles.catalogText}>Catálogo de Serviços</Text>
+            <Text style={styles.catalogText}>Tabela de Preços</Text>
             <Text style={styles.catalogText}>Gerado em: {formatDate()}</Text>
             <Text style={styles.catalogText}>Horário: {formatTime()}</Text>
             <Text style={styles.catalogText}>Total de Itens: {itens.length}</Text>

@@ -20,6 +20,7 @@ import {
   Activity,
   Link2,
   BookOpen,
+  Store,
   Bell,
   Settings,
   ChevronDown,
@@ -36,7 +37,8 @@ import TermosPage from './termos/page'
 import StatusPage from './status/page'
 import ComissoesPage from './comissoes/page'
 import PrecificacaoPage from './precificacao/page'
-import CatalogoPage from './catalogo/page'
+import TabelaPrecosConfigPage from './tabela-precos/page'
+import CatalogoLojaConfigPage from './catalogo-loja/page'
 import EquipamentosPage from './equipamentos/page'
 import AparelhosPage from './aparelhos/page'
 import ChecklistNovoPage from './checklist-novo/page'
@@ -75,7 +77,8 @@ const tabsConfig: TabConfig[] = [
   { name: 'Termos de Garantia', description: 'Modelos de garantia', group: 'operacao', icon: FileText, Component: TermosPage, permissao: 'termos-config', requerRecurso: null },
   { name: 'Status', description: 'Fluxo das ordens de serviço', group: 'operacao', icon: Activity, Component: StatusPage, permissao: 'status', requerRecurso: null },
   { name: 'Link Público', description: 'Página de acompanhamento', group: 'geral', icon: Link2, Component: LinkPublicoPage, permissao: 'link-publico', requerRecurso: null },
-  { name: 'Catálogo', description: 'Produtos e serviços', group: 'integracoes', icon: BookOpen, Component: CatalogoPage, permissao: 'catalogo-config', requerRecurso: null },
+  { name: 'Tabela de Preços', description: 'Serviços e valores para impressão', group: 'integracoes', icon: BookOpen, Component: TabelaPrecosConfigPage, permissao: 'catalogo-config', requerRecurso: null },
+  { name: 'Catálogo', description: 'Loja online com pedido via WhatsApp', group: 'integracoes', icon: Store, Component: CatalogoLojaConfigPage, permissao: 'catalogo-config', requerRecurso: null },
   { name: 'WhatsApp', description: 'Conecte o WhatsApp da assistência e envie avisos de OS', group: 'integracoes', icon: MessageCircle, Component: WhatsAppPage, permissao: 'whatsapp', requerRecurso: null },
   { name: 'Avisos', description: 'Comunicados internos', group: 'sistema', icon: Bell, Component: AvisosPage, permissao: 'avisos', requerRecurso: null },
 ]

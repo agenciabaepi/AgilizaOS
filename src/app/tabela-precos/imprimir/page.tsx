@@ -93,8 +93,8 @@ export default function ImprimirCatalogoPage() {
         .order('titulo', { ascending: true });
 
       if (error) {
-        console.error('Erro ao buscar itens do catálogo:', error);
-        setError(`Erro ao buscar catálogo: ${error.message}`);
+        console.error('Erro ao buscar itens da tabela de preços:', error);
+        setError(`Erro ao buscar tabela de preços: ${error.message}`);
         setLoading(false);
         return;
       }
@@ -159,7 +159,7 @@ export default function ImprimirCatalogoPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D1FE6E] mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando catálogo...</p>
+          <p className="text-gray-600">Carregando tabela de preços...</p>
         </div>
       </div>
     );
@@ -174,7 +174,7 @@ export default function ImprimirCatalogoPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.864-.833-2.634 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-red-800 mb-2">Erro ao carregar o catálogo</h2>
+          <h2 className="text-xl font-bold text-red-800 mb-2">Erro ao carregar a tabela de preços</h2>
           <p className="text-red-600 mb-6">{error}</p>
           <div className="space-y-3">
             <button 
@@ -184,10 +184,10 @@ export default function ImprimirCatalogoPage() {
               Fechar
             </button>
             <button 
-              onClick={() => window.location.href = '/catalogo'}
+              onClick={() => window.location.href = '/tabela-precos'}
               className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
             >
-              Ir para o Catálogo
+              Ir para a Tabela de Preços
             </button>
           </div>
           
@@ -221,8 +221,8 @@ export default function ImprimirCatalogoPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center p-8 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h2 className="text-xl font-bold text-yellow-800 mb-2">Catálogo vazio</h2>
-          <p className="text-yellow-600 mb-4">Não há itens cadastrados no catálogo para imprimir.</p>
+          <h2 className="text-xl font-bold text-yellow-800 mb-2">Tabela de preços vazia</h2>
+          <p className="text-yellow-600 mb-4">Não há itens cadastrados na tabela de preços para imprimir.</p>
           <button 
             onClick={() => window.history.back()}
             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"

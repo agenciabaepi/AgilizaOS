@@ -58,13 +58,13 @@ export const MODULOS_TUTORIAL: ModuloTutorial[] = [
   {
     id: 'produtos',
     titulo: 'Produtos e Serviços',
-    descricao: 'Catálogo, preços e uso na O.S.',
+    descricao: 'Tabela de preços, cadastro e uso na O.S.',
     ordem: 4,
     videos: [
       { id: 'produtos-1', titulo: 'Cadastrando produtos e serviços', url: '', duracao: '' },
       { id: 'produtos-2', titulo: 'Categorias e preços', url: '', duracao: '' },
       { id: 'produtos-3', titulo: 'Usando produtos na O.S. e no orçamento', url: '', duracao: '' },
-      { id: 'produtos-4', titulo: 'Catálogo para impressão', url: '', duracao: '' },
+      { id: 'produtos-4', titulo: 'Tabela de preços para impressão', url: '', duracao: '' },
     ],
   },
   {
