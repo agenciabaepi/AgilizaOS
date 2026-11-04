@@ -91,6 +91,29 @@ export function firstProductImage(imagens: unknown): string | null {
   return productImages(imagens)[0] ?? null;
 }
 
+type RelNome = { nome?: string | null } | { nome?: string | null }[] | null | undefined;
+
+function relNome(value: RelNome): string | null {
+  if (!value) return null;
+  const row = Array.isArray(value) ? value[0] : value;
+  const nome = row?.nome?.trim();
+  return nome || null;
+}
+
+/** Prioridade: categorias_produtos > grupos_produtos > texto legado `categoria`. */
+export function resolveCategoriaProduto(row: {
+  categoria?: string | null;
+  categorias_produtos?: RelNome;
+  grupos_produtos?: RelNome;
+}): string | null {
+  return (
+    relNome(row.categorias_produtos) ||
+    relNome(row.grupos_produtos) ||
+    (typeof row.categoria === 'string' ? row.categoria.trim() : '') ||
+    null
+  );
+}
+
 export function mapProdutoCatalogo(row: {
   id: string;
   nome: string;
@@ -101,6 +124,8 @@ export function mapProdutoCatalogo(row: {
   tipo?: string | null;
   codigo?: string | null;
   imagens_url?: unknown;
+  categorias_produtos?: RelNome;
+  grupos_produtos?: RelNome;
 }): CatalogoPublicoProduto {
   const imagens = productImages(row.imagens_url);
   return {
@@ -108,7 +133,7 @@ export function mapProdutoCatalogo(row: {
     nome: row.nome,
     descricao: typeof row.obs === 'string' ? row.obs : null,
     preco: Number(row.preco) || 0,
-    categoria: row.categoria?.trim() || null,
+    categoria: resolveCategoriaProduto(row),
     marca: row.marca?.trim() || null,
     tipo: row.tipo || null,
     codigo: typeof row.codigo === 'string' && row.codigo.trim() ? row.codigo.trim() : null,

@@ -25,7 +25,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     let { data: row, error } = await supabase
       .from('produtos_servicos')
-      .select('id, nome, obs, preco, categoria, marca, tipo, codigo, imagens_url, ativo, mostrar_catalogo')
+      .select(
+        'id, nome, obs, preco, categoria, marca, tipo, codigo, imagens_url, ativo, mostrar_catalogo, grupo_id, categoria_id, grupos_produtos(nome), categorias_produtos(nome)'
+      )
       .eq('empresa_id', empresaId)
       .eq('id', produtoId)
       .eq('ativo', true)
@@ -34,13 +36,27 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     if (error && /mostrar_catalogo/i.test(error.message)) {
       const fallback = await supabase
         .from('produtos_servicos')
-        .select('id, nome, obs, preco, categoria, marca, tipo, codigo, imagens_url, ativo')
+        .select(
+          'id, nome, obs, preco, categoria, marca, tipo, codigo, imagens_url, ativo, grupo_id, categoria_id, grupos_produtos(nome), categorias_produtos(nome)'
+        )
         .eq('empresa_id', empresaId)
         .eq('id', produtoId)
         .eq('ativo', true)
         .maybeSingle();
       row = fallback.data;
       error = fallback.error;
+    }
+
+    if (error && /(grupos_produtos|categorias_produtos)/i.test(error.message)) {
+      const plain = await supabase
+        .from('produtos_servicos')
+        .select('id, nome, obs, preco, categoria, marca, tipo, codigo, imagens_url, ativo, grupo_id, categoria_id')
+        .eq('empresa_id', empresaId)
+        .eq('id', produtoId)
+        .eq('ativo', true)
+        .maybeSingle();
+      row = plain.data;
+      error = plain.error;
     }
 
     if (error) {
