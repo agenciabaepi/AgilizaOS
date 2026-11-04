@@ -23,8 +23,27 @@
 
 /* Tema escuro global (html.dark) não deve apagar o catálogo */
 html.dark .gc-cat,
-html.dark .gc-cat-cart-drawer {
-  color: #1a1a1a;
+html.dark .gc-cat-cart-drawer,
+.dark .gc-cat,
+.dark .gc-cat-cart-drawer {
+  color: #1a1a1a !important;
+}
+
+html.dark .gc-cat h1,
+html.dark .gc-cat h2,
+html.dark .gc-cat strong,
+html.dark .gc-cat a,
+html.dark .gc-cat p,
+html.dark .gc-cat span,
+html.dark .gc-cat button,
+.dark .gc-cat h1,
+.dark .gc-cat h2,
+.dark .gc-cat strong,
+.dark .gc-cat a,
+.dark .gc-cat p,
+.dark .gc-cat span,
+.dark .gc-cat button {
+  color: inherit;
 }
 
 .gc-cat-shell {
@@ -91,6 +110,7 @@ html.dark .gc-cat-cart-drawer {
   font-weight: 800;
   letter-spacing: -0.02em;
   text-align: center;
+  color: #111 !important;
 }
 
 .gc-cat-icon-btn {
@@ -236,7 +256,7 @@ html.dark .gc-cat-cart-drawer {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--gc-cat-cor);
+  color: var(--gc-cat-cor) !important;
 }
 
 .gc-cat-section-link {
@@ -298,7 +318,7 @@ html.dark .gc-cat-cart-drawer {
 }
 
 .gc-cat-row-title {
-  color: var(--gc-cat-text);
+  color: #111 !important;
   text-decoration: none;
   font-size: 0.92rem;
   font-weight: 600;
@@ -673,7 +693,7 @@ html.dark .gc-cat-cart-drawer {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--gc-cat-text);
+  color: #111 !important;
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 600;
@@ -770,6 +790,7 @@ html.dark .gc-cat-cart-drawer {
   border: 1px solid var(--gc-cat-border);
   border-radius: 16px;
   padding: 16px;
+  color: #111;
 }
 
 .gc-cat-produto-meta {
@@ -778,7 +799,7 @@ html.dark .gc-cat-cart-drawer {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--gc-cat-muted);
+  color: #4b5563 !important;
 }
 
 .gc-cat-produto-title {
@@ -787,6 +808,7 @@ html.dark .gc-cat-cart-drawer {
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.25;
+  color: #111 !important;
 }
 
 .gc-cat-produto-price {
@@ -810,7 +832,23 @@ html.dark .gc-cat-cart-drawer {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.6;
-  color: #374151;
+  color: #374151 !important;
+}
+
+html.dark .gc-cat-produto-price,
+.dark .gc-cat-produto-price,
+html.dark .gc-cat-row-price,
+.dark .gc-cat-row-price {
+  color: var(--gc-cat-cor) !important;
+}
+
+html.dark .gc-cat-produto-cta,
+.dark .gc-cat-produto-cta,
+html.dark .gc-cat-row-add,
+.dark .gc-cat-row-add,
+html.dark .gc-cat-pill.is-active,
+.dark .gc-cat-pill.is-active {
+  color: #fff !important;
 }
 
 .gc-cat-produto-actions {
