@@ -29,22 +29,6 @@ html.dark .gc-cat-cart-drawer,
   color: #1a1a1a !important;
 }
 
-html.dark .gc-cat h1,
-html.dark .gc-cat h2,
-html.dark .gc-cat strong,
-html.dark .gc-cat a,
-html.dark .gc-cat p,
-html.dark .gc-cat span,
-html.dark .gc-cat button,
-.dark .gc-cat h1,
-.dark .gc-cat h2,
-.dark .gc-cat strong,
-.dark .gc-cat a,
-.dark .gc-cat p,
-.dark .gc-cat span,
-.dark .gc-cat button {
-  color: inherit;
-}
 
 .gc-cat-shell {
   min-height: 100vh;
@@ -402,7 +386,7 @@ html.dark .gc-cat button,
   border: none;
   border-radius: 999px;
   background: var(--gc-cat-cor);
-  color: #fff;
+  color: #fff !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -413,9 +397,21 @@ html.dark .gc-cat button,
   box-shadow: 0 10px 28px color-mix(in srgb, var(--gc-cat-cor) 35%, transparent);
 }
 
+.gc-cat-cart-bar-btn,
+.gc-cat-cart-bar-btn * {
+  color: #fff !important;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
 .gc-cat-cart-bar-icon {
   position: relative;
   display: inline-flex;
+  color: #fff !important;
+}
+
+.gc-cat-cart-bar-text {
+  color: #fff !important;
 }
 
 .gc-cat-cart-bar-badge {
@@ -426,8 +422,8 @@ html.dark .gc-cat button,
   height: 18px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #111;
-  color: #fff;
+  background: #111 !important;
+  color: #fff !important;
   font-size: 0.65rem;
   font-weight: 800;
   display: inline-flex;
@@ -440,7 +436,7 @@ html.dark .gc-cat button,
   min-width: 108px;
   border-radius: 999px;
   background: #25d366;
-  color: #fff;
+  color: #fff !important;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -449,6 +445,12 @@ html.dark .gc-cat button,
   font-weight: 700;
   font-size: 0.85rem;
   box-shadow: 0 10px 28px rgba(18, 140, 64, 0.32);
+}
+
+.gc-cat-cart-bar-wa,
+.gc-cat-cart-bar-wa * {
+  color: #fff !important;
+  fill: currentColor;
 }
 
 .gc-cat-cart-overlay {
