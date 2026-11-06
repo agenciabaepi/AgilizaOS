@@ -144,13 +144,13 @@ export default function FloatingActionsMenu() {
 
       <div
         ref={rootRef}
-        className="fixed bottom-5 right-5 z-[57] flex flex-col items-end gap-3 max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] max-sm:right-4"
+        className="pointer-events-none fixed bottom-5 right-5 z-[57] flex flex-col items-end gap-3 max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] max-sm:right-4"
       >
         <div
           className={`flex flex-col items-end gap-3 transition-all duration-200 ${
             menuOpen
               ? 'pointer-events-auto opacity-100 translate-y-0'
-              : 'pointer-events-none opacity-0 translate-y-2'
+              : 'pointer-events-none absolute bottom-16 right-0 opacity-0 translate-y-2'
           }`}
           aria-hidden={!menuOpen}
         >
@@ -187,7 +187,7 @@ export default function FloatingActionsMenu() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className={`relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all hover:scale-105 active:scale-95 ring-2 ring-white/80 ${
+          className={`pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all hover:scale-105 active:scale-95 ring-2 ring-white/80 ${
             menuOpen ? 'bg-slate-700 hover:bg-slate-600' : 'bg-blue-600 hover:bg-blue-700'
           }`}
           aria-label={menuOpen ? 'Fechar menu de atalhos' : 'Abrir menu de atalhos'}
