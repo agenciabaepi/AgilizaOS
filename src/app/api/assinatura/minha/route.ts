@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
 import { carregarEstadoAssinaturaEmpresa } from '@/modules/assinatura/servicos/estado';
 import { calcularDataFimTrialYmd, toYmd } from '@/modules/assinatura';
+import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -81,9 +82,30 @@ export async function GET(req: NextRequest) {
     const trialFim =
       estado.trial_fim_ymd || (contratacao ? calcularDataFimTrialYmd(contratacao) : null);
 
+    const resumoBase = buildResumoAssinatura(
+      {
+        status: row ? String(row.status) : null,
+        data_fim: (row?.data_fim as string | null) ?? null,
+        proxima_cobranca: (row?.proxima_cobranca as string | null) ?? null,
+        data_trial_fim: (row?.data_trial_fim as string | null) ?? trialFim,
+      },
+      { empresaCreatedAt: estado.empresaCreatedAt }
+    );
+
+    // Status no banco pode permanecer "active" após o dia 10 — o label segue o calendário.
+    const labelStatus =
+      estado.acesso_bloqueado && !estado.sistemaLiberado
+        ? estado.fase === 'prorata'
+          ? 'Aguardando pró-rata'
+          : 'Vencida'
+        : resumoBase.label_status;
+
     return NextResponse.json({
       assinatura: row ? { ...row, planos } : null,
       resumo: {
+        ...resumoBase,
+        label_status: labelStatus,
+        cobertura_ate: estado.vencimento_ymd || resumoBase.cobertura_ate,
         fase: estado.fase,
         motivo: estado.motivo,
         vencimento_ymd: estado.vencimento_ymd,

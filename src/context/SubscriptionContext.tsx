@@ -342,7 +342,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const json = await res.json();
           if (json?.assinatura) primeiraAssinatura = json.assinatura as Record<string, unknown>;
-          if (json?.resumo) resumoFromApi = json.resumo as ResumoAssinatura;
+          if (json?.resumo && typeof json.resumo.dias_restantes !== 'undefined') {
+            resumoFromApi = json.resumo as ResumoAssinatura;
+          }
           if (typeof json?.empresa_created_at === 'string' && json.empresa_created_at) {
             empresaCriadaEm = json.empresa_created_at;
           }

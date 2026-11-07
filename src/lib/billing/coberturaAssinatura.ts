@@ -47,6 +47,8 @@ export function labelStatusAssinatura(params: {
   if (params.diasRestantes != null && params.diasRestantes < 0) return 'Vencida';
   if (st === 'pending_payment') return 'Aguardando pagamento';
   if (st === 'active' || st === 'ativa') return 'Ativa';
+  if (st === 'expired' || st === 'overdue') return 'Vencida';
   if (st === 'trial') return 'Teste';
-  return st || '—';
+  if (st === 'active') return 'Ativa';
+  return st ? st.charAt(0).toUpperCase() + st.slice(1) : '—';
 }

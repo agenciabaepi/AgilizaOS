@@ -205,7 +205,11 @@ export default function AssinaturaPage() {
   const statusCanceladoOuInativo = assinatura?.status && ['cancelled', 'expired', 'suspended'].includes(assinatura.status);
   const emTesteGratis = resumoAssinatura?.em_teste_gratis ?? (assinatura?.status === 'trial' && !isTrialExpired());
   const trialEncerrado = resumoAssinatura?.trial_encerrado ?? (assinatura?.status === 'trial' && isTrialExpired());
-  const coberturaRef = resumoAssinatura?.cobertura_ate ?? null;
+  const coberturaRef =
+    resumoAssinatura?.cobertura_ate ??
+    toYmd(assinatura?.data_fim) ??
+    toYmd(assinatura?.proxima_cobranca) ??
+    null;
   const dataCadastroEmpresa =
     empresaData?.created_at?.trim() ||
     (assinatura?.data_inicio ? String(assinatura.data_inicio).trim() : null);
@@ -218,11 +222,29 @@ export default function AssinaturaPage() {
     dataTrialFim: dataFimTrialIso,
     empresaCreatedAt: dataCadastroEmpresa,
   });
-  const diasRest = emTesteGratis
-    ? diasRestantesTrial()
-    : resumoAssinatura?.dias_restantes ?? null;
+  const diasRestCalculados = (() => {
+    if (emTesteGratis) return diasRestantesTrial();
+    if (typeof resumoAssinatura?.dias_restantes === 'number') return resumoAssinatura.dias_restantes;
+    if (!coberturaRef) return null;
+    const hoje = toYmd(new Date().toISOString());
+    if (!hoje) return null;
+    const [hy, hm, hd] = hoje.split('-').map(Number);
+    const [vy, vm, vd] = coberturaRef.slice(0, 10).split('-').map(Number);
+    const ms = Date.UTC(vy, vm - 1, vd) - Date.UTC(hy, hm - 1, hd);
+    return Math.round(ms / 86_400_000);
+  })();
+  const diasRest = diasRestCalculados;
 
-  const labelStatus = resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
+  const labelStatus =
+    diasRest != null && diasRest < 0 && !emTesteGratis
+      ? 'Vencida'
+      : resumoAssinatura?.label_status && resumoAssinatura.label_status !== 'active'
+        ? resumoAssinatura.label_status
+        : assinatura?.status === 'active' || assinatura?.status === 'ativa'
+          ? diasRest != null && diasRest < 0
+            ? 'Vencida'
+            : 'Ativa'
+          : resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
 
   const contratacaoYmd = toYmd(dataCadastroEmpresa);
   const transicaoPosTrial = contratacaoYmd
@@ -460,9 +482,7 @@ export default function AssinaturaPage() {
                     ? formatarDataShort(dataFimTrialIso)
                     : coberturaRef
                       ? formatarDataShort(coberturaRef)
-                      : transicaoPosTrial
-                        ? formatarDataShort(transicaoPosTrial.primeiroDia10Ymd)
-                        : '—'}
+                      : '—'}
               </p>
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
