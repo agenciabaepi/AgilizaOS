@@ -261,6 +261,16 @@ export default function AssinaturaPage() {
     !!transicaoPosTrial &&
     (emTesteGratis || trialEncerrado || !coberturaRef);
 
+  const coberturaEhDia10 =
+    !!coberturaRef && Number(coberturaRef.slice(8, 10)) === 10;
+  const labelVencimentoCard = emTesteGratis
+    ? 'Fim do teste'
+    : trialEncerrado && !coberturaRef
+      ? '1º vencimento (dia 10)'
+      : coberturaEhDia10
+        ? 'Vencimento (dia 10)'
+        : 'Vencimento atual';
+
   const sincronizarComAsaas = async (opts?: { silent?: boolean }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -469,11 +479,7 @@ export default function AssinaturaPage() {
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {emTesteGratis
-                  ? 'Fim do teste'
-                  : trialEncerrado && !coberturaRef
-                    ? '1º vencimento (dia 10)'
-                    : 'Vencimento (dia 10)'}
+                {labelVencimentoCard}
               </p>
               <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                 {statusCanceladoOuInativo
@@ -484,6 +490,11 @@ export default function AssinaturaPage() {
                       ? formatarDataShort(coberturaRef)
                       : '—'}
               </p>
+              {!emTesteGratis && coberturaRef && !coberturaEhDia10 && diasRest != null && diasRest >= 0 ? (
+                <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1 leading-snug">
+                  Cobertura ainda no ciclo antigo. Na próxima renovação o vencimento passa a ser todo dia 10.
+                </p>
+              ) : null}
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
