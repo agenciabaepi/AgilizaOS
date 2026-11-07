@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getPayment, isPaymentConfirmed } from '@/lib/asaas';
-import { processarPagamentoConfirmado } from '@/lib/billing/ativarAssinaturaSegura';
+import { processarPagamentoConfirmado } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

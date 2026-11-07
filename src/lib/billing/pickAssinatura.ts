@@ -31,22 +31,20 @@ export function trialRowCalendarValid(
   return d !== null && d >= 0;
 }
 
-/** Assinatura ativa com data fim / próxima cobrança ainda ok (dias civis). */
+/** Assinatura ativa: usa o maior entre data_fim e proxima_cobranca (regra única). */
 export function activeRowCalendarValid(
   row: Record<string, unknown>,
   timeZone?: string
 ): boolean {
   const status = String(row.status || '');
   if (status !== 'active' && status !== 'ativa') return false;
-  if (row.data_fim) {
-    const d0 = diffCalendario(row.data_fim as string, timeZone);
-    if (d0 !== null && d0 < 0) return false;
-  }
-  if (row.proxima_cobranca) {
-    const d = diffCalendario(row.proxima_cobranca as string, timeZone);
-    if (d !== null && d < 0) return false;
-  }
-  return true;
+  const cobertura = getCoberturaAteYmd({
+    data_fim: row.data_fim as string | null | undefined,
+    proxima_cobranca: row.proxima_cobranca as string | null | undefined,
+  });
+  if (!cobertura) return true;
+  const d = diffCalendario(cobertura, timeZone);
+  return d !== null && d >= 0;
 }
 
 /**

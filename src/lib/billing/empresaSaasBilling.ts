@@ -1,96 +1,29 @@
-import { diffDiasCalendario, diffDiasCalendarioInTimeZone } from '@/lib/assinaturaCalendario';
-import { dataFimTrialAPartirDe } from '@/config/trial';
-
-export type BillingAssinaturaInput = {
-  status: string;
-  data_trial_fim?: string | null;
-  proxima_cobranca?: string | null;
-  data_fim?: string | null;
-} | null;
-
-export type ComputeAssinaturaVencidaOptions = {
-  loading?: boolean;
-  /** Se false, não bloqueia (ex.: ainda sem `empresa_id` no contexto). */
-  empresaIdPresent?: boolean;
-  /** Admin liberou acesso sem assinatura paga (coluna `empresas.sistema_liberado`). */
-  sistemaLiberado?: boolean;
-  /** Dias de trial customizados (`empresas.dias_trial`). */
-  empresaDiasTrial?: number | null;
-  /** Se definido, usa dias civis nesse fuso; senão, o mesmo critério `diffDiasCalendario` (local do ambiente). */
-  timeZone?: string;
-};
+import { temAcesso, type AssinaturaSnapshot } from '@/modules/assinatura';
 
 /**
- * Indica se o acesso ao app deve ser bloqueado por assinatura/trial (espelha a UI do guard).
- * No servidor/API, passe `timeZone` (ex. {@link BILLING_TIME_ZONE}) para alinhar ao Postgres.
+ * Compatível com callers antigos; regra real = temAcesso do módulo novo.
  */
 export function computeAssinaturaVencidaPorBilling(
-  assinatura: BillingAssinaturaInput,
-  empresaCreatedAt: string | null | undefined,
-  opts?: ComputeAssinaturaVencidaOptions
+  assinatura: AssinaturaSnapshot | null | undefined,
+  empresaCreatedAt?: string | null,
+  opts?: {
+    loading?: boolean;
+    empresaIdPresent?: boolean;
+    sistemaLiberado?: boolean;
+    empresaDiasTrial?: number | null;
+  }
 ): boolean {
-  const loading = opts?.loading === true;
-  const tz = opts?.timeZone;
-  const useTz = Boolean(tz && tz.length > 0);
+  if (opts?.loading) return false;
+  if (opts?.sistemaLiberado) return false;
+  return !temAcesso({
+    assinatura: assinatura || null,
+    empresaCreatedAt,
+    sistemaLiberado: opts?.sistemaLiberado,
+  });
+}
 
-  if (loading) return false;
-  if (opts?.empresaIdPresent === false) return false;
-  if (opts?.sistemaLiberado === true) return false;
-
-  const diff = (iso: string | null | undefined) =>
-    useTz ? diffDiasCalendarioInTimeZone(iso, tz!) : diffDiasCalendario(iso);
-
-  if (!assinatura) {
-    const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
-    if (!created) return true;
-    const implicitEnd = dataFimTrialAPartirDe(created, opts?.empresaDiasTrial);
-    if (!implicitEnd) return true;
-    const d = diff(implicitEnd);
-    return d !== null && d < 0;
-  }
-
-  if (['cancelled'].includes(assinatura.status)) {
-    return true;
-  }
-
-  const coberturaAindaVale = (iso: string | null | undefined) => {
-    if (!iso) return false;
-    const d = diff(iso);
-    return d !== null && d >= 0;
-  };
-  const temCoberturaVigente =
-    coberturaAindaVale(assinatura.data_fim) || coberturaAindaVale(assinatura.proxima_cobranca);
-
-  // Status antigo `expired` com data de cobertura ainda válida = já pagou; não bloquear.
-  if (['expired', 'suspended', 'pending_payment'].includes(assinatura.status)) {
-    if (temCoberturaVigente) return false;
-    return true;
-  }
-
-  if (assinatura.status === 'active' || assinatura.status === 'ativa') {
-    // Mesma regra dos status expired*: basta UMA data de cobertura ainda válida.
-    // (Antes: AND — data_fim ok + proxima_cobranca velha bloqueava quem já pagou.)
-    if (!assinatura.data_fim && !assinatura.proxima_cobranca) {
-      return true;
-    }
-    return !temCoberturaVigente;
-  }
-
-  if (assinatura.status === 'trial') {
-    if (assinatura.data_trial_fim) {
-      const d = diff(assinatura.data_trial_fim);
-      if (d !== null && d < 0) return true;
-    } else {
-      const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
-      if (created) {
-        const implicitEnd = dataFimTrialAPartirDe(created, opts?.empresaDiasTrial);
-        if (implicitEnd) {
-          const d = diff(implicitEnd);
-          if (d !== null && d < 0) return true;
-        }
-      }
-    }
-  }
-
-  return false;
+export function coberturaAindaVale(iso: string | null | undefined): boolean {
+  return temAcesso({
+    assinatura: { status: 'active', data_fim: iso, proxima_cobranca: iso },
+  });
 }

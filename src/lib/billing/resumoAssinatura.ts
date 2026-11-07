@@ -1,6 +1,6 @@
 import { dataFimTrialAPartirDe } from '@/config/trial';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
-import { isoToYmd } from '@/lib/billing/calcularCoberturaPagamento';
+import { toYmd } from '@/modules/assinatura';
 import {
   diasRestantesCobertura,
   getCoberturaAteYmd,
@@ -57,7 +57,7 @@ function getTrialFimYmd(
   const raw =
     assinatura?.data_trial_fim ||
     dataFimTrialAPartirDe(opts?.empresaCreatedAt, opts?.empresaDiasTrial);
-  return isoToYmd(raw);
+  return toYmd(raw);
 }
 
 function isTrialExpirado(

@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { processarPagamentoConfirmado } from '@/lib/billing/ativarAssinaturaSegura';
+import { processarPagamentoConfirmado } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
  * Webhook Asaas — PAYMENT_RECEIVED / PAYMENT_CONFIRMED.
- * Configurar no painel Asaas: https://<dominio>/api/pagamentos/asaas-webhook
- *
- * Identifica a empresa mesmo sem linha local em `pagamentos` e libera a assinatura.
+ * Libera assinatura imediatamente no ciclo novo (dia 10 / pró-rata).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +48,6 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       console.error('asaas-webhook: falha ao ativar', paymentId, result);
-      // 5xx faz o Asaas reenviar; sem isso, pagamento confirmado sem empresa fica perdido.
       const retryable =
         result.code === 'asaas_error' ||
         result.code === 'ativacao_falhou' ||

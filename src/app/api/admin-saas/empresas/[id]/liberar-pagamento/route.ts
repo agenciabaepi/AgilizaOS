@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
-import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

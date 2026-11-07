@@ -8,7 +8,9 @@ import {
   buildCiclosMensais,
   toDateOnlyPagamento,
 } from '@/lib/billing/verificarCiclosPagamento';
-import { DIAS_ACESSO_PAGAMENTO, forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
+import { DIA_VENCIMENTO } from '@/modules/assinatura';
+const DIAS_ACESSO_PAGAMENTO = DIA_VENCIMENTO; // legado UI admin: ciclo ancorado no dia 10
 import {
   getPayment,
   listCustomersByEmail,
@@ -222,7 +224,7 @@ export async function GET(
 
       if (!syncErr) {
         sincronizado = true;
-        sincronizacaoMsg = `Assinatura corrigida: cobertura real até ${resumo.coberturaAte} (último pagamento + ${DIAS_ACESSO_PAGAMENTO} dias). Datas no banco estavam à frente do Asaas.`;
+        sincronizacaoMsg = `Assinatura corrigida: cobertura até ${resumo.coberturaAte} (ciclo dia ${DIAS_ACESSO_PAGAMENTO}).`;
         assinaturaAtual = {
           ...assinaturaAtual,
           data_fim: coberturaIso,

@@ -93,7 +93,7 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
             Assinatura vencida
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-            Sua assinatura expirou. Renove agora para continuar utilizando todos os recursos do sistema.
+            Sua assinatura venceu. Pague a renovação (vencimento todo dia 10) para liberar o acesso na hora.
           </p>
 
           <Link
@@ -147,7 +147,7 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
           )}
 
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-            Na página de assinatura você pode renovar ou pagar cobranças pendentes. Após o pagamento, o acesso é liberado automaticamente.
+            Na página de assinatura você escolhe o plano e paga via PIX. Assim que o pagamento for confirmado, o sistema libera na hora até o próximo dia 10.
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
-import { processarPagamentoConfirmado } from '@/lib/billing/ativarAssinaturaSegura';
+import { processarPagamentoConfirmado } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
 
 /**
  * Aprova pagamento e libera a assinatura (mesmo caminho do webhook Asaas).

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { aplicarPagamentoAssinatura } from '@/lib/billing/aplicarPagamentoAssinatura';
-import { isoToYmd } from '@/lib/billing/calcularCoberturaPagamento';
+import { aplicarPagamentoNoNovoCiclo } from '@/modules/assinatura/servicos/ativarPorPagamento';
+import { toYmd } from '@/modules/assinatura';
 
 function parsePaymentDate(rawDate?: string | null): Date | null {
   if (!rawDate) return null;
@@ -45,8 +45,8 @@ async function upsertFromPaymentId(paymentId: string, rawPayload: unknown) {
 
     if ((payment.status as string) === 'approved' && pagamento.empresa_id) {
       const payYmd =
-        isoToYmd(dataPagamento.toISOString()) ||
-        isoToYmd((payment as { date_approved?: string }).date_approved);
+        toYmd(dataPagamento.toISOString()) ||
+        toYmd((payment as { date_approved?: string }).date_approved);
       if (!payYmd) throw new Error('Data de pagamento inválida');
 
       const { data: row } = await supabase
@@ -58,7 +58,7 @@ async function upsertFromPaymentId(paymentId: string, rawPayload: unknown) {
         .single();
 
       if (row?.id) {
-        const result = await aplicarPagamentoAssinatura(supabase, {
+        const result = await aplicarPagamentoNoNovoCiclo(supabase, {
           empresaId: pagamento.empresa_id,
           pagamento: row,
           gatewayPaymentId: String(paymentId),
@@ -67,7 +67,7 @@ async function upsertFromPaymentId(paymentId: string, rawPayload: unknown) {
           valorAsaas: Number(pagamento.valor) || Number((payment as { transaction_amount?: number }).transaction_amount),
         });
         if (!result.ok) {
-          console.warn('webhook MP: aplicarPagamentoAssinatura', result);
+          console.warn('webhook MP: aplicarPagamentoNoNovoCiclo', result);
         }
       }
     }

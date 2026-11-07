@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { listRecentConfirmedPayments, type AsaasPayment } from '@/lib/asaas';
-import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
-import { resolverEmpresaIdPorPagamentoAsaas } from '@/lib/billing/resolverEmpresaPagamentoAsaas';
-import { getCoberturaAteYmd } from '@/lib/billing/coberturaAssinatura';
-import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
+import { resolverEmpresaIdPorPagamentoAsaas } from '@/modules/assinatura/servicos/resolverEmpresa';
+import { toYmd, hojeYmd as hojeYmdModulo } from '@/modules/assinatura';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,12 +13,14 @@ const MAX_PAGAMENTOS = 40;
 const MAX_EMPRESAS = 40;
 
 function hojeYmdSp(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: BILLING_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+  return hojeYmdModulo();
+}
+
+function coberturaAteYmd(row: {
+  data_fim?: string | null;
+  proxima_cobranca?: string | null;
+}): string | null {
+  return toYmd(row.data_fim) || toYmd(row.proxima_cobranca);
 }
 
 function authorizeCron(req: NextRequest): boolean {
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
   for (const row of assinaturas || []) {
     const empresaId = String(row.empresa_id || '').trim();
     if (!empresaId || visto.has(empresaId)) continue;
-    const cobertura = getCoberturaAteYmd(row);
+    const cobertura = coberturaAteYmd(row);
     const status = String(row.status || '').toLowerCase();
     const vencida =
       (cobertura != null && cobertura < hoje) ||

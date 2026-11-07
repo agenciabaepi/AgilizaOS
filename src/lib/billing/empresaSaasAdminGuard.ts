@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
-import { corrigirAssinaturaAtivaIndevida } from '@/lib/billing/ativarAssinaturaSegura';
 import { expirarTrialsVencidosEmpresa, computeAcessoBloqueadoServidor } from '@/lib/billing/trialBilling';
 
 /**
@@ -20,16 +19,15 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
       .eq('empresa_id', empresaId)
       .order('created_at', { ascending: false })
       .limit(30),
-    admin.from('empresas').select('created_at, ativo, sistema_liberado, dias_trial').eq('id', empresaId).maybeSingle(),
+    admin
+      .from('empresas')
+      .select('created_at, ativo, sistema_liberado, dias_trial')
+      .eq('id', empresaId)
+      .maybeSingle(),
   ]);
 
-  if (emp && emp.ativo === false) {
-    return true;
-  }
-
-  if (emp?.sistema_liberado === true) {
-    return false;
-  }
+  if (emp && emp.ativo === false) return true;
+  if (emp?.sistema_liberado === true) return false;
 
   await expirarTrialsVencidosEmpresa(
     admin,
@@ -51,22 +49,12 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
     typeof emp?.dias_trial === 'number' ? emp.dias_trial : null
   );
 
-  const rowSanitizada = row
-    ? await corrigirAssinaturaAtivaIndevida(
-        admin,
-        empresaId,
-        row,
-        emp?.sistema_liberado === true
-      )
-    : null;
-
-  const assinatura = rowSanitizada
+  const assinatura = row
     ? {
-        status: String(rowSanitizada.status),
-        data_trial_fim: rowSanitizada.data_trial_fim as string | null | undefined,
-        proxima_cobranca: rowSanitizada.proxima_cobranca as string | null | undefined,
-        data_fim: rowSanitizada.data_fim as string | null | undefined,
-        observacoes: rowSanitizada.observacoes as string | null | undefined,
+        status: String(row.status),
+        data_trial_fim: row.data_trial_fim as string | null | undefined,
+        proxima_cobranca: row.proxima_cobranca as string | null | undefined,
+        data_fim: row.data_fim as string | null | undefined,
       }
     : null;
 

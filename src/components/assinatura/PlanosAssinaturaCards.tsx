@@ -188,7 +188,8 @@ interface PlanosAssinaturaCardsProps {
 export default function PlanosAssinaturaCards({
   id = 'planos-assinatura',
   titulo = 'Escolha seu plano',
-  subtitulo = 'Básico com gestão completa ou Completo com Nota Fiscal, IA e lucro e desempenho.',
+  subtitulo =
+    'Vencimento todo dia 10. Básico com gestão completa ou Completo com Nota Fiscal, IA e lucro e desempenho.',
 }: PlanosAssinaturaCardsProps) {
   const { basico, completo, ready, loading } = usePlanosPublicos();
   const { planoSlug, assinatura, isAssinaturaVencida, isTrialExpired, resumoAssinatura } =
@@ -216,8 +217,8 @@ export default function PlanosAssinaturaCards({
             {precisaRenovar && (
               <span className="ml-2 text-amber-700 dark:text-amber-400 font-medium">
                 {isAssinaturaVencida() || isTrialExpired()
-                  ? '— vencido, renove para continuar'
-                  : '— pode renovar agora (dias restantes preservados)'}
+                  ? '— vencido; pague para liberar na hora até o próximo dia 10'
+                  : '— pode pagar agora e renovar até o próximo dia 10'}
               </span>
             )}
           </p>

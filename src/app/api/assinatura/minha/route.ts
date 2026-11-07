@@ -1,26 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
-import {
-  corrigirAssinaturaAtivaIndevida,
-  forcarLiberacaoPorUltimoPagamentoAsaas,
-} from '@/lib/billing/ativarAssinaturaSegura';
-import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
-import {
-  computeAcessoBloqueadoServidor,
-  expirarTrialsVencidosEmpresa,
-} from '@/lib/billing/trialBilling';
-import { diffDiasCalendarioInTimeZone } from '@/lib/assinaturaCalendario';
-import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/modules/assinatura/servicos/processarPagamentoConfirmado';
+import { carregarEstadoAssinaturaEmpresa } from '@/modules/assinatura/servicos/estado';
+import { calcularDataFimTrialYmd, toYmd } from '@/modules/assinatura';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Resumo da assinatura da empresa do usuário logado.
- * Se o acesso ainda estiver bloqueado mas houver pagamento confirmado no Asaas,
- * tenta reparar/ativar automaticamente antes de responder.
+ * Resumo da assinatura (sistema novo: trial 30d → pró-rata → dia 10).
+ * Se bloqueado mas houver PIX confirmado, libera na hora e responde.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -41,7 +31,10 @@ export async function GET(req: NextRequest) {
 
     if (!authUserId) {
       const supabase = await createServerSupabaseClient();
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (!error && user) authUserId = user.id;
     }
 
@@ -60,163 +53,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ assinatura: null, empresa_created_at: null });
     }
 
-    const empresaId = usuario.empresa_id;
+    const empresaId = usuario.empresa_id as string;
+    let estado = await carregarEstadoAssinaturaEmpresa(admin, empresaId);
 
-    const [{ data: rows, error: aErr }, { data: empRow }] = await Promise.all([
-      admin
-        .from('assinaturas')
-        .select('*')
-        .eq('empresa_id', empresaId)
-        .order('created_at', { ascending: false })
-        .limit(30),
-      admin
-        .from('empresas')
-        .select('created_at, sistema_liberado, recursos_customizados, dias_trial')
-        .eq('id', empresaId)
-        .maybeSingle(),
-    ]);
-
-    const empresaCreatedAt = (empRow?.created_at as string | undefined) ?? null;
-    const empresaDiasTrial =
-      typeof empRow?.dias_trial === 'number' ? empRow.dias_trial : null;
-    const sistemaLiberado = empRow?.sistema_liberado === true;
-
-    await expirarTrialsVencidosEmpresa(
-      admin,
-      empresaId,
-      empresaCreatedAt,
-      empresaDiasTrial
-    );
-
-    let assinaturaRows = rows;
-    if (aErr || !rows?.length) {
-      // Sem linha: ainda tenta reparar se houver pagamento Asaas
-      if (!sistemaLiberado) {
-        await forcarLiberacaoPorUltimoPagamentoAsaas(admin, empresaId);
-        const { data: rowsNovas } = await admin
-          .from('assinaturas')
-          .select('*')
-          .eq('empresa_id', empresaId)
-          .order('created_at', { ascending: false })
-          .limit(30);
-        if (rowsNovas?.length) assinaturaRows = rowsNovas;
-      }
-      if (!assinaturaRows?.length) {
-        const acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
-          empresaId,
-          assinatura: null,
-          empresaCreatedAt,
-          empresaDiasTrial,
-          sistemaLiberado,
-        });
-        return NextResponse.json({
-          assinatura: null,
-          empresa_created_at: empresaCreatedAt,
-          sistema_liberado: sistemaLiberado,
-          acesso_bloqueado: acessoBloqueado,
-        });
-      }
-    }
-
-    const { data: rowsAtualizados } = await admin
-      .from('assinaturas')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .order('created_at', { ascending: false })
-      .limit(30);
-    if (rowsAtualizados?.length) {
-      assinaturaRows = rowsAtualizados;
-    }
-
-    let row = pickAssinaturaParaContexto(
-      (assinaturaRows || []) as Record<string, unknown>[],
-      empresaCreatedAt,
-      empresaDiasTrial
-    )!;
-    let rowSanitizada = await corrigirAssinaturaAtivaIndevida(
-      admin,
-      empresaId,
-      row,
-      sistemaLiberado
-    );
-
-    const coberturaYmd = (rowSanitizada.data_fim || rowSanitizada.proxima_cobranca) as string | undefined;
-    const statusAtual = String(rowSanitizada.status || '').toLowerCase();
-    if (
-      coberturaYmd &&
-      ['expired', 'suspended', 'pending_payment'].includes(statusAtual) &&
-      !sistemaLiberado
-    ) {
-      const d = diffDiasCalendarioInTimeZone(coberturaYmd, BILLING_TIME_ZONE);
-      if (d !== null && d >= 0 && rowSanitizada.id) {
-        await admin
-          .from('assinaturas')
-          .update({
-            status: 'active',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', rowSanitizada.id as string)
-          .eq('empresa_id', empresaId);
-        rowSanitizada = { ...rowSanitizada, status: 'active' };
-      }
-    }
-
-    let acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
-      empresaId,
-      assinatura: {
-        status: String(rowSanitizada.status),
-        data_trial_fim: rowSanitizada.data_trial_fim as string | null | undefined,
-        proxima_cobranca: rowSanitizada.proxima_cobranca as string | null | undefined,
-        data_fim: rowSanitizada.data_fim as string | null | undefined,
-      },
-      empresaCreatedAt,
-      empresaDiasTrial,
-      sistemaLiberado,
-    });
-
-    // Pagou no Asaas mas assinatura ainda vencida → reparar e recarregar
-    if (acessoBloqueado && !sistemaLiberado) {
+    if (estado.acesso_bloqueado && !estado.sistemaLiberado) {
       const reparo = await forcarLiberacaoPorUltimoPagamentoAsaas(admin, empresaId);
       if (reparo.ok) {
-        const { data: rowsApos } = await admin
-          .from('assinaturas')
-          .select('*')
-          .eq('empresa_id', empresaId)
-          .order('created_at', { ascending: false })
-          .limit(30);
-        if (rowsApos?.length) {
-          const picked = pickAssinaturaParaContexto(
-            rowsApos as Record<string, unknown>[],
-            empresaCreatedAt,
-            empresaDiasTrial
-          );
-          if (picked) {
-            row = picked;
-            rowSanitizada = await corrigirAssinaturaAtivaIndevida(
-              admin,
-              empresaId,
-              picked,
-              sistemaLiberado
-            );
-          }
-        }
-        acessoBloqueado = await computeAcessoBloqueadoServidor(admin, {
-          empresaId,
-          assinatura: {
-            status: String(rowSanitizada.status),
-            data_trial_fim: rowSanitizada.data_trial_fim as string | null | undefined,
-            proxima_cobranca: rowSanitizada.proxima_cobranca as string | null | undefined,
-            data_fim: rowSanitizada.data_fim as string | null | undefined,
-          },
-          empresaCreatedAt,
-          empresaDiasTrial,
-          sistemaLiberado,
-        });
+        estado = await carregarEstadoAssinaturaEmpresa(admin, empresaId);
       }
     }
 
+    const row = estado.assinatura as Record<string, unknown> | null;
     let planos: Record<string, unknown> | null = null;
-    const planoId = rowSanitizada.plano_id as string | undefined;
+    const planoId = row?.plano_id as string | undefined;
     if (planoId) {
       const { data: p } = await admin
         .from('planos')
@@ -228,21 +77,24 @@ export async function GET(req: NextRequest) {
       planos = p as Record<string, unknown> | null;
     }
 
+    const contratacao = toYmd((row?.data_inicio as string) || estado.empresaCreatedAt);
+    const trialFim =
+      estado.trial_fim_ymd || (contratacao ? calcularDataFimTrialYmd(contratacao) : null);
+
     return NextResponse.json({
-      assinatura: { ...rowSanitizada, planos },
-      resumo: buildResumoAssinatura(
-        {
-          status: String(rowSanitizada.status),
-          data_fim: rowSanitizada.data_fim as string | null,
-          proxima_cobranca: rowSanitizada.proxima_cobranca as string | null,
-          data_trial_fim: rowSanitizada.data_trial_fim as string | null,
-        },
-        { empresaCreatedAt, empresaDiasTrial }
-      ),
-      empresa_created_at: empresaCreatedAt,
-      sistema_liberado: sistemaLiberado,
-      recursos_customizados: empRow?.recursos_customizados ?? null,
-      acesso_bloqueado: acessoBloqueado,
+      assinatura: row ? { ...row, planos } : null,
+      resumo: {
+        fase: estado.fase,
+        motivo: estado.motivo,
+        vencimento_ymd: estado.vencimento_ymd,
+        trial_fim_ymd: trialFim,
+        tipo_cobranca: estado.tipo_cobranca,
+        cotacao: estado.cotacao,
+      },
+      empresa_created_at: estado.empresaCreatedAt,
+      sistema_liberado: estado.sistemaLiberado,
+      recursos_customizados: null,
+      acesso_bloqueado: estado.acesso_bloqueado,
     });
   } catch (e) {
     console.error('GET /api/assinatura/minha:', e);

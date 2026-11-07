@@ -1,103 +1,51 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { diffDiasCalendarioInTimeZone } from '@/lib/assinaturaCalendario';
-import { dataFimTrialAPartirDe } from '@/config/trial';
-import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
-import {
-  computeAssinaturaVencidaPorBilling,
-  type BillingAssinaturaInput,
-} from '@/lib/billing/empresaSaasBilling';
-import { assinaturaAtivaTemDireito } from '@/lib/billing/ativarAssinaturaSegura';
+import { decidirAcesso, hojeYmd, toYmd, type AssinaturaSnapshot } from '@/modules/assinatura';
 
-function trialExpiradoPorCalendario(
-  fimIso: string | null | undefined,
-  empresaCreatedAt: string | null | undefined,
-  empresaDiasTrial?: number | null
-): boolean {
-  const fim =
-    (typeof fimIso === 'string' && fimIso.trim()) ||
-    dataFimTrialAPartirDe(empresaCreatedAt, empresaDiasTrial);
-  if (!fim) return false;
-  const d = diffDiasCalendarioInTimeZone(fim, BILLING_TIME_ZONE);
-  return d !== null && d < 0;
-}
-
-/** Marca trials vencidos como `expired` no banco (evita status `trial` eterno). */
-export async function expirarTrialsVencidosEmpresa(
-  supabase: SupabaseClient,
-  empresaId: string,
-  empresaCreatedAt: string | null | undefined,
-  empresaDiasTrial?: number | null
-): Promise<void> {
-  const { data: trials } = await supabase
-    .from('assinaturas')
-    .select('id, data_trial_fim, status')
-    .eq('empresa_id', empresaId)
-    .eq('status', 'trial');
-
-  if (!trials?.length) return;
-
-  const agora = new Date().toISOString();
-  for (const trial of trials) {
-    if (
-      !trialExpiradoPorCalendario(
-        trial.data_trial_fim as string | null,
-        empresaCreatedAt,
-        empresaDiasTrial
-      )
-    ) {
-      continue;
-    }
-
-    // data_fim no passado (ontem) evita reabrir acesso no mesmo dia civil via regra de cobertura.
-    const ontem = new Date();
-    ontem.setUTCDate(ontem.getUTCDate() - 1);
-    const dataFimPassada = ontem.toISOString();
-
-    await supabase
-      .from('assinaturas')
-      .update({
-        status: 'expired',
-        data_fim: dataFimPassada,
-        proxima_cobranca: null,
-        updated_at: agora,
-      })
-      .eq('id', trial.id)
-      .eq('empresa_id', empresaId)
-      .eq('status', 'trial');
-  }
-}
-
-/** Fonte única server-side: trial vencido, assinatura expirada ou active sem pagamento. */
 export async function computeAcessoBloqueadoServidor(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   params: {
     empresaId: string;
-    assinatura: BillingAssinaturaInput;
-    empresaCreatedAt: string | null | undefined;
+    assinatura: AssinaturaSnapshot | null;
+    empresaCreatedAt?: string | null;
     empresaDiasTrial?: number | null;
     sistemaLiberado?: boolean;
   }
 ): Promise<boolean> {
   if (params.sistemaLiberado) return false;
+  return !decidirAcesso({
+    assinatura: params.assinatura,
+    empresaCreatedAt: params.empresaCreatedAt,
+    sistemaLiberado: params.sistemaLiberado,
+  }).liberado;
+}
 
-  const vencida = computeAssinaturaVencidaPorBilling(params.assinatura, params.empresaCreatedAt, {
-    empresaIdPresent: true,
-    sistemaLiberado: false,
-    empresaDiasTrial: params.empresaDiasTrial,
-    timeZone: BILLING_TIME_ZONE,
-  });
+/** Marca trials cujo data_trial_fim já passou e sem cobertura paga. */
+export async function expirarTrialsVencidosEmpresa(
+  supabase: SupabaseClient,
+  empresaId: string,
+  _empresaCreatedAt?: string | null,
+  _empresaDiasTrial?: number | null
+): Promise<void> {
+  const hoje = hojeYmd();
+  const { data: rows } = await supabase
+    .from('assinaturas')
+    .select('id, status, data_trial_fim, data_fim, proxima_cobranca')
+    .eq('empresa_id', empresaId)
+    .eq('status', 'trial')
+    .limit(20);
 
-  if (vencida) return true;
-
-  if (params.assinatura && String(params.assinatura.status) === 'active') {
-    const temDireito = await assinaturaAtivaTemDireito(
-      supabase,
-      params.empresaId,
-      params.assinatura as Record<string, unknown>,
-      false
-    );
-    if (!temDireito) return true;
+  for (const row of rows || []) {
+    const trialFim = toYmd(row.data_trial_fim);
+    const cobertura = toYmd(row.data_fim) || toYmd(row.proxima_cobranca);
+    if (trialFim && trialFim < hoje && !cobertura) {
+      await supabase
+        .from('assinaturas')
+        .update({
+          status: 'pending_payment',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', row.id)
+        .eq('empresa_id', empresaId);
+    }
   }
-
-  return false;
 }

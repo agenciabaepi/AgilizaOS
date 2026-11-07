@@ -14,6 +14,8 @@ import {
   cancelarReservaCupom,
 } from '@/lib/billing/cupomServer';
 import { normalizarCodigoCupom } from '@/lib/billing/cupomDesconto';
+import { cotarCobranca, hojeYmd, toYmd, type TipoCobranca } from '@/modules/assinatura';
+import { resolverTipoCobranca } from '@/modules/assinatura/renovacao';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -165,7 +167,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let valorCobranca = valorOriginal;
+    const [{ data: assinaturaRow }, { data: empresaMeta }] = await Promise.all([
+      admin
+        .from('assinaturas')
+        .select('status, data_fim, proxima_cobranca, data_trial_fim, data_inicio, valor')
+        .eq('empresa_id', usuario.empresa_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from('empresas')
+        .select('created_at')
+        .eq('id', usuario.empresa_id)
+        .maybeSingle(),
+    ]);
+
+    const vencimentoAtual =
+      toYmd(assinaturaRow?.data_fim) || toYmd(assinaturaRow?.proxima_cobranca);
+    const trialFim = toYmd(assinaturaRow?.data_trial_fim);
+    const contratacao =
+      toYmd(assinaturaRow?.data_inicio) || toYmd(empresaMeta?.created_at);
+    const tipoCobranca: TipoCobranca = resolverTipoCobranca({
+      dataTrialFimYmd: trialFim,
+      vencimentoAtualYmd: vencimentoAtual,
+      hojeYmd: hojeYmd(),
+    });
+    const cotacao = cotarCobranca({
+      tipo: tipoCobranca,
+      contratacaoYmd: contratacao,
+      dataTrialFimYmd: trialFim,
+      vencimentoAtualYmd: vencimentoAtual,
+      pagamentoYmd: hojeYmd(),
+      valorMensal: valorOriginal,
+    });
+
+    let valorCobranca =
+      tipoCobranca === 'prorata' && cotacao.valorCobrado != null && cotacao.valorCobrado > 0
+        ? cotacao.valorCobrado
+        : valorOriginal;
     let cupomUsoId: string | null = null;
     let valorDesconto: number | null = null;
 
@@ -211,7 +250,7 @@ export async function POST(req: NextRequest) {
         dueDate: formatDueDate(1),
         description:
           descricao ||
-          `Mensalidade ConsertOS - empresa:${empresaData.id} - R$ ${valorCobranca.toFixed(2)}${codigoCupom ? ` (cupom ${codigoCupom})` : ''}`,
+          `${tipoCobranca === 'prorata' ? 'Pró-rata' : 'Mensalidade'} ConsertOS (${tipoCobranca === 'prorata' ? `${cotacao.diasProrata || 0} dias até ${cotacao.vencimentoYmd}` : `venc. ${cotacao.vencimentoYmd}`}) - empresa:${empresaData.id} - R$ ${valorCobranca.toFixed(2)}${codigoCupom ? ` (cupom ${codigoCupom})` : ''}`,
         externalReference: empresaData.id,
       });
     } catch (asaasErr) {
@@ -224,19 +263,35 @@ export async function POST(req: NextRequest) {
     const qrData = await getPixQrCode(payment.id);
 
     let pagamentoId: string = payment.id;
-    const { data: pagamentoRow, error: insertError } = await admin
-      .from('pagamentos')
-      .insert({
-        empresa_id: usuario.empresa_id,
-        mercadopago_payment_id: payment.id,
-        status: payment.status || 'PENDING',
-        valor: valorCobranca,
-        valor_original: codigoCupom ? valorOriginal : null,
-        cupom_uso_id: cupomUsoId,
-        plano_slug: planoSlugValido,
-      })
-      .select('id')
-      .single();
+    const insertBase: Record<string, unknown> = {
+      empresa_id: usuario.empresa_id,
+      mercadopago_payment_id: payment.id,
+      status: payment.status || 'PENDING',
+      valor: valorCobranca,
+      valor_original:
+        codigoCupom || tipoCobranca === 'prorata' ? valorOriginal : null,
+
+      cupom_uso_id: cupomUsoId,
+      plano_slug: planoSlugValido,
+    };
+
+    let pagamentoRow: { id: string } | null = null;
+    let insertError: { message: string } | null = null;
+    {
+      const withTipo = await admin
+        .from('pagamentos')
+        .insert({ ...insertBase, tipo_cobranca: tipoCobranca })
+        .select('id')
+        .single();
+      if (withTipo.error && /tipo_cobranca/i.test(withTipo.error.message || '')) {
+        const fallback = await admin.from('pagamentos').insert(insertBase).select('id').single();
+        pagamentoRow = fallback.data;
+        insertError = fallback.error;
+      } else {
+        pagamentoRow = withTipo.data;
+        insertError = withTipo.error;
+      }
+    }
 
     if (insertError) {
       if (cupomUsoId) {
@@ -262,9 +317,13 @@ export async function POST(req: NextRequest) {
       pagamento_id: pagamentoId,
       status: payment.status || 'PENDING',
       valor: valorCobranca,
-      valor_original: codigoCupom ? valorOriginal : undefined,
+      valor_original:
+        codigoCupom || tipoCobranca === 'prorata' ? valorOriginal : undefined,
       valor_desconto: valorDesconto ?? undefined,
       cupom_codigo: codigoCupom ?? undefined,
+      tipo_cobranca: tipoCobranca,
+      vencimento_alvo: cotacao.vencimentoYmd,
+      dias_prorata: cotacao.diasProrata,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao criar PIX';

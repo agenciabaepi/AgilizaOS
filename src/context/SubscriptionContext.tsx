@@ -14,12 +14,11 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
-import { computeAssinaturaVencidaPorBilling } from '@/lib/billing/empresaSaasBilling';
+import { temAcesso } from '@/modules/assinatura';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { PLANO_SLUGS } from '@/config/planModules';
 import { getPlanLimits } from '@/config/planLimits';
-import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
 import type { ResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 
@@ -568,10 +567,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     const empresaCreatedAt =
       empresaData?.id === empresaIdAtual ? empresaData?.created_at : undefined;
-    const empresaDiasTrial =
-      empresaData?.id === empresaIdAtual ? empresaData?.dias_trial : undefined;
-    return computeAssinaturaVencidaPorBilling(
-      assinatura
+    return !temAcesso({
+      assinatura: assinatura
         ? {
             status: assinatura.status,
             data_trial_fim: assinatura.data_trial_fim,
@@ -580,20 +577,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           }
         : null,
       empresaCreatedAt,
-      {
-        loading: false,
-        empresaIdPresent: true,
-        sistemaLiberado: liberado,
-        empresaDiasTrial,
-      }
-    );
+      sistemaLiberado: liberado,
+    });
   }, [
     empresaIdAtual,
     sistemaLiberado,
     empresaData?.id,
     empresaData?.sistema_liberado,
     empresaData?.created_at,
-    empresaData?.dias_trial,
     loading,
     loadedEmpresaId,
     assinatura,

@@ -11,13 +11,14 @@ import PixQRCode from '@/components/PixQRCode';
 import RenovarSistemaShowcase from '@/components/assinatura/RenovarSistemaShowcase';
 import PlanosAssinaturaCards from '@/components/assinatura/PlanosAssinaturaCards';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
-import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
+import { computeDiasTrialTotal, dataFimTrialAPartirDe, DIAS_TRIAL_GRATIS } from '@/config/trial';
 import {
   cobrancaFoiPaga,
   getDataPagamentoCobranca,
   getVencimentoExibicaoCobranca,
   isCobrancaPendente,
 } from '@/lib/billing/cobrancaStatus';
+import { calcularTransicaoPosTrial, toYmd } from '@/modules/assinatura';
 
 /** Histórico de cobranças na página — desligado temporariamente. */
 const EXIBIR_HISTORICO_PAGAMENTOS = false;
@@ -223,6 +224,21 @@ export default function AssinaturaPage() {
 
   const labelStatus = resumoAssinatura?.label_status ?? assinatura?.status ?? '—';
 
+  const contratacaoYmd = toYmd(dataCadastroEmpresa);
+  const transicaoPosTrial = contratacaoYmd
+    ? calcularTransicaoPosTrial({
+        contratacaoYmd,
+        valorMensal: Number(assinatura?.valor) > 0 ? Number(assinatura?.valor) : Number(assinatura?.plano?.preco) || 0,
+      })
+    : null;
+  const valorMensalPlano =
+    Number(assinatura?.valor) > 0
+      ? Number(assinatura?.valor)
+      : Number(assinatura?.plano?.preco) || 0;
+  const mostrarProrataInfo =
+    !!transicaoPosTrial &&
+    (emTesteGratis || trialEncerrado || !coberturaRef);
+
   const sincronizarComAsaas = async (opts?: { silent?: boolean }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -270,7 +286,8 @@ export default function AssinaturaPage() {
                 Assinatura
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Gerencie seu plano e acompanhe o status da assinatura
+                Teste de {DIAS_TRIAL_GRATIS} dias (web e app), depois cobrança com vencimento todo dia 10.
+                O pagamento libera o acesso na hora.
               </p>
               {(emTesteGratis || trialEncerrado) && dataCadastroEmpresa && (
                 <div
@@ -287,7 +304,7 @@ export default function AssinaturaPage() {
                         : 'text-zinc-500 dark:text-zinc-400'
                     }`}
                   >
-                    Período de teste
+                    Período de teste — {DIAS_TRIAL_GRATIS} dias
                   </p>
                   <dl className="grid gap-1 sm:grid-cols-3 sm:gap-x-4">
                     <div>
@@ -313,9 +330,21 @@ export default function AssinaturaPage() {
                       </div>
                     )}
                   </dl>
-                  {trialEncerrado && (
+                  {trialEncerrado ? (
                     <p className="text-xs mt-2 text-red-900/90 dark:text-red-100/90">
-                      O período de teste terminou. Escolha um plano para voltar a usar o sistema.
+                      O teste terminou. Pague o pró-rata até o dia 10 para liberar o sistema na hora.
+                      {transicaoPosTrial
+                        ? ` São ${transicaoPosTrial.diasProrata} dias até ${formatarDataShort(transicaoPosTrial.primeiroDia10Ymd)}${
+                            valorMensalPlano > 0
+                              ? ` (${formatarMoeda(transicaoPosTrial.valorProrata)})`
+                              : ''
+                          }.`
+                        : ''}
+                    </p>
+                  ) : (
+                    <p className="text-xs mt-2 text-zinc-600 dark:text-zinc-300">
+                      Depois do teste, a primeira cobrança é só o pró-rata até o próximo dia 10.
+                      A partir daí, a mensalidade vence todo dia 10.
                     </p>
                   )}
                 </div>
@@ -341,18 +370,12 @@ export default function AssinaturaPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <p>
                     {diasRest < 0
-                      ? `Sua assinatura venceu há ${Math.abs(diasRest)} dia${Math.abs(diasRest) === 1 ? '' : 's'}. Renove para continuar usando o sistema.`
+                      ? `Sua assinatura venceu no dia 10. Já faz ${Math.abs(diasRest)} dia${Math.abs(diasRest) === 1 ? '' : 's'}. Ao pagar agora, o acesso libera na hora até o próximo dia 10 — os dias em atraso não são compensados.`
                       : diasRest === 0
-                        ? 'Sua assinatura vence hoje.'
+                        ? 'Sua assinatura vence hoje (dia 10). Pague agora e a renovação libera na hora até o próximo dia 10.'
                         : diasRest === 1
-                          ? 'Sua assinatura vence amanhã.'
-                          : `Sua assinatura vence em ${diasRest} dias.`}{' '}
-                    {diasRest >= 0 && (
-                      <>
-                        Se pagar agora, os dias restantes são preservados — o novo período de 30 dias começa
-                        a partir do vencimento atual, não da data do pagamento.
-                      </>
-                    )}
+                          ? 'Sua assinatura vence amanhã (dia 10). Pague até o vencimento para renovar sem interrupção.'
+                          : `Sua assinatura vence em ${diasRest} dias (sempre no dia 10). Se pagar agora, renova na hora para o próximo dia 10.`}
                   </p>
                   {(assinatura?.plano?.slug === 'basico' ||
                     assinatura?.plano?.slug === 'completo') && (
@@ -367,6 +390,31 @@ export default function AssinaturaPage() {
               </div>
             )}
 
+          <div className="mb-6 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 px-4 py-4 text-sm text-gray-700 dark:text-zinc-200">
+            <p className="font-semibold text-gray-900 dark:text-white mb-2">Como funciona a cobrança</p>
+            <ul className="space-y-1.5 list-disc pl-5">
+              <li>
+                <span className="font-medium">Teste:</span> {DIAS_TRIAL_GRATIS} dias grátis a partir da
+                contratação, iguais no web e no app.
+              </li>
+              <li>
+                <span className="font-medium">Pró-rata:</span> do fim do teste até o primeiro dia 10 você
+                paga só os dias desse intervalo
+                {mostrarProrataInfo && transicaoPosTrial
+                  ? ` (ex.: ${transicaoPosTrial.diasProrata} dias até ${formatarDataShort(transicaoPosTrial.primeiroDia10Ymd)}${
+                      valorMensalPlano > 0 ? ` · ${formatarMoeda(transicaoPosTrial.valorProrata)}` : ''
+                    })`
+                  : ''}
+                .
+              </li>
+              <li>
+                <span className="font-medium">Mensalidade:</span> a partir daí o vencimento é fixo todo
+                dia 10. Pagar no dia 10 ou antes renova na hora; pagar atrasado libera até o próximo dia
+                10, sem recuperar os dias perdidos.
+              </li>
+            </ul>
+          </div>
+
           <div className="mb-8">
             <PlanosAssinaturaCards
               titulo={
@@ -378,8 +426,10 @@ export default function AssinaturaPage() {
               }
               subtitulo={
                 trialEncerrado
-                  ? 'Seu período de teste encerrou. Selecione Básico ou Completo para reativar o acesso.'
-                  : 'O Básico inclui todo o sistema. O Completo adiciona Nota Fiscal, IA e lucro e desempenho.'
+                  ? 'Selecione Básico ou Completo. A primeira cobrança é o pró-rata até o dia 10; o pagamento libera o acesso na hora.'
+                  : emTesteGratis
+                    ? `Após os ${DIAS_TRIAL_GRATIS} dias de teste, a primeira cobrança é pró-rata até o dia 10. Depois, mensalidade com vencimento todo dia 10.`
+                    : 'Vencimento todo dia 10. O Básico inclui o sistema completo; o Completo adiciona Nota Fiscal, IA e lucro e desempenho.'
               }
             />
           </div>
@@ -397,7 +447,11 @@ export default function AssinaturaPage() {
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {emTesteGratis ? 'Fim do período de teste' : 'Próximo vencimento'}
+                {emTesteGratis
+                  ? 'Fim do teste'
+                  : trialEncerrado && !coberturaRef
+                    ? '1º vencimento (dia 10)'
+                    : 'Vencimento (dia 10)'}
               </p>
               <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                 {statusCanceladoOuInativo
@@ -406,11 +460,15 @@ export default function AssinaturaPage() {
                     ? formatarDataShort(dataFimTrialIso)
                     : coberturaRef
                       ? formatarDataShort(coberturaRef)
-                      : '—'}
+                      : transicaoPosTrial
+                        ? formatarDataShort(transicaoPosTrial.primeiroDia10Ymd)
+                        : '—'}
               </p>
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Dias restantes</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {emTesteGratis ? 'Dias de teste restantes' : 'Dias até o vencimento'}
+              </p>
               <p className={`text-xl font-bold mt-1 ${
                 statusCanceladoOuInativo ? 'text-gray-600 dark:text-gray-400' :
                 (diasRest ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -441,7 +499,7 @@ export default function AssinaturaPage() {
               className="flex items-center gap-2"
             >
               <FiRefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Atualizar assinatura
+              Já paguei — liberar agora
             </Button>
           </div>
 
@@ -516,7 +574,7 @@ export default function AssinaturaPage() {
                       </th>
                       <th
                         className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300"
-                        title="Pendente: vencimento da cobrança. Pago: último dia do período de 30 dias após o pagamento."
+                        title="Pendente: data da cobrança. Pago: cobertura até o dia 10 correspondente."
                       >
                         Vencimento
                       </th>

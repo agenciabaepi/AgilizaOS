@@ -108,7 +108,7 @@ export default function AssinaturaPagarPlanoPage() {
                           R$ {formatarValorAssinatura(plano.valor)}
                         </div>
                       )}
-                      <div className="text-[11px] text-gray-500">mensal</div>
+                      <div className="text-[11px] text-gray-500">mensal · vence todo dia 10</div>
                       {plano.personalizado && (
                         <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
                           Valor personalizado
@@ -133,14 +133,18 @@ export default function AssinaturaPagarPlanoPage() {
                         <li>✓ Financeiro operacional (sem lucro e desempenho)</li>
                       </>
                     )}
-                    <li>✓ Ativação automática após confirmação do PIX</li>
+                    <li>✓ Liberação na hora após confirmação do PIX</li>
+                    <li>✓ Após o teste, a 1ª cobrança pode ser pró-rata até o dia 10</li>
+                    <li>✓ Depois, renovação mensal com vencimento fixo no dia 10</li>
                   </ul>
                 </div>
               </div>
 
               <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Pagamento via PIX</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Rápido, seguro e sem taxas</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Rápido e seguro. Confirmado o pagamento, o acesso libera na hora.
+                </p>
 
                 <div className="mb-4">
                   <CupomDescontoInput

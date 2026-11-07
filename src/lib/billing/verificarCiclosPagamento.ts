@@ -1,4 +1,5 @@
-import { DIAS_ACESSO_PAGAMENTO } from '@/lib/billing/ativarAssinaturaSegura';
+/** @deprecated ciclos admin: ancoragem mensal aproximada; cobrança real usa dia 10. */
+const DIAS_ACESSO_PAGAMENTO = 30;
 
 export type PagamentoCicloInput = {
   id: string;
