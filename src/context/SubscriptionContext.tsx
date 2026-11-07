@@ -14,13 +14,15 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
-import { temAcesso } from '@/modules/assinatura';
+import { ASSINATURA_TZ, temAcesso } from '@/modules/assinatura';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { PLANO_SLUGS } from '@/config/planModules';
 import { getPlanLimits } from '@/config/planLimits';
 import type { ResumoAssinatura } from '@/lib/billing/resumoAssinatura';
 import { buildResumoAssinatura } from '@/lib/billing/resumoAssinatura';
+
+const BILLING_TIME_ZONE = ASSINATURA_TZ;
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
