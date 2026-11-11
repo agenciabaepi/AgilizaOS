@@ -90,6 +90,7 @@ export const PERMISSOES_CONFIGURACOES: { principal: PermissaoItem; sub: Permissa
     { key: 'catalogo-config', label: 'Catálogo / Tabela de Preços (config)', description: 'Configuração do catálogo público e da tabela de preços' },
     { key: 'avisos', label: 'Avisos internos', description: 'Comunicados para a equipe' },
     { key: 'whatsapp', label: 'WhatsApp', description: 'Integração com WhatsApp' },
+    { key: 'nota-fiscal', label: 'Nota Fiscal', description: 'NFS-e Nacional e certificado A1' },
   ],
 };
 

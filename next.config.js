@@ -17,7 +17,21 @@ const nextConfig = {
 
   // Empacotados pelo webpack no servidor, o pdfkit do react-pdf quebra ("reading 'S'")
   // e o libheif-js não acha o WASM; carregar direto do node_modules.
-  serverExternalPackages: ['@react-pdf/renderer', 'heic-convert', 'heic-decode', 'libheif-js', 'sharp'],
+  // open-nfse/xmllint-wasm: XSD + WASM não podem ir em vendor-chunks do Next.
+  serverExternalPackages: [
+    '@react-pdf/renderer',
+    'heic-convert',
+    'heic-decode',
+    'libheif-js',
+    'sharp',
+    'open-nfse',
+    'xmllint-wasm',
+    'undici',
+    'node-forge',
+    'xml-crypto',
+    'pdfkit',
+    'node-sped-nfe',
+  ],
 
   // Cache estratégico para melhor performance
   async headers() {

@@ -66,8 +66,8 @@ function tituloOs(numeroOs?: string | number | null) {
   return numeroOs != null && numeroOs !== '' ? `OS #${numeroOs}` : 'Chat da O.S.';
 }
 
-const CHAT_FAB_RIGHT_PX = 88; // right-[5.5rem] — alinhado à bolha do chat
-const CHAT_FAB_BOTTOM_PX = 88; // acima das FABs
+const CHAT_FAB_RIGHT_PX = 20; // right-5 — alinhado ao menu flutuante único
+const CHAT_FAB_BOTTOM_PX = 88; // acima do FAB principal
 const CHAT_WINDOW_W = 360;
 const CHAT_WINDOW_GAP = 12;
 
@@ -590,6 +590,11 @@ export default function OsChatMessenger() {
     [carregarConversas]
   );
 
+  // Badge no menu flutuante
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('os-chat-unread', { detail: { total: totalUnread } }));
+  }, [totalUnread]);
+
   // Evento global: dispatchEvent(new CustomEvent('os-chat-open', { detail: { osId, numeroOs } }))
   useEffect(() => {
     const handler = (e: Event) => {
@@ -599,6 +604,18 @@ export default function OsChatMessenger() {
     window.addEventListener('os-chat-open', handler as EventListener);
     return () => window.removeEventListener('os-chat-open', handler as EventListener);
   }, [openChat]);
+
+  // Menu flutuante: dispatchEvent(new CustomEvent('os-chat-toggle-inbox'))
+  useEffect(() => {
+    const handler = () => {
+      ensureBrowserNotificationPermission();
+      void unlockNotificationAudio();
+      setInboxOpen((v) => !v);
+      void carregarConversas();
+    };
+    window.addEventListener('os-chat-toggle-inbox', handler as EventListener);
+    return () => window.removeEventListener('os-chat-toggle-inbox', handler as EventListener);
+  }, [carregarConversas]);
 
   // Preload + destrava listeners de áudio assim que o messenger monta
   useEffect(() => {
@@ -755,7 +772,7 @@ export default function OsChatMessenger() {
       {inboxOpen && (
         <div
           style={{ right: CHAT_FAB_RIGHT_PX, bottom: CHAT_FAB_BOTTOM_PX + 64 }}
-          className="fixed z-[56] flex h-[min(560px,calc(100vh-9rem))] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/90 dark:border-zinc-600 bg-white dark:bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.18)] max-sm:right-4"
+          className="fixed z-[56] flex h-[min(560px,calc(100vh-9rem))] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/90 dark:border-zinc-600 bg-white dark:bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.18)] max-sm:right-4 max-sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
         >
           <header className="flex items-center justify-between px-4 pt-3 pb-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100">Chats</h2>
@@ -828,26 +845,6 @@ export default function OsChatMessenger() {
         </div>
       )}
 
-      {/* Bolha à esquerda da calculadora (right-5 / h-14) */}
-      <button
-        type="button"
-        onClick={() => {
-          ensureBrowserNotificationPermission();
-          void unlockNotificationAudio();
-          setInboxOpen((v) => !v);
-          void carregarConversas();
-        }}
-        className="fixed bottom-5 right-[5.5rem] z-[57] flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl hover:bg-emerald-700 hover:scale-105 transition-transform max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
-        title="Chats das O.S."
-        aria-label="Abrir chats das O.S."
-      >
-        {inboxOpen ? <FiX className="h-6 w-6" /> : <FiMessageCircle className="h-6 w-6" />}
-        {!inboxOpen && totalUnread > 0 ? (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-            {totalUnread > 9 ? '9+' : totalUnread}
-          </span>
-        ) : null}
-      </button>
     </>
   );
 }

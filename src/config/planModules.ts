@@ -21,8 +21,8 @@ export const PLANOS_VENDA: PlanoSlug[] = [PLANO_SLUGS.BASICO, PLANO_SLUGS.COMPLE
 export const PREMIUM_MODULES = {
   nota_fiscal: {
     label: 'Nota Fiscal',
-    description: 'Emissão de NFC-e e NF-e integrada ao PDV',
-    status: 'planned' as const,
+    description: 'NFS-e Nacional (serviço); NFC-e e NF-e em seguida',
+    status: 'development' as const,
   },
   ia: {
     label: 'Inteligência Artificial',

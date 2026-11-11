@@ -10,7 +10,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import ImagensOS from '@/components/ImagensOS';
 import VideosOS from '@/components/VideosOS';
 import ChecklistViewer from '@/components/ChecklistViewer';
-import { useToast } from '@/hooks/useToast';
+import { useToast as useToastUi } from '@/components/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { useHistoricoOS } from '@/hooks/useHistoricoOS';
 import HistoricoOSTimeline from '@/components/HistoricoOSTimeline';
@@ -39,6 +39,7 @@ import {
 import { isStatusEntregue } from '@/lib/statusEmpresa';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { abrirDanfsePdf } from '@/lib/fiscal/abrirDanfse';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -76,8 +77,14 @@ function descontoReaisDePercentual(valorBruto: number, percentStr: string): numb
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
-  const { addToast } = useToast();
-  const { empresaData, usuarioData } = useAuth();
+  const { addToast: pushToast } = useToastUi();
+  const addToast = (
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info'
+  ) => pushToast(type, message);
+  const { empresaData, usuarioData, temRecurso, session } = useAuth();
+  const podeNotaFiscal = temRecurso('nota_fiscal');
+  const [erroEmissaoFiscal, setErroEmissaoFiscal] = useState<string | null>(null);
   const podeVerLucroOS = podeVerLucroOperacionalOS(usuarioData?.nivel, usuarioData?.permissoes);
   const { historico, loading: loadingHistorico, buscarHistoricoOS, registrarHistorico } = useHistoricoOS();
   const [ordem, setOrdem] = useState<any>(null);
@@ -103,6 +110,23 @@ const VisualizarOrdemServicoPage = () => {
   const [aparelhoSemConserto, setAparelhoSemConserto] = useState(false); // Aparelho não teve conserto
   const [acoesMenuOpen, setAcoesMenuOpen] = useState(false);
   const [imprimirSubOpen, setImprimirSubOpen] = useState(false);
+  const [notaFiscalSubOpen, setNotaFiscalSubOpen] = useState(false);
+  const [modalNfse, setModalNfse] = useState(false);
+  const [emitindoNfse, setEmitindoNfse] = useState(false);
+  const [nfseOs, setNfseOs] = useState<{
+    id: string;
+    chave_acesso: string;
+    numero_nfse: string | null;
+    status: string;
+  } | null>(null);
+  const [modalNfce, setModalNfce] = useState(false);
+  const [emitindoNfce, setEmitindoNfce] = useState(false);
+  const [nfceOs, setNfceOs] = useState<{
+    id: string;
+    chave_acesso: string;
+    numero: number | null;
+    status: string;
+  } | null>(null);
   const acoesMenuRef = useRef<HTMLDivElement>(null);
   const [linkPublicoAtivo, setLinkPublicoAtivo] = useState<boolean>(true);
 
@@ -112,6 +136,7 @@ const VisualizarOrdemServicoPage = () => {
       if (acoesMenuRef.current && !acoesMenuRef.current.contains(e.target as Node)) {
         setAcoesMenuOpen(false);
         setImprimirSubOpen(false);
+        setNotaFiscalSubOpen(false);
       }
     };
     document.addEventListener('mousedown', h);
@@ -137,7 +162,7 @@ const VisualizarOrdemServicoPage = () => {
 
   const carregarOrdem = useCallback(async (options?: { silencioso?: boolean }) => {
     if (!id) return;
-    if (!options?.silencioso) setLoading(true);
+      if (!options?.silencioso) setLoading(true);
     try {
       const baseSelect = `
             id,
@@ -151,7 +176,9 @@ const VisualizarOrdemServicoPage = () => {
               nome,
               telefone,
               cpf,
-              endereco
+              documento,
+              endereco,
+              email
             ),
             tecnico:tecnico_id (
               nome
@@ -307,6 +334,37 @@ const VisualizarOrdemServicoPage = () => {
       buscarHistoricoOS(id as string);
     }
   }, [id, buscarHistoricoOS]);
+
+  useEffect(() => {
+    if (!ordem?.id || !ordem?.empresa_id || !podeNotaFiscal) {
+      setNfseOs(null);
+      setNfceOs(null);
+      return;
+    }
+    void Promise.resolve(
+      supabase
+        .from('fiscal_nfse')
+        .select('id, chave_acesso, numero_nfse, status')
+        .eq('empresa_id', ordem.empresa_id)
+        .eq('ordem_servico_id', ordem.id)
+        .eq('status', 'autorizada')
+        .maybeSingle()
+    )
+      .then(({ data: nf }) => setNfseOs(nf ?? null))
+      .catch(() => setNfseOs(null));
+
+    void Promise.resolve(
+      supabase
+        .from('fiscal_nfce')
+        .select('id, chave_acesso, numero, status')
+        .eq('empresa_id', ordem.empresa_id)
+        .eq('ordem_servico_id', ordem.id)
+        .eq('status', 'autorizada')
+        .maybeSingle()
+    )
+      .then(({ data: nf }) => setNfceOs(nf ?? null))
+      .catch(() => setNfceOs(null));
+  }, [ordem?.id, ordem?.empresa_id, podeNotaFiscal]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -656,7 +714,9 @@ const VisualizarOrdemServicoPage = () => {
 
   // Calcular valores
   const calcularValores = () => {
-    if (!ordem) return { valorTotal: 0, valorFinal: 0 };
+    if (!ordem) {
+      return { valorTotal: 0, valorFinal: 0, totalServico: 0, totalPeca: 0, desconto: 0 };
+    }
     
     // Converter para números e garantir valores válidos
     const valorServico = Number(ordem.valor_servico || 0);
@@ -670,7 +730,135 @@ const VisualizarOrdemServicoPage = () => {
     const valorTotal = totalServico + totalPeca;
     const valorFinal = valorTotal - desconto;
     
-    return { valorTotal, valorFinal };
+    return { valorTotal, valorFinal, totalServico, totalPeca, desconto };
+  };
+
+  const valorServicoParaNfse = () => {
+    const { totalServico, totalPeca, desconto } = calcularValores();
+    const bruto = totalServico + totalPeca;
+    if (totalServico <= 0) return 0;
+    const descontoNoServico = bruto > 0 ? Math.min(totalServico, desconto * (totalServico / bruto)) : 0;
+    return Math.round((totalServico - descontoNoServico) * 100) / 100;
+  };
+
+  const valorPecaParaNfce = () => {
+    const { totalServico, totalPeca, desconto } = calcularValores();
+    const bruto = totalServico + totalPeca;
+    if (totalPeca <= 0) return 0;
+    const descontoNaPeca = bruto > 0 ? Math.min(totalPeca, desconto * (totalPeca / bruto)) : 0;
+    return Math.round((totalPeca - descontoNaPeca) * 100) / 100;
+  };
+
+  const emitirNfceDaOs = async () => {
+    if (!id) return;
+    setEmitindoNfce(true);
+    setErroEmissaoFiscal(null);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/fiscal/nfce/emitir-os', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ordemServicoId: String(id) }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.ok === false) {
+        if (json.status === 'ja_emitida' && json.nfce) {
+          setNfceOs({
+            id: json.nfce.id,
+            chave_acesso: json.nfce.chave_acesso,
+            numero: json.nfce.numero,
+            status: json.nfce.status || 'autorizada',
+          });
+          addToast('Esta O.S. já possui NFC-e autorizada para as peças.', 'info');
+          setModalNfce(false);
+          return;
+        }
+        const msg = json.codigo
+          ? `[${json.codigo}] ${json.message || json.error || 'Falha ao emitir NFC-e'}`
+          : json.message || json.error || 'Falha ao emitir NFC-e';
+        setErroEmissaoFiscal(msg);
+        addToast(msg, 'error');
+        return;
+      }
+      if (json.status === 'autorizada') {
+        setNfceOs({
+          id: json.nfceId,
+          chave_acesso: json.chaveAcesso,
+          numero: json.numero,
+          status: 'autorizada',
+        });
+        addToast(
+          `NFC-e autorizada${json.numero ? ` nº ${json.numero}` : ''}. Abrindo consulta…`,
+          'success'
+        );
+        setModalNfce(false);
+        if (json.chaveAcesso) {
+          window.open(
+            `https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx?chave=${json.chaveAcesso}`,
+            '_blank'
+          );
+        }
+      } else {
+        const msg = json.message || json.error || 'Resposta inesperada ao emitir NFC-e';
+        setErroEmissaoFiscal(msg);
+        addToast(msg, 'error');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro ao emitir NFC-e';
+      setErroEmissaoFiscal(msg);
+      addToast(msg, 'error');
+    } finally {
+      setEmitindoNfce(false);
+    }
+  };
+
+  const emitirNfseDaOs = async () => {
+    if (!id) return;
+    setEmitindoNfse(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/fiscal/nfse/emitir-os', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ordemServicoId: String(id) }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        if (json.status === 'ja_emitida' && json.nfse) {
+          setNfseOs(json.nfse);
+          addToast('Esta O.S. já possui NFS-e autorizada.', 'info');
+          setModalNfse(false);
+          return;
+        }
+        addToast(json.message || json.error || 'Falha ao emitir NFS-e', 'error');
+        return;
+      }
+      if (json.status === 'autorizada') {
+        const nf = {
+          id: json.nfseId,
+          chave_acesso: json.chaveAcesso,
+          numero_nfse: json.numeroNfse,
+          status: 'autorizada',
+        };
+        setNfseOs(nf);
+        addToast(
+          `NFS-e autorizada${json.numeroNfse ? ` nº ${json.numeroNfse}` : ''}. Abrindo impressão…`,
+          'success'
+        );
+        setModalNfse(false);
+        if (json.nfseId) {
+          const print = await abrirDanfsePdf(json.nfseId, { autoPrint: true });
+          if (!print.ok) addToast(print.error, 'warning');
+        }
+      } else if (json.status === 'pendente') {
+        addToast(json.message || 'Emissão pendente de reenvio à SEFIN.', 'warning');
+        setModalNfse(false);
+      }
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Erro ao emitir NFS-e', 'error');
+    } finally {
+      setEmitindoNfse(false);
+    }
   };
 
   const calcularPrevisao = () => {
@@ -886,7 +1074,10 @@ const VisualizarOrdemServicoPage = () => {
                   onClick={() => {
                     setAcoesMenuOpen((prev) => {
                       const next = !prev;
-                      if (next) setImprimirSubOpen(false);
+                      if (next) {
+                        setImprimirSubOpen(false);
+                        setNotaFiscalSubOpen(false);
+                      }
                       return next;
                     });
                   }}
@@ -1013,6 +1204,57 @@ const VisualizarOrdemServicoPage = () => {
                       </>
                     )}
 
+                    {podeNotaFiscal && (
+                      <>
+                        <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                        <button
+                          type="button"
+                          onClick={() => setNotaFiscalSubOpen((s) => !s)}
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                        >
+                          <span className="flex items-center gap-2">
+                            <FiFileText className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            Nota fiscal
+                            {nfseOs && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                                NFS-e ok
+                              </span>
+                            )}
+                          </span>
+                          <FiChevronRight
+                            className={`w-4 h-4 shrink-0 transition-transform text-gray-400 ${notaFiscalSubOpen ? 'rotate-90' : ''}`}
+                          />
+                        </button>
+                        {notaFiscalSubOpen && (
+                          <div className="border-t border-gray-100 dark:border-zinc-700 bg-gray-50/80 dark:bg-zinc-900/50 py-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAcoesMenuOpen(false);
+                                setNotaFiscalSubOpen(false);
+                                setModalNfse(true);
+                              }}
+                              className="w-full px-3 py-2 pl-9 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800"
+                            >
+                              {nfseOs ? 'Ver / reemitir NFS-e (serviço)' : 'Emitir NFS-e (serviço)'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAcoesMenuOpen(false);
+                                setNotaFiscalSubOpen(false);
+                                setErroEmissaoFiscal(null);
+                                setModalNfce(true);
+                              }}
+                              className="w-full px-3 py-2 pl-9 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800"
+                            >
+                              {nfceOs ? 'Ver NFC-e (peças)' : 'Emitir NFC-e (peças)'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     {ordem.status !== 'ENTREGUE' && (
                       <>
                         <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
@@ -1022,6 +1264,7 @@ const VisualizarOrdemServicoPage = () => {
                             setModalEntrega(true);
                             setAcoesMenuOpen(false);
                             setImprimirSubOpen(false);
+                            setNotaFiscalSubOpen(false);
                           }}
                           className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/25"
                         >
@@ -1183,18 +1426,42 @@ const VisualizarOrdemServicoPage = () => {
                 }
                 if (!entrega) return null;
                 const when = ordem.checklist_entrega_em || entrega.submitted_at;
+                const statusBadge = (status: string) =>
+                  status === 'pass'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                    : status === 'fail'
+                      ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-zinc-700 dark:text-zinc-300';
                 return (
-                  <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-gray-100 dark:bg-zinc-700 rounded-lg">
-                        <FiCheckCircle className="w-5 h-5 text-gray-800 dark:text-zinc-100" />
+                  <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-4 sm:p-5">
+                    <div className="flex items-start gap-2.5 mb-3">
+                      <div className="p-1.5 bg-gray-100 dark:bg-zinc-700 rounded-lg shrink-0">
+                        <FiCheckCircle className="w-4 h-4 text-gray-800 dark:text-zinc-100" />
                       </div>
-                      <div className="flex-1">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
-                          Checklist de entrega (GCList)
-                        </h2>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-zinc-100">
+                            Checklist de entrega (GCList)
+                          </h2>
+                          {entrega.summary && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+                              <span className="rounded-full bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 px-2 py-0.5">
+                                {entrega.summary.total ?? 0} total
+                              </span>
+                              <span className="rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5">
+                                {entrega.summary.passed ?? 0} OK
+                              </span>
+                              <span className="rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5">
+                                {entrega.summary.failed ?? 0} falha
+                              </span>
+                              <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5">
+                                {entrega.summary.skipped ?? 0} pulado
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         {when && (
-                          <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+                          <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5 truncate">
                             Enviado em {new Date(when).toLocaleString('pt-BR')}
                             {entrega.device?.modelName
                               ? ` · ${entrega.device.modelName}${entrega.device.osName ? ` (${entrega.device.osName} ${entrega.device.osVersion || ''})` : ''}`
@@ -1203,43 +1470,25 @@ const VisualizarOrdemServicoPage = () => {
                         )}
                       </div>
                     </div>
-                    {entrega.summary && (
-                      <div className="grid grid-cols-4 gap-3 mb-4">
-                        {[
-                          { label: 'Total', value: entrega.summary.total ?? 0, className: 'text-gray-900 dark:text-zinc-100' },
-                          { label: 'OK', value: entrega.summary.passed ?? 0, className: 'text-green-600 dark:text-green-400' },
-                          { label: 'Falha', value: entrega.summary.failed ?? 0, className: 'text-red-600 dark:text-red-400' },
-                          { label: 'Pulado', value: entrega.summary.skipped ?? 0, className: 'text-amber-600 dark:text-amber-400' },
-                        ].map((s) => (
-                          <div key={s.label} className="rounded-lg border border-gray-200 dark:border-zinc-600 p-3 text-center">
-                            <div className={`text-xl font-bold ${s.className}`}>{s.value}</div>
-                            <div className="text-xs text-gray-500 dark:text-zinc-400">{s.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                     {entrega.technician_note ? (
-                      <p className="text-sm text-gray-700 dark:text-zinc-300 mb-4">
+                      <p className="text-xs text-gray-700 dark:text-zinc-300 mb-3">
                         <span className="font-medium">Observação:</span> {entrega.technician_note}
                       </p>
                     ) : null}
-                    <div className="divide-y divide-gray-100 dark:divide-zinc-700">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                       {(entrega.tests || []).map((t) => (
-                        <div key={t.id} className="flex items-center justify-between py-2.5 gap-3">
+                        <div
+                          key={t.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 dark:border-zinc-700 bg-gray-50/70 dark:bg-zinc-900/40 px-2.5 py-1.5"
+                        >
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">{t.label}</p>
+                            <p className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">{t.label}</p>
                             {t.note ? (
-                              <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">{t.note}</p>
+                              <p className="text-[10px] text-gray-500 dark:text-zinc-400 truncate">{t.note}</p>
                             ) : null}
                           </div>
                           <span
-                            className={`shrink-0 text-xs font-semibold uppercase px-2 py-1 rounded-full ${
-                              t.status === 'pass'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                : t.status === 'fail'
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                  : 'bg-gray-100 text-gray-600 dark:bg-zinc-700 dark:text-zinc-300'
-                            }`}
+                            className={`shrink-0 text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${statusBadge(t.status)}`}
                           >
                             {t.status === 'pass' ? 'OK' : t.status === 'fail' ? 'Falha' : t.status}
                           </span>
@@ -1739,6 +1988,219 @@ const VisualizarOrdemServicoPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Modal NFS-e (serviço) — confirmação obrigatória */}
+          {modalNfse && ordem && (() => {
+            const vals = calcularValores();
+            const valorNf = valorServicoParaNfse();
+            return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
+              <div
+                className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-600 max-w-md w-full overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-zinc-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                    <FiFileText className="w-5 h-5 text-amber-600" />
+                    Confirmar emissão da NFS-e
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+                    Confira os dados. A nota usa <strong>somente o valor do serviço</strong> (mão de obra). Peças ficam de fora.
+                  </p>
+                </div>
+                <div className="px-5 py-4 space-y-3 text-sm text-gray-700 dark:text-zinc-300">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">O.S.</span>
+                    <span className="font-medium">#{ordem.numero_os}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Cliente</span>
+                    <span className="font-medium text-right">{ordem.cliente?.nome || '—'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Documento</span>
+                    <span className="font-medium text-right">
+                      {ordem.cliente?.documento || ordem.cliente?.cpf || '—'}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-zinc-600 overflow-hidden">
+                    <div className="flex justify-between gap-3 px-3 py-2 bg-gray-50 dark:bg-zinc-700/50">
+                      <span className="text-gray-500">Serviços (bruto)</span>
+                      <span>{formatCurrency(vals.totalServico)}</span>
+                    </div>
+                    {vals.desconto > 0 && (
+                      <div className="flex justify-between gap-3 px-3 py-2 border-t border-gray-100 dark:border-zinc-600">
+                        <span className="text-gray-500">Desconto rateado no serviço</span>
+                        <span>− {formatCurrency(vals.totalServico - valorNf)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-3 px-3 py-2.5 border-t border-gray-200 dark:border-zinc-600 bg-amber-50 dark:bg-amber-950/30">
+                      <span className="font-semibold text-amber-900 dark:text-amber-100">Valor da NFS-e</span>
+                      <span className="font-bold text-amber-900 dark:text-amber-100">{formatCurrency(valorNf)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3 px-3 py-2 border-t border-gray-100 dark:border-zinc-600 text-xs text-gray-500">
+                      <span>Peças (não entram na NFS-e)</span>
+                      <span>{formatCurrency(vals.totalPeca)}</span>
+                    </div>
+                  </div>
+                  {nfseOs && (
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200 break-all">
+                      Já autorizada
+                      {nfseOs.numero_nfse ? ` nº ${nfseOs.numero_nfse}` : ''}: {nfseOs.chave_acesso}
+                    </div>
+                  )}
+                  {valorNf <= 0 && (
+                    <p className="text-amber-700 dark:text-amber-400 text-xs">
+                      Informe valor de serviço nesta O.S. antes de emitir.
+                    </p>
+                  )}
+                </div>
+                <div className="px-5 pb-5 flex gap-2 justify-end flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setModalNfse(false)}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-200"
+                    disabled={emitindoNfse}
+                  >
+                    Cancelar
+                  </button>
+                  {nfseOs?.id && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const print = await abrirDanfsePdf(nfseOs.id, { autoPrint: true });
+                        if (!print.ok) addToast(print.error, 'warning');
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-amber-300 text-amber-800 dark:text-amber-200 dark:border-amber-700"
+                    >
+                      <FiPrinter className="w-4 h-4" />
+                      Imprimir DANFSe
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void emitirNfseDaOs()}
+                    disabled={emitindoNfse || valorNf <= 0 || !!nfseOs}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    {emitindoNfse ? 'Emitindo…' : nfseOs ? 'Já emitida' : 'Confirmar e emitir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+
+          {/* Modal NFC-e (peças) — confirmação obrigatória */}
+          {modalNfce && ordem && (() => {
+            const vals = calcularValores();
+            const valorNf = valorPecaParaNfce();
+            return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
+              <div
+                className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-600 max-w-md w-full overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-zinc-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
+                    <FiFileText className="w-5 h-5 text-blue-600" />
+                    Confirmar emissão da NFC-e
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+                    Confira os dados. A nota usa <strong>somente o valor das peças</strong>. Serviço (mão de obra) fica na NFS-e.
+                  </p>
+                </div>
+                <div className="px-5 py-4 space-y-3 text-sm text-gray-700 dark:text-zinc-300">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">O.S.</span>
+                    <span className="font-medium">#{ordem.numero_os}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Cliente</span>
+                    <span className="font-medium text-right">{ordem.cliente?.nome || '—'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Peça</span>
+                    <span className="font-medium text-right truncate max-w-[60%]">{ordem.peca || '—'}</span>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-zinc-600 overflow-hidden">
+                    <div className="flex justify-between gap-3 px-3 py-2 bg-gray-50 dark:bg-zinc-700/50">
+                      <span className="text-gray-500">Peças (bruto)</span>
+                      <span>{formatCurrency(vals.totalPeca)}</span>
+                    </div>
+                    {vals.desconto > 0 && (
+                      <div className="flex justify-between gap-3 px-3 py-2 border-t border-gray-100 dark:border-zinc-600">
+                        <span className="text-gray-500">Desconto rateado nas peças</span>
+                        <span>− {formatCurrency(vals.totalPeca - valorNf)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-3 px-3 py-2.5 border-t border-gray-200 dark:border-zinc-600 bg-blue-50 dark:bg-blue-950/30">
+                      <span className="font-semibold text-blue-900 dark:text-blue-100">Valor da NFC-e</span>
+                      <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(valorNf)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3 px-3 py-2 border-t border-gray-100 dark:border-zinc-600 text-xs text-gray-500">
+                      <span>Serviço (não entra na NFC-e)</span>
+                      <span>{formatCurrency(vals.totalServico)}</span>
+                    </div>
+                  </div>
+                  {nfceOs && (
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200 break-all">
+                      Já autorizada
+                      {nfceOs.numero != null ? ` nº ${nfceOs.numero}` : ''}: {nfceOs.chave_acesso}
+                    </div>
+                  )}
+                  {valorNf <= 0 && (
+                    <p className="text-amber-700 dark:text-amber-400 text-xs">
+                      Informe valor de peça nesta O.S. antes de emitir.
+                    </p>
+                  )}
+                  {erroEmissaoFiscal && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-800 px-3 py-2 text-xs text-red-800 dark:text-red-200 whitespace-pre-wrap">
+                      {erroEmissaoFiscal}
+                    </div>
+                  )}
+                </div>
+                <div className="px-5 pb-5 flex gap-2 justify-end flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalNfce(false);
+                      setErroEmissaoFiscal(null);
+                    }}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-200"
+                    disabled={emitindoNfce}
+                  >
+                    Cancelar
+                  </button>
+                  {nfceOs?.chave_acesso && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open(
+                          `https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx?chave=${nfceOs.chave_acesso}`,
+                          '_blank'
+                        );
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-blue-300 text-blue-800 dark:text-blue-200 dark:border-blue-700"
+                    >
+                      Consultar NFC-e
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void emitirNfceDaOs()}
+                    disabled={emitindoNfce || valorNf <= 0 || !!nfceOs}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {emitindoNfce ? 'Emitindo…' : nfceOs ? 'Já emitida' : 'Confirmar e emitir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
 
           {/* Modal de Entrega */}
           {modalEntrega && (

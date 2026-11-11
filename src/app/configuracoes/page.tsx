@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Search,
   MessageCircle,
+  Receipt,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { canUseModule } from '@/lib/permissions'
@@ -45,6 +46,7 @@ import ChecklistNovoPage from './checklist-novo/page'
 import AvisosPage from './avisos/page'
 import LinkPublicoPage from './link-publico/page'
 import WhatsAppPage from './whatsapp/page'
+import NotaFiscalPage from './nota-fiscal/page'
 
 type TabGroupId = 'geral' | 'operacao' | 'financeiro' | 'integracoes' | 'sistema'
 
@@ -80,6 +82,7 @@ const tabsConfig: TabConfig[] = [
   { name: 'Tabela de Preços', description: 'Serviços e valores para impressão', group: 'integracoes', icon: BookOpen, Component: TabelaPrecosConfigPage, permissao: 'catalogo-config', requerRecurso: null },
   { name: 'Catálogo', description: 'Loja online com pedido via WhatsApp', group: 'integracoes', icon: Store, Component: CatalogoLojaConfigPage, permissao: 'catalogo-config', requerRecurso: null },
   { name: 'WhatsApp', description: 'Conecte o WhatsApp da assistência e envie avisos de OS', group: 'integracoes', icon: MessageCircle, Component: WhatsAppPage, permissao: 'whatsapp', requerRecurso: null },
+  { name: 'Nota Fiscal', description: 'NFS-e Nacional, certificado A1 e emissão', group: 'integracoes', icon: Receipt, Component: NotaFiscalPage, permissao: 'nota-fiscal', requerRecurso: 'nota_fiscal' },
   { name: 'Avisos', description: 'Comunicados internos', group: 'sistema', icon: Bell, Component: AvisosPage, permissao: 'avisos', requerRecurso: null },
 ]
 

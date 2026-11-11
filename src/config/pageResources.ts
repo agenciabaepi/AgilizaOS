@@ -11,12 +11,13 @@ export const PAGE_RESOURCES = {
   '/financeiro/contas-a-pagar': 'contas_a_pagar',
   '/financeiro/contas-a-pagar/categorias': 'contas_a_pagar',
   '/financeiro/contas-a-receber': 'contas_a_receber',
-  // Futuro: '/nota-fiscal': 'nota_fiscal',
+  '/configuracoes/nota-fiscal': 'nota_fiscal',
 } as const;
 
 /** Permissão de aba em /configuracoes?tab=N → módulo premium */
 export const CONFIG_TAB_PREMIUM_MODULES: Record<number, string> = {
   12: 'whatsapp_crm',
+  13: 'nota_fiscal',
 };
 
 export function getRequiredResource(pathname: string): string | null {

@@ -8,7 +8,8 @@ import {
   type ComponentType,
   type SVGProps,
 } from 'react';
-import Image, { type StaticImageData } from 'next/image';
+import Image from 'next/image';
+import Link from 'next/link';
 import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
@@ -20,157 +21,23 @@ import {
   BoltIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import ordensImage from '@/assets/imagens/ordens.png';
-import dashboardImage from '@/assets/imagens/dashboard.png';
-import comissoesImage from '@/assets/imagens/comissoes.png';
-import financeiroImage from '@/assets/imagens/financeiro.png';
-import contasPagarImage from '@/assets/imagens/contas-a-pagar.png';
-import chatOsImage from '@/assets/imagens/chat-os.png';
-import anexosOsImage from '@/assets/imagens/anexos-os.png';
+import {
+  SYSTEM_SHOWCASE_SLIDES,
+  type SystemShowcaseIconId,
+  type SystemShowcaseSlide,
+} from '@/lib/landing/system-showcase';
 
-type SystemSlide = {
-  id: string;
-  label: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  image?: StaticImageData;
-  imageAlt?: string;
-  summary: string;
-  features: string[];
-  extraFeatures?: string[];
+const ICONS: Record<SystemShowcaseIconId, ComponentType<SVGProps<SVGSVGElement>>> = {
+  ordens: ClipboardDocumentListIcon,
+  dashboard: ChartBarIcon,
+  financeiro: ChartPieIcon,
+  contas: DocumentTextIcon,
+  comissoes: CurrencyDollarIcon,
+  'chat-os': ChatBubbleLeftRightIcon,
+  anexos: PhotoIcon,
+  mais: BoltIcon,
 };
-
-const SYSTEM_SLIDES: SystemSlide[] = [
-  {
-    id: 'ordens',
-    label: 'Ordens de Serviço',
-    icon: ClipboardDocumentListIcon,
-    image: ordensImage,
-    imageAlt: 'Lista de ordens de serviço no Consert',
-    summary:
-      'Centralize todas as OS da assistência em uma única tela: filtros por status, técnico e tipo, KPIs do dia e busca rápida por cliente, aparelho ou número da ordem.',
-    features: [
-      'KPIs do dia: OS abertas, faturamento, retornos e aprovados',
-      'Filtros por status (orçamento, aprovada, concluída, garantia e mais)',
-      'Busca por OS, cliente, aparelho, serviço ou técnico',
-      'Visão completa de prazo, garantia, valores e status técnico/faturamento',
-      'Criação rápida com o botão + Nova OS',
-    ],
-  },
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: ChartBarIcon,
-    image: dashboardImage,
-    imageAlt: 'Dashboard do sistema Consert',
-    summary:
-      'Visão geral do mês com faturamento, contas pagas, volume de OS e gráficos para entender o ritmo da assistência em segundos.',
-    features: [
-      'Indicadores mensais de faturamento, despesas e volume de OS',
-      'Comparativo com o mês anterior',
-      'Gráfico de OS por categoria de equipamento',
-      'Evolução diária de ordens no período',
-      'Navegação rápida entre meses',
-    ],
-  },
-  {
-    id: 'financeiro',
-    label: 'Lucro & Desempenho',
-    icon: ChartPieIcon,
-    image: financeiroImage,
-    imageAlt: 'Lucro e desempenho no Consert',
-    summary:
-      'Acompanhe receita, despesas e lucro do mês com margem, composição de gastos e comparativo com o período anterior.',
-    features: [
-      'Receita, despesas e lucro do mês em um só lugar',
-      'Margem de lucro calculada automaticamente',
-      'Composição de despesas (peças, variáveis e fixas)',
-      'Comparativo com o mês anterior e variação percentual',
-      'Abas por OS, por técnico e DRE',
-    ],
-  },
-  {
-    id: 'contas',
-    label: 'Contas a Pagar',
-    icon: DocumentTextIcon,
-    image: contasPagarImage,
-    imageAlt: 'Contas a pagar no Consert',
-    summary:
-      'Gerencie despesas fixas e variáveis com categorias, vencimentos, status de pagamento e ações rápidas para quitar, editar ou excluir.',
-    features: [
-      'Resumo de pendente, pago, total de despesas e quantidade de contas',
-      'Separação entre contas fixas, variáveis e de peças',
-      'Categorias coloridas e filtros por status/período',
-      'Controle de recorrência (ex.: parcela 12/12)',
-      'Baixa rápida, edição e exclusão direto na tabela',
-    ],
-  },
-  {
-    id: 'comissoes',
-    label: 'Comissões',
-    icon: CurrencyDollarIcon,
-    image: comissoesImage,
-    imageAlt: 'Comissões dos técnicos no Consert',
-    summary:
-      'Resumo e gestão de comissões de todos os técnicos: totais, média por OS e status (paga, calculada, pendente e prevista).',
-    features: [
-      'Total de comissões, técnicos ativos e média por OS',
-      'Resumo por técnico com quantidade de OS',
-      'Status visual: paga, calculada, pendente e prevista',
-      'Filtro por mês e exportação em CSV/PDF',
-      'Modo admin com edição habilitada',
-    ],
-  },
-  {
-    id: 'chat-os',
-    label: 'Chat da OS',
-    icon: ChatBubbleLeftRightIcon,
-    image: chatOsImage,
-    imageAlt: 'Chat interno vinculado à ordem de serviço',
-    summary:
-      'Converse sobre cada ordem sem sair do fluxo: chats ligados à OS, histórico de conversas e contexto completo do cliente e do aparelho.',
-    features: [
-      'Chat interno vinculado à ordem de serviço',
-      'Lista de conversas recentes por OS',
-      'Contexto da OS, cliente e aparelho lado a lado',
-      'Checklist de entrada e status sempre visíveis',
-      'Comunicação da equipe sem perder o histórico',
-    ],
-  },
-  {
-    id: 'anexos',
-    label: 'Anexos na OS',
-    icon: PhotoIcon,
-    image: anexosOsImage,
-    imageAlt: 'Anexos de imagens na ordem de serviço',
-    summary:
-      'Registre fotos do aparelho na entrada e no andamento do reparo — evidências visuais organizadas na própria ordem de serviço.',
-    features: [
-      'Upload e visualização de fotos direto na OS',
-      'Registro visual do estado do aparelho',
-      'Organização por ordem para consulta rápida',
-      'Suporte ao fluxo de entrada e acompanhamento',
-      'Histórico de imagens disponível para a equipe',
-    ],
-  },
-  {
-    id: 'mais',
-    label: 'Muito mais',
-    icon: BoltIcon,
-    summary:
-      'Além das telas acima, o Consert inclui recursos que cobrem o dia a dia completo da assistência técnica.',
-    features: [
-      'Laudos com IA',
-      'App mobile para técnicos',
-      'WhatsApp integrado',
-      'Checklist digital',
-      'Caixa e PDV',
-      'Notas fiscais',
-    ],
-    extraFeatures: ['Laudos com IA', 'App mobile', 'WhatsApp', 'Checklist', 'Caixa', 'Notas fiscais'],
-  },
-];
 
 function BrowserChrome({ isDarkMode }: { isDarkMode: boolean }) {
   return (
@@ -198,13 +65,11 @@ function BrowserChrome({ isDarkMode }: { isDarkMode: boolean }) {
 function SlideCard({
   slide,
   isDarkMode,
-  onDetails,
 }: {
-  slide: SystemSlide;
+  slide: SystemShowcaseSlide;
   isDarkMode: boolean;
-  onDetails: (slide: SystemSlide) => void;
 }) {
-  const Icon = slide.icon;
+  const Icon = ICONS[slide.id];
 
   return (
     <article
@@ -279,9 +144,8 @@ function SlideCard({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onDetails(slide)}
+        <Link
+          href={`/sistema/${slide.id}`}
           className={`shrink-0 text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full border transition-all duration-200 ${
             isDarkMode
               ? 'border-[#D1FE6E]/35 text-[#D1FE6E] hover:bg-[#D1FE6E]/10'
@@ -289,130 +153,9 @@ function SlideCard({
           }`}
         >
           Ver mais detalhes
-        </button>
+        </Link>
       </div>
     </article>
-  );
-}
-
-function DetailsModal({
-  slide,
-  isDarkMode,
-  onClose,
-}: {
-  slide: SystemSlide;
-  isDarkMode: boolean;
-  onClose: () => void;
-}) {
-  const Icon = slide.icon;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="showcase-details-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        aria-label="Fechar detalhes"
-        onClick={onClose}
-      />
-
-      <div
-        className={`relative w-full sm:max-w-3xl max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border shadow-2xl ${
-          isDarkMode
-            ? 'bg-zinc-950 border-white/10 text-white'
-            : 'bg-white border-gray-200 text-gray-900'
-        }`}
-      >
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <span className="h-1 w-10 rounded-full bg-gray-300 dark:bg-zinc-600" aria-hidden />
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className={`absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-            isDarkMode
-              ? 'text-white/50 hover:bg-white/10 hover:text-white'
-              : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'
-          }`}
-          aria-label="Fechar"
-        >
-          <XMarkIcon className="w-5 h-5" />
-        </button>
-
-        {slide.image && (
-          <div className={`relative border-b ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
-            <BrowserChrome isDarkMode={isDarkMode} />
-            <div className="relative w-full bg-white">
-              <Image
-                src={slide.image}
-                alt={slide.imageAlt ?? slide.label}
-                className="w-full h-auto"
-                quality={90}
-                sizes="(max-width: 768px) 100vw, 768px"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="p-5 sm:p-7">
-          <div className="flex items-start gap-3 mb-4 pr-8">
-            <div
-              className={`inline-flex items-center justify-center w-11 h-11 rounded-xl shrink-0 ${
-                isDarkMode ? 'bg-[#D1FE6E]/10' : 'bg-[#D1FE6E]/20'
-              }`}
-            >
-              <Icon className="w-5 h-5 text-[#B8E55A]" strokeWidth={1.75} />
-            </div>
-            <div>
-              <h3
-                id="showcase-details-title"
-                className={`text-xl sm:text-2xl font-medium tracking-tight ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}
-              >
-                {slide.label}
-              </h3>
-              <p className={`mt-2 text-sm sm:text-base leading-relaxed ${
-                isDarkMode ? 'text-white/60' : 'text-gray-600'
-              }`}>
-                {slide.summary}
-              </p>
-            </div>
-          </div>
-
-          <ul className="space-y-2.5">
-            {slide.features.map((feature) => (
-              <li
-                key={feature}
-                className={`flex items-start gap-2.5 text-sm sm:text-[15px] leading-relaxed ${
-                  isDarkMode ? 'text-white/75' : 'text-gray-700'
-                }`}
-              >
-                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#D1FE6E] shrink-0" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -420,8 +163,8 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedSlide, setSelectedSlide] = useState<SystemSlide | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slides = SYSTEM_SHOWCASE_SLIDES;
 
   const pauseTemporarily = useCallback(() => {
     setPaused(true);
@@ -441,17 +184,17 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
 
   const goPrev = useCallback(() => {
     pauseTemporarily();
-    const next = (activeIndex - 1 + SYSTEM_SLIDES.length) % SYSTEM_SLIDES.length;
+    const next = (activeIndex - 1 + slides.length) % slides.length;
     setActiveIndex(next);
     scrollToIndex(next);
-  }, [activeIndex, pauseTemporarily, scrollToIndex]);
+  }, [activeIndex, pauseTemporarily, scrollToIndex, slides.length]);
 
   const goNext = useCallback(() => {
     pauseTemporarily();
-    const next = (activeIndex + 1) % SYSTEM_SLIDES.length;
+    const next = (activeIndex + 1) % slides.length;
     setActiveIndex(next);
     scrollToIndex(next);
-  }, [activeIndex, pauseTemporarily, scrollToIndex]);
+  }, [activeIndex, pauseTemporarily, scrollToIndex, slides.length]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -480,16 +223,16 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
   }, []);
 
   useEffect(() => {
-    if (paused || selectedSlide) return;
+    if (paused) return;
     const id = window.setInterval(() => {
       setActiveIndex((prev) => {
-        const next = (prev + 1) % SYSTEM_SLIDES.length;
+        const next = (prev + 1) % slides.length;
         scrollToIndex(next);
         return next;
       });
     }, 4500);
     return () => window.clearInterval(id);
-  }, [paused, selectedSlide, scrollToIndex]);
+  }, [paused, scrollToIndex, slides.length]);
 
   useEffect(() => {
     return () => {
@@ -520,23 +263,14 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
         ref={scrollerRef}
         className="system-showcase-scroller flex gap-5 sm:gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth px-4 sm:px-6 pb-2"
         onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => {
-          if (!selectedSlide) setPaused(false);
-        }}
+        onMouseLeave={() => setPaused(false)}
         onPointerDown={pauseTemporarily}
         onTouchStart={pauseTemporarily}
         onWheel={pauseTemporarily}
       >
-        {SYSTEM_SLIDES.map((slide) => (
+        {slides.map((slide) => (
           <div key={slide.id} data-showcase-card>
-            <SlideCard
-              slide={slide}
-              isDarkMode={isDarkMode}
-              onDetails={(s) => {
-                setPaused(true);
-                setSelectedSlide(s);
-              }}
-            />
+            <SlideCard slide={slide} isDarkMode={isDarkMode} />
           </div>
         ))}
       </div>
@@ -556,7 +290,7 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
         </button>
 
         <div className="flex items-center gap-2">
-          {SYSTEM_SLIDES.map((slide, index) => (
+          {slides.map((slide, index) => (
             <button
               key={slide.id}
               type="button"
@@ -591,17 +325,6 @@ export default function SystemShowcaseSlider({ isDarkMode }: { isDarkMode: boole
           <ChevronRightIcon className="w-5 h-5" />
         </button>
       </div>
-
-      {selectedSlide && (
-        <DetailsModal
-          slide={selectedSlide}
-          isDarkMode={isDarkMode}
-          onClose={() => {
-            setSelectedSlide(null);
-            setPaused(false);
-          }}
-        />
-      )}
     </div>
   );
 }

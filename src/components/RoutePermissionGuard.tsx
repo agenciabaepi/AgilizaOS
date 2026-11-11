@@ -28,7 +28,8 @@ const CONFIG_TAB_PERMISSIONS: Record<number, string> = {
   10: 'catalogo-config',
   11: 'catalogo-config',
   12: 'whatsapp',
-  13: 'avisos',
+  13: 'nota-fiscal',
+  14: 'avisos',
 };
 
 function isAdminRoute(pathname: string): boolean {

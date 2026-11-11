@@ -183,6 +183,7 @@ export const PERMISSION_CASCADE: Record<string, string[]> = {
     'catalogo-config',
     'avisos',
     'whatsapp',
+    'nota-fiscal',
   ],
 };
 
