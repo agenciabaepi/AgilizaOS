@@ -13,8 +13,11 @@ export const PAGE_RESOURCES = {
   '/financeiro/contas-a-receber': 'contas_a_receber',
   '/configuracoes/nota-fiscal': 'nota_fiscal',
   '/financeiro/nfse': 'nota_fiscal',
+  '/financeiro/nfse/nova': 'nota_fiscal',
   '/financeiro/nfce': 'nota_fiscal',
+  '/financeiro/nfce/nova': 'nota_fiscal',
   '/financeiro/nfe': 'nota_fiscal',
+  '/financeiro/nfe/nova': 'nota_fiscal',
 } as const;
 
 /** Permissão de aba em /configuracoes?tab=N → módulo premium */
@@ -41,6 +44,14 @@ export function getRequiredResource(pathname: string): string | null {
 
   if (cleanPath.startsWith('/financeiro/contas-a-receber')) {
     return 'contas_a_receber';
+  }
+
+  if (
+    cleanPath.startsWith('/financeiro/nfse') ||
+    cleanPath.startsWith('/financeiro/nfce') ||
+    cleanPath.startsWith('/financeiro/nfe')
+  ) {
+    return 'nota_fiscal';
   }
 
   for (const [route, resource] of Object.entries(PAGE_RESOURCES)) {

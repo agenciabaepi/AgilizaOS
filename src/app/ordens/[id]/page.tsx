@@ -5,7 +5,7 @@ import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiChevronRight, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle, FiPlus, FiTrash2, FiPercent, FiCreditCard } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiChevronRight, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle, FiPlus, FiTrash2, FiPercent, FiCreditCard, FiXCircle } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import ImagensOS from '@/components/ImagensOS';
 import VideosOS from '@/components/VideosOS';
@@ -36,7 +36,7 @@ import {
   resolverVencimentoGarantiaOs,
   toDateOnlyLocal,
 } from '@/lib/garantiaOs';
-import { isStatusEntregue } from '@/lib/statusEmpresa';
+import { isStatusCancelada, isStatusEntregue, isStatusOsBloqueada } from '@/lib/statusEmpresa';
 import { LINK_AVALIACAO_GOOGLE } from '@/config/contato';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { abrirDanfsePdf } from '@/lib/fiscal/abrirDanfse';
@@ -84,6 +84,11 @@ const VisualizarOrdemServicoPage = () => {
   ) => pushToast(type, message);
   const { empresaData, usuarioData, temRecurso, session } = useAuth();
   const podeNotaFiscal = temRecurso('nota_fiscal');
+  const isAdmin =
+    String(usuarioData?.nivel || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '') === 'admin';
   const [erroEmissaoFiscal, setErroEmissaoFiscal] = useState<string | null>(null);
   const podeVerLucroOS = podeVerLucroOperacionalOS(usuarioData?.nivel, usuarioData?.permissoes);
   const { historico, loading: loadingHistorico, buscarHistoricoOS, registrarHistorico } = useHistoricoOS();
@@ -127,6 +132,11 @@ const VisualizarOrdemServicoPage = () => {
     numero: number | null;
     status: string;
   } | null>(null);
+  const [modalCancelar, setModalCancelar] = useState(false);
+  const [senhaCancelar, setSenhaCancelar] = useState('');
+  const [motivoCancelar, setMotivoCancelar] = useState('');
+  const [cancelandoOs, setCancelandoOs] = useState(false);
+  const [erroCancelar, setErroCancelar] = useState<string | null>(null);
   const acoesMenuRef = useRef<HTMLDivElement>(null);
   const [linkPublicoAtivo, setLinkPublicoAtivo] = useState<boolean>(true);
 
@@ -386,6 +396,9 @@ const VisualizarOrdemServicoPage = () => {
       .replace(/\p{Diacritic}/gu, '')
       .replace(/_/g, ' ');
 
+    if (normalized.includes('CANCELADA')) {
+      return 'bg-gray-200 text-gray-600 border-gray-300 dark:bg-zinc-700 dark:text-zinc-400 dark:border-zinc-600';
+    }
     if (normalized.includes('SEM REPARO') || normalized.includes('SEM_REPARO') || normalized.includes('CLIENTE RECUSOU')) {
       return 'bg-red-100 text-red-800 border-red-200';
     }
@@ -435,11 +448,56 @@ const VisualizarOrdemServicoPage = () => {
     });
   }, [ordem]);
 
+  const cancelarOrdemServico = async () => {
+    if (!ordem?.id || !senhaCancelar.trim()) {
+      setErroCancelar('Informe a senha do administrador.');
+      return;
+    }
+
+    setCancelandoOs(true);
+    setErroCancelar(null);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, {
+        'Content-Type': 'application/json',
+      });
+      const res = await fetch(`/api/ordens/${ordem.id}/cancelar`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          senha: senhaCancelar,
+          motivo: motivoCancelar.trim() || undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErroCancelar(String(json.error || 'Não foi possível cancelar a O.S.'));
+        return;
+      }
+
+      setModalCancelar(false);
+      setSenhaCancelar('');
+      setMotivoCancelar('');
+      addToast(String(json.message || 'O.S. cancelada com sucesso.'), 'success');
+      await carregarOrdem({ silencioso: true });
+      await buscarHistoricoOS(ordem.id);
+    } catch (err) {
+      console.error(err);
+      setErroCancelar('Erro ao cancelar a O.S. Tente novamente.');
+    } finally {
+      setCancelandoOs(false);
+    }
+  };
+
   // Função para salvar o relato do cliente
   const salvarRelato = async () => {
     if (!ordem?.id) return;
-    if (ordem?.status === 'ENTREGUE') {
-      addToast('O.S. entregue está bloqueada para edição.', 'error');
+    if (isStatusOsBloqueada(ordem?.status)) {
+      addToast(
+        isStatusCancelada(ordem?.status)
+          ? 'O.S. cancelada está bloqueada para edição.'
+          : 'O.S. entregue está bloqueada para edição.',
+        'error'
+      );
       return;
     }
     
@@ -1094,9 +1152,9 @@ const VisualizarOrdemServicoPage = () => {
                       type="button"
                       onClick={() => {
                         setAcoesMenuOpen(false);
-                        if (ordem.status !== 'ENTREGUE') router.push(`/ordens/${id}/editar`);
+                        if (!isStatusOsBloqueada(ordem.status)) router.push(`/ordens/${id}/editar`);
                       }}
-                      disabled={ordem.status === 'ENTREGUE'}
+                      disabled={isStatusOsBloqueada(ordem.status)}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-45 disabled:cursor-not-allowed"
                     >
                       <FiEdit className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
@@ -1255,7 +1313,7 @@ const VisualizarOrdemServicoPage = () => {
                       </>
                     )}
 
-                    {ordem.status !== 'ENTREGUE' && (
+                    {!isStatusOsBloqueada(ordem.status) && (
                       <>
                         <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
                         <button
@@ -1273,16 +1331,46 @@ const VisualizarOrdemServicoPage = () => {
                         </button>
                       </>
                     )}
+
+                    {isAdmin && !isStatusOsBloqueada(ordem.status) && (
+                      <>
+                        <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                            setNotaFiscalSubOpen(false);
+                            setErroCancelar(null);
+                            setSenhaCancelar('');
+                            setMotivoCancelar('');
+                            setModalCancelar(true);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/25"
+                        >
+                          <FiXCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
+                          Cancelar O.S.
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {ordem.status === 'ENTREGUE' && (
+          {isStatusEntregue(ordem.status) && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
               <p className="text-sm text-red-800">
                 <strong>O.S. entregue e bloqueada:</strong> esta ordem foi finalizada e nao pode mais ser editada.
+              </p>
+            </div>
+          )}
+
+          {isStatusCancelada(ordem.status) && (
+            <div className="mb-6 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-xl p-4">
+              <p className="text-sm text-gray-700 dark:text-zinc-300">
+                <strong>O.S. cancelada:</strong> esta ordem permanece no histórico, mas está bloqueada e aparece como inativa na listagem.
               </p>
             </div>
           )}
@@ -1593,8 +1681,8 @@ const VisualizarOrdemServicoPage = () => {
                     </div>
                     <button
                       onClick={() => setEditandoRelato(!editandoRelato)}
-                      disabled={ordem.status === 'ENTREGUE'}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+                      disabled={isStatusOsBloqueada(ordem.status)}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium disabled:opacity-45 disabled:cursor-not-allowed"
                     >
                       {editandoRelato ? 'Cancelar' : 'Editar'}
                     </button>
@@ -2201,6 +2289,90 @@ const VisualizarOrdemServicoPage = () => {
             </div>
             );
           })()}
+
+          {/* Modal Cancelar O.S. (admin + senha) */}
+          {modalCancelar && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
+              <div
+                className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl dark:shadow-none border border-gray-200/90 dark:border-zinc-600 max-w-md w-full overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cancelar-os-titulo"
+              >
+                <div className="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-zinc-700">
+                  <h3 id="cancelar-os-titulo" className="text-lg font-semibold text-gray-900 dark:text-zinc-100">
+                    Cancelar O.S. #{ordem?.numero_os}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">
+                    A ordem permanece na listagem, em cinza (inativa). Somente administrador pode confirmar com a senha de login.
+                  </p>
+                </div>
+                <div className="px-5 py-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                      Motivo (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={motivoCancelar}
+                      onChange={(e) => setMotivoCancelar(e.target.value)}
+                      placeholder="Ex.: nome lançado errado"
+                      className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100"
+                      disabled={cancelandoOs}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+                      Senha do administrador
+                    </label>
+                    <input
+                      type="password"
+                      value={senhaCancelar}
+                      onChange={(e) => setSenhaCancelar(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !cancelandoOs) void cancelarOrdemServico();
+                      }}
+                      autoFocus
+                      autoComplete="current-password"
+                      placeholder="Digite sua senha de login"
+                      className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100"
+                      disabled={cancelandoOs}
+                    />
+                  </div>
+                  {erroCancelar && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-800 px-3 py-2 text-xs text-red-800 dark:text-red-200">
+                      {erroCancelar}
+                    </div>
+                  )}
+                </div>
+                <div className="px-5 pb-5 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cancelandoOs) return;
+                      setModalCancelar(false);
+                      setSenhaCancelar('');
+                      setMotivoCancelar('');
+                      setErroCancelar(null);
+                    }}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-200"
+                    disabled={cancelandoOs}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void cancelarOrdemServico()}
+                    disabled={cancelandoOs || !senhaCancelar.trim()}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    <FiXCircle className="w-4 h-4" />
+                    {cancelandoOs ? 'Cancelando…' : 'Confirmar cancelamento'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Modal de Entrega */}
           {modalEntrega && (

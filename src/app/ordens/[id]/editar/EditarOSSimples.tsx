@@ -33,7 +33,7 @@ import { calcularVencimentoGarantia, osElegivelParaGarantia, toDateOnlyLocal } f
 import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 import { TECNICOS_OR_FILTER } from '@/lib/tecnicos';
 import { useEmpresaStatus } from '@/hooks/useEmpresaStatus';
-import { ensureStatusNaLista, findStatusByNome } from '@/lib/statusEmpresa';
+import { ensureStatusNaLista, findStatusByNome, isStatusOsBloqueada } from '@/lib/statusEmpresa';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface Item {
@@ -281,9 +281,14 @@ export default function EditarOSSimples() {
   }, [id]);
 
   useEffect(() => {
-    if (ordem?.status === 'ENTREGUE' && id && !redirectingEntregueRef.current) {
+    if (isStatusOsBloqueada(ordem?.status) && id && !redirectingEntregueRef.current) {
       redirectingEntregueRef.current = true;
-      addToast('error', 'O.S. entregue nao pode ser editada. Redirecionando para visualizacao.');
+      addToast(
+        'error',
+        ordem?.status?.toUpperCase() === 'CANCELADA'
+          ? 'O.S. cancelada nao pode ser editada. Redirecionando para visualizacao.'
+          : 'O.S. entregue nao pode ser editada. Redirecionando para visualizacao.'
+      );
       router.replace(`/ordens/${id}`);
     }
   }, [ordem?.status, id, router, addToast]);
@@ -581,8 +586,13 @@ export default function EditarOSSimples() {
   };
 
   const handleSalvar = async () => {
-    if (ordem?.status === 'ENTREGUE') {
-      addToast('error', 'O.S. entregue está bloqueada para edição.');
+    if (isStatusOsBloqueada(ordem?.status)) {
+      addToast(
+        'error',
+        ordem?.status?.toUpperCase() === 'CANCELADA'
+          ? 'O.S. cancelada está bloqueada para edição.'
+          : 'O.S. entregue está bloqueada para edição.'
+      );
       return;
     }
 
@@ -1253,11 +1263,14 @@ export default function EditarOSSimples() {
     );
   }
 
-  if (ordem?.status === 'ENTREGUE') {
+  if (isStatusOsBloqueada(ordem?.status)) {
     return (
       <MenuLayout>
         <div className="flex items-center justify-center h-64">
-          <p className="text-gray-600">Redirecionando para visualizacao da O.S. entregue...</p>
+          <p className="text-gray-600">
+            Redirecionando para visualizacao da O.S.
+            {ordem?.status?.toUpperCase() === 'CANCELADA' ? ' cancelada' : ' entregue'}...
+          </p>
         </div>
       </MenuLayout>
     );

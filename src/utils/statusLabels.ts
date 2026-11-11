@@ -45,6 +45,7 @@ const LABEL_TECNICO: Record<string, string> = {
   'AGUARDANDO APROVACAO': 'Aguardando Aprovação',
   'AGUARDANDO RETIRADA': 'Aguardando Retirada',
   ENTREGUE: 'Entregue',
+  CANCELADA: 'Cancelada',
   'CLIENTE RECUSOU': 'Cliente Recusou',
 };
 
@@ -60,6 +61,7 @@ const LABEL_OS: Record<string, string> = {
   'REPARO CONCLUIDO': 'Reparo Concluído',
   'SEM REPARO': 'Sem Reparo',
   ENTREGUE: 'Entregue',
+  CANCELADA: 'Cancelada',
   'AGUARDANDO APROVACAO': 'Aguardando Aprovação',
   'AGUARDANDO RETIRADA': 'Aguardando Retirada',
   'RETORNO GARANTIA': 'Retorno Garantia',

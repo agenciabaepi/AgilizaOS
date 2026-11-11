@@ -376,6 +376,15 @@ export default function ListaOrdensPage() {
     }).format(value);
   }
 
+  const isOsCancelada = (status: string | null | undefined) => {
+    const n = String(status || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+    return n === 'cancelada';
+  };
+
   const getStatusColor = (status: string) => {
     if (!status) {
       return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
@@ -383,6 +392,8 @@ export default function ListaOrdensPage() {
 
     const statusLower = status.toLowerCase();
     switch (statusLower) {
+      case 'cancelada':
+        return 'bg-gray-200 text-gray-500 border border-gray-300 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-600';
       case 'concluido':
       case 'finalizado':
       case 'reparo concluído':
@@ -1787,7 +1798,11 @@ export default function ListaOrdensPage() {
                   <tr 
                     key={os.id} 
                     className={`hover:bg-blue-50 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
-                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30' : ''
+                      isOsCancelada(os.statusOS)
+                        ? 'opacity-55 grayscale bg-gray-50 dark:bg-zinc-900/80 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:opacity-70'
+                        : os.tipo === 'Retorno'
+                          ? 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30'
+                          : ''
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
@@ -1824,7 +1839,11 @@ export default function ListaOrdensPage() {
                       )}
                     </td>
                     <td className="px-1 py-1.5 align-middle overflow-hidden">
-                      {os.tipo === 'Retorno' ? (
+                      {isOsCancelada(os.statusOS) ? (
+                        <span className="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-200 text-gray-600 border border-gray-300 whitespace-nowrap truncate dark:bg-zinc-700 dark:text-zinc-400 dark:border-zinc-600">
+                          Cancelada
+                        </span>
+                      ) : os.tipo === 'Retorno' ? (
                         <span className="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900 border border-red-300 whitespace-nowrap truncate">
                           <FiRefreshCw className="w-3 h-3 mr-0.5 shrink-0" />
                           Retorno
@@ -1961,7 +1980,11 @@ export default function ListaOrdensPage() {
               <div 
                 key={os.id} 
                 className={`relative bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-600 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
-                  os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-900/20 hover:bg-red-100/60 dark:hover:bg-red-900/30' : ''
+                  isOsCancelada(os.statusOS)
+                    ? 'opacity-55 grayscale bg-gray-50 dark:bg-zinc-900/80 border-gray-300 dark:border-zinc-700'
+                    : os.tipo === 'Retorno'
+                      ? 'border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-900/20 hover:bg-red-100/60 dark:hover:bg-red-900/30'
+                      : ''
                 }`}
                 onClick={() => router.push(`/ordens/${os.id}`)}
               >
@@ -1988,12 +2011,16 @@ export default function ListaOrdensPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {os.tipo === 'Retorno' && (
+                    {isOsCancelada(os.statusOS) ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600 border border-gray-300 dark:bg-zinc-700 dark:text-zinc-400 dark:border-zinc-600">
+                        Cancelada
+                      </span>
+                    ) : os.tipo === 'Retorno' ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-200 text-red-900 border border-red-300 shadow-sm">
                         <FiRefreshCw className="w-3 h-3 mr-1" />
                         RETORNO
                       </span>
-                    )}
+                    ) : null}
                     <div className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(os.statusOS)}`}>
                       {getStatusTecnicoLabel(os.statusOS, null)}
                     </div>

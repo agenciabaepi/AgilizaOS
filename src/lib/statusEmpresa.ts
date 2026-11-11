@@ -35,6 +35,15 @@ export function isStatusEntregue(nome: string | null | undefined): boolean {
   return normalizeStatusNome(nome) === 'ENTREGUE';
 }
 
+export function isStatusCancelada(nome: string | null | undefined): boolean {
+  return normalizeStatusNome(nome) === 'CANCELADA';
+}
+
+/** O.S. encerrada (entregue ou cancelada) — bloqueada para edição. */
+export function isStatusOsBloqueada(nome: string | null | undefined): boolean {
+  return isStatusEntregue(nome) || isStatusCancelada(nome);
+}
+
 export function findStatusByNome(
   lista: StatusEmpresa[],
   nome: string | null | undefined

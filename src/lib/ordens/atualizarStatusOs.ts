@@ -247,9 +247,23 @@ export async function atualizarStatusOs(
       return resposta({ error: 'OS não encontrada' }, 404);
     }
 
-    // Regra final: OS entregue não pode mais ser alterada
-    if (normalizeStatus(String((osAnterior as any).status || '')) === 'ENTREGUE') {
+    // Regra final: OS entregue ou cancelada não pode mais ser alterada
+    const statusAnteriorNorm = normalizeStatus(String((osAnterior as any).status || ''));
+    if (statusAnteriorNorm === 'ENTREGUE') {
       return resposta({ error: 'Esta O.S. já foi entregue e está bloqueada para edição.' }, 409);
+    }
+    if (statusAnteriorNorm === 'CANCELADA') {
+      return resposta({ error: 'Esta O.S. foi cancelada e está bloqueada para edição.' }, 409);
+    }
+
+    // Cancelamento exige endpoint dedicado (admin + senha)
+    const statusPedidoNorm = normalizeStatus(String(newStatus || ''));
+    const statusTecnicoPedidoNorm = normalizeStatus(String(newStatusTecnico || ''));
+    if (statusPedidoNorm === 'CANCELADA' || statusTecnicoPedidoNorm === 'CANCELADA') {
+      return resposta(
+        { error: 'Para cancelar a O.S., use a ação Cancelar O.S. (somente administrador).' },
+        400
+      );
     }
 
     if (

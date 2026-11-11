@@ -17,17 +17,16 @@ import MenuLayout from '@/components/MenuLayout';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
 import DashboardCard from '@/components/ui/DashboardCard';
-import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
-import { supabase } from '@/lib/supabaseClient';
 import { fiscalFetch, parseFiscalJson, msgFiscalErro } from '@/lib/api/fiscalFetch';
 import {
   abrirDanfeNfcePdf,
   abrirDanfeNfePdf,
   abrirDanfsePdf,
 } from '@/lib/fiscal/abrirDanfse';
+import type { TipoNotaFiscal } from '@/components/fiscal/types';
 
-export type TipoNotaFiscal = 'nfse' | 'nfce' | 'nfe';
+export type { TipoNotaFiscal };
 
 type StatusFiltro = 'todas' | 'autorizada' | 'cancelada';
 
@@ -49,14 +48,6 @@ interface NotaBase {
   dh_proc?: string | null;
 }
 
-interface VendaOpcao {
-  id: string;
-  numero_venda: number;
-  data_venda: string;
-  total: number;
-  cliente_nome?: string | null;
-}
-
 const META: Record<
   TipoNotaFiscal,
   {
@@ -64,7 +55,6 @@ const META: Record<
     subtitulo: string;
     listPath: string;
     cancelPath: (id: string) => string;
-    emitirVendaPath: string;
     numeroLabel: (n: NotaBase) => string;
     valor: (n: NotaBase) => number;
     dataRef: (n: NotaBase) => string;
@@ -75,7 +65,6 @@ const META: Record<
     subtitulo: 'Notas fiscais de serviço eletrônicas',
     listPath: '/api/fiscal/nfse',
     cancelPath: (id) => `/api/fiscal/nfse/${id}/cancelar`,
-    emitirVendaPath: '/api/fiscal/nfse/emitir-venda',
     numeroLabel: (n) => (n.numero_nfse ? String(n.numero_nfse) : '—'),
     valor: (n) => Number(n.valor_servico ?? 0),
     dataRef: (n) => n.dh_proc || n.created_at,
@@ -85,7 +74,6 @@ const META: Record<
     subtitulo: 'Cupons fiscais eletrônicos (modelo 65)',
     listPath: '/api/fiscal/nfce',
     cancelPath: (id) => `/api/fiscal/nfce/${id}/cancelar`,
-    emitirVendaPath: '/api/fiscal/nfce/emitir-venda',
     numeroLabel: (n) =>
       n.numero != null ? `${n.numero}${n.serie ? `/${n.serie}` : ''}` : '—',
     valor: (n) => Number(n.valor_total ?? 0),
@@ -96,7 +84,6 @@ const META: Record<
     subtitulo: 'Notas fiscais eletrônicas (modelo 55)',
     listPath: '/api/fiscal/nfe',
     cancelPath: (id) => `/api/fiscal/nfe/${id}/cancelar`,
-    emitirVendaPath: '/api/fiscal/nfe/emitir-venda',
     numeroLabel: (n) =>
       n.numero != null ? `${n.numero}${n.serie ? `/${n.serie}` : ''}` : '—',
     valor: (n) => Number(n.valor_total ?? 0),
@@ -148,7 +135,6 @@ function statusBadge(status: string) {
 
 export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
   const meta = META[tipo];
-  const { empresaData } = useAuth();
   const { addToast } = useToast();
 
   const [notas, setNotas] = useState<NotaBase[]>([]);
@@ -156,20 +142,6 @@ export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
   const [busca, setBusca] = useState('');
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todas');
   const [acaoId, setAcaoId] = useState<string | null>(null);
-
-  const [modalManual, setModalManual] = useState(false);
-  const [emitindo, setEmitindo] = useState(false);
-
-  // NFS-e manual (tomador + valor)
-  const [tomadorNome, setTomadorNome] = useState('');
-  const [tomadorDoc, setTomadorDoc] = useState('');
-  const [valorServico, setValorServico] = useState('');
-  const [descricao, setDescricao] = useState('');
-
-  // NFC-e / NF-e: escolher venda
-  const [vendas, setVendas] = useState<VendaOpcao[]>([]);
-  const [vendaId, setVendaId] = useState('');
-  const [carregandoVendas, setCarregandoVendas] = useState(false);
 
   // Cancelamento
   const [cancelarAlvo, setCancelarAlvo] = useState<NotaBase | null>(null);
@@ -199,59 +171,6 @@ export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
   useEffect(() => {
     void carregar();
   }, [carregar]);
-
-  const carregarVendasDisponiveis = useCallback(async () => {
-    if (!empresaData?.id || tipo === 'nfse') return;
-    setCarregandoVendas(true);
-    try {
-      const [{ data: vendasData }, { data: notasExistentes }] = await Promise.all([
-        supabase
-          .from('vendas')
-          .select('id, numero_venda, data_venda, total, cliente_id, cliente:cliente_id(nome)')
-          .eq('empresa_id', empresaData.id)
-          .order('data_venda', { ascending: false })
-          .limit(80),
-        supabase
-          .from(tipo === 'nfce' ? 'fiscal_nfce' : 'fiscal_nfe')
-          .select('venda_id')
-          .eq('empresa_id', empresaData.id)
-          .eq('status', 'autorizada')
-          .not('venda_id', 'is', null),
-      ]);
-
-      const ocupadas = new Set(
-        (notasExistentes || []).map((n: { venda_id: string }) => n.venda_id).filter(Boolean)
-      );
-
-      const opcoes: VendaOpcao[] = (vendasData || [])
-        .filter((v: { id: string }) => !ocupadas.has(v.id))
-        .map((v: any) => ({
-          id: v.id,
-          numero_venda: v.numero_venda,
-          data_venda: v.data_venda,
-          total: Number(v.total || 0),
-          cliente_nome: v.cliente?.nome ?? null,
-        }));
-
-      setVendas(opcoes);
-      setVendaId(opcoes[0]?.id || '');
-    } catch {
-      setVendas([]);
-      setVendaId('');
-    } finally {
-      setCarregandoVendas(false);
-    }
-  }, [empresaData?.id, tipo]);
-
-  const abrirManual = () => {
-    setTomadorNome('');
-    setTomadorDoc('');
-    setValorServico('');
-    setDescricao('');
-    setVendaId('');
-    setModalManual(true);
-    if (tipo !== 'nfse') void carregarVendasDisponiveis();
-  };
 
   const notasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -325,72 +244,6 @@ export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
     }
   };
 
-  const emitirManual = async () => {
-    setEmitindo(true);
-    try {
-      if (tipo === 'nfse') {
-        const valor = Number(String(valorServico).replace(',', '.'));
-        if (!tomadorNome.trim() || !tomadorDoc.trim()) {
-          addToast('error', 'Informe nome e CPF/CNPJ do tomador.');
-          return;
-        }
-        if (!valor || valor <= 0) {
-          addToast('error', 'Informe um valor de serviço válido.');
-          return;
-        }
-        const res = await fiscalFetch('/api/fiscal/nfse/emitir', {
-          method: 'POST',
-          body: JSON.stringify({
-            valorServico: valor,
-            descricao: descricao.trim() || undefined,
-            tomador: {
-              documento: tomadorDoc.replace(/\D/g, ''),
-              nome: tomadorNome.trim(),
-            },
-          }),
-        });
-        const json = await parseFiscalJson(res);
-        if (!res.ok || json.ok === false) {
-          addToast('error', msgFiscalErro(json, 'Falha ao emitir NFS-e.'));
-          return;
-        }
-        addToast('success', 'NFS-e autorizada.');
-        if (json.nfseId) {
-          await abrirDanfsePdf(String(json.nfseId), { autoPrint: true, formato: 'a4' });
-        }
-      } else {
-        if (!vendaId) {
-          addToast('error', 'Selecione uma venda para emitir a nota.');
-          return;
-        }
-        const res = await fiscalFetch(meta.emitirVendaPath, {
-          method: 'POST',
-          body: JSON.stringify({ vendaId }),
-        });
-        const json = await parseFiscalJson(res);
-        if (!res.ok || json.ok === false) {
-          addToast('error', msgFiscalErro(json, `Falha ao emitir ${meta.titulo}.`));
-          return;
-        }
-        addToast('success', `${meta.titulo} autorizada.`);
-        const id =
-          tipo === 'nfce'
-            ? String(json.nfceId || '')
-            : String(json.nfeId || '');
-        if (id) {
-          if (tipo === 'nfce') await abrirDanfeNfcePdf(id, { autoPrint: true });
-          else await abrirDanfeNfePdf(id, { autoPrint: true });
-        }
-      }
-      setModalManual(false);
-      await carregar();
-    } catch (e) {
-      addToast('error', e instanceof Error ? e.message : 'Erro ao emitir');
-    } finally {
-      setEmitindo(false);
-    }
-  };
-
   return (
     <AuthGuard>
       <MenuLayout>
@@ -416,14 +269,13 @@ export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
                 <FiRefreshCw size={16} className={carregando ? 'animate-spin' : ''} />
                 Atualizar
               </Button>
-              <Button
-                type="button"
-                onClick={abrirManual}
-                className="inline-flex items-center gap-2"
+              <Link
+                href={`/financeiro/${tipo}/nova`}
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-md text-sm font-medium bg-black text-white hover:bg-neutral-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
               >
                 <FiPlus size={16} />
                 Nova {meta.titulo}
-              </Button>
+              </Link>
             </div>
           </div>
 
@@ -604,112 +456,6 @@ export default function NotasFiscaisPage({ tipo }: { tipo: TipoNotaFiscal }) {
             </div>
           </div>
         </div>
-
-        {modalManual && (
-          <Dialog onClose={() => !emitindo && setModalManual(false)} className="w-full max-w-md p-5">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 pr-8">
-              Nova {meta.titulo}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-4">
-              {tipo === 'nfse'
-                ? 'Emissão manual com dados do tomador (SEFIN Nacional).'
-                : `Selecione uma venda sem ${meta.titulo} autorizada para emitir.`}
-            </p>
-
-            {tipo === 'nfse' ? (
-              <div className="space-y-3">
-                <label className="block text-sm">
-                  <span className="text-gray-600 dark:text-zinc-400 mb-1 block">
-                    Nome do tomador
-                  </span>
-                  <input
-                    value={tomadorNome}
-                    onChange={(e) => setTomadorNome(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600 dark:text-zinc-400 mb-1 block">CPF/CNPJ</span>
-                  <input
-                    value={tomadorDoc}
-                    onChange={(e) => setTomadorDoc(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600 dark:text-zinc-400 mb-1 block">Valor (R$)</span>
-                  <input
-                    value={valorServico}
-                    onChange={(e) => setValorServico(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2"
-                    placeholder="0,00"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-gray-600 dark:text-zinc-400 mb-1 block">
-                    Descrição (opcional)
-                  </span>
-                  <input
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2"
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {carregandoVendas ? (
-                  <p className="text-sm text-gray-400">Carregando vendas…</p>
-                ) : vendas.length === 0 ? (
-                  <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-                    Não há vendas disponíveis sem {meta.titulo} autorizada. Emita a partir de{' '}
-                    <Link href="/financeiro/vendas" className="underline font-medium">
-                      Vendas
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <label className="block text-sm">
-                    <span className="text-gray-600 dark:text-zinc-400 mb-1 block">Venda</span>
-                    <select
-                      value={vendaId}
-                      onChange={(e) => setVendaId(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2"
-                    >
-                      {vendas.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          #{v.numero_venda} · {formatMoney(v.total)}
-                          {v.cliente_nome ? ` · ${v.cliente_nome}` : ''} ·{' '}
-                          {formatDate(v.data_venda)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 mt-5">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={emitindo}
-                onClick={() => setModalManual(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                disabled={
-                  emitindo || (tipo !== 'nfse' && (carregandoVendas || !vendaId || vendas.length === 0))
-                }
-                onClick={() => void emitirManual()}
-              >
-                {emitindo ? 'Emitindo…' : `Emitir ${meta.titulo}`}
-              </Button>
-            </div>
-          </Dialog>
-        )}
 
         {cancelarAlvo && (
           <Dialog

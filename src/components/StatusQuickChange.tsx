@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { FiChevronDown, FiCheck, FiClock, FiPackage, FiTool, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { fetchStatusEmpresa, isStatusEntregue, type StatusEmpresa } from '@/lib/statusEmpresa';
+import { fetchStatusEmpresa, isStatusEntregue, isStatusOsBloqueada, type StatusEmpresa } from '@/lib/statusEmpresa';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface StatusQuickChangeProps {
@@ -49,6 +49,12 @@ export default function StatusQuickChange({
   }, [empresaData?.id]);
 
   const handleStatusChange = async (newStatus: string, newStatusTecnico: string) => {
+    if (isStatusOsBloqueada(currentStatus)) {
+      alert('Esta O.S. está bloqueada e não pode ter o status alterado.');
+      setShowDropdown(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const updateData: any = {};
@@ -180,7 +186,7 @@ export default function StatusQuickChange({
       {/* Botão principal */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        disabled={loading}
+        disabled={loading || isStatusOsBloqueada(currentStatus)}
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors bg-white text-gray-700 border-gray-300 hover:bg-gray-50 disabled:opacity-50"
       >
         <div 

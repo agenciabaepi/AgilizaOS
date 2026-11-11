@@ -48,6 +48,7 @@ export function deveExcluirComissaoOs(params: {
   const st = normalizeStatusComissao(params.status);
   const stt = normalizeStatusComissao(params.status_tecnico);
   if (st === 'CLIENTE RECUSOU' || stt === 'CLIENTE RECUSOU') return true;
+  if (st === 'CANCELADA' || stt === 'CANCELADA') return true;
   if (isStatusSemReparoOs(params.status_tecnico)) return true;
   return false;
 }
