@@ -17,6 +17,8 @@ import {
   FiCalendar,
   FiFileText,
   FiMoreVertical,
+  FiSearch,
+  FiX,
 } from 'react-icons/fi';
 import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
 import { parseProdutosVenda } from '@/utils/normalizarItemCupom';
@@ -103,7 +105,30 @@ interface DashboardMetrics {
   crescimento: number;
 }
 
-type FiltroTipo = 'hoje' | 'semana' | 'mes' | 'personalizado';
+type FiltroTipo = 'hoje' | 'semana' | 'mes' | 'personalizado' | 'todas';
+
+function normBusca(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function matchValorBusca(total: number, termo: string): boolean {
+  const bruto = termo.replace(/[^\d,.-]/g, '').replace(',', '.');
+  if (!bruto) return false;
+  const n = Number(bruto);
+  if (!Number.isFinite(n)) return false;
+  if (Math.abs(total - n) < 0.005) return true;
+  const fmt = total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const termoNorm = normBusca(termo);
+  return (
+    fmt.includes(termo.replace(/[^\d,]/g, '')) ||
+    String(total).includes(bruto) ||
+    normBusca(`R$ ${fmt}`).includes(termoNorm)
+  );
+}
 
 export default function ListaVendasPage() {
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -113,6 +138,7 @@ export default function ListaVendasPage() {
   const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
   const [loadingCupom, setLoadingCupom] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroTipo>('hoje');
+  const [busca, setBusca] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -356,7 +382,7 @@ export default function ListaVendasPage() {
 
   useEffect(() => {
     filtrarVendas();
-  }, [vendas, filtroAtivo, dataInicio, dataFim]);
+  }, [vendas, filtroAtivo, dataInicio, dataFim, busca]);
 
   const abrirConfirmacaoNfse = async (venda: Venda) => {
     if (!venda.numero_os || !empresaData?.id) {
@@ -898,19 +924,21 @@ export default function ListaVendasPage() {
   };
 
   const filtrarVendas = () => {
-    let inicio: Date;
-    let fim: Date = new Date();
+    let inicio: Date | null = null;
+    let fim: Date | null = null;
 
     switch (filtroAtivo) {
       case 'hoje':
         inicio = new Date();
         inicio.setHours(0, 0, 0, 0);
+        fim = new Date();
         fim.setHours(23, 59, 59, 999);
         break;
       case 'semana':
         inicio = new Date();
         inicio.setDate(inicio.getDate() - inicio.getDay());
         inicio.setHours(0, 0, 0, 0);
+        fim = new Date();
         fim.setHours(23, 59, 59, 999);
         break;
       case 'mes':
@@ -926,13 +954,44 @@ export default function ListaVendasPage() {
         fim = new Date(dataFim);
         fim.setHours(23, 59, 59, 999);
         break;
+      case 'todas':
+        break;
       default:
         return;
     }
 
-    const filtradas = vendas.filter(venda => {
-      const dataVenda = new Date(venda.data_venda);
-      return dataVenda >= inicio && dataVenda <= fim;
+    const termo = normBusca(busca);
+    const filtradas = vendas.filter((venda) => {
+      if (inicio && fim) {
+        const dataVenda = new Date(venda.data_venda);
+        if (dataVenda < inicio || dataVenda > fim) return false;
+      }
+      if (!termo) return true;
+
+      const cliente =
+        venda.cliente_nome ||
+        venda.cliente?.nome ||
+        '';
+      const campos = [
+        String(venda.numero_venda ?? ''),
+        cliente,
+        venda.cliente?.numero_cliente || '',
+        venda.cliente?.telefone || '',
+        venda.cliente?.celular || '',
+        venda.numero_os || '',
+        venda.forma_pagamento || '',
+        venda.status || '',
+        venda.observacoes || '',
+        venda.nfse?.numero_nfse || '',
+        venda.nfce?.numero != null ? String(venda.nfce.numero) : '',
+        venda.nfe?.numero != null ? String(venda.nfe.numero) : '',
+      ]
+        .map((c) => normBusca(String(c)))
+        .join(' ');
+
+      if (campos.includes(termo)) return true;
+      if (matchValorBusca(Number(venda.total) || 0, busca)) return true;
+      return false;
     });
 
     setVendasFiltradas(filtradas);
@@ -1004,43 +1063,68 @@ export default function ListaVendasPage() {
         <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Vendas</h1>
         
-        {/* Filtros */}
-        <div className="mb-6 flex flex-wrap gap-4 items-center">
-          <div className="flex gap-2">
-            {[
-              { key: 'hoje', label: 'Hoje' },
-              { key: 'semana', label: 'Esta Semana' },
-              { key: 'mes', label: 'Este Mês' },
-              { key: 'personalizado', label: 'Personalizado' }
-            ].map(filtro => (
-              <Button
-                key={filtro.key}
-                variant={filtroAtivo === filtro.key ? 'default' : 'secondary'}
-                onClick={() => setFiltroAtivo(filtro.key as FiltroTipo)}
-                className="px-4 py-2"
-              >
-                {filtro.label}
-              </Button>
-            ))}
-          </div>
-          
-          {filtroAtivo === 'personalizado' && (
-            <div className="flex gap-2 items-center">
-              <input
-                type="date"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-                className="px-3 py-2 border rounded-lg"
-              />
-              <span>até</span>
-              <input
-                type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-                className="px-3 py-2 border rounded-lg"
-              />
+        {/* Filtros + pesquisa */}
+        <div className="mb-6 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'hoje', label: 'Hoje' },
+                { key: 'semana', label: 'Esta Semana' },
+                { key: 'mes', label: 'Este Mês' },
+                { key: 'todas', label: 'Todas' },
+                { key: 'personalizado', label: 'Personalizado' },
+              ].map((filtro) => (
+                <Button
+                  key={filtro.key}
+                  variant={filtroAtivo === filtro.key ? 'default' : 'secondary'}
+                  onClick={() => setFiltroAtivo(filtro.key as FiltroTipo)}
+                  className="px-4 py-2"
+                >
+                  {filtro.label}
+                </Button>
+              ))}
             </div>
-          )}
+
+            {filtroAtivo === 'personalizado' && (
+              <div className="flex gap-2 items-center">
+                <input
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  className="px-3 py-2 border rounded-lg"
+                />
+                <span>até</span>
+                <input
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                  className="px-3 py-2 border rounded-lg"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="relative max-w-xl w-full">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Pesquisar por cliente, valor, nº venda, O.S., pagamento..."
+              className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none ring-blue-500 focus:ring-2"
+              aria-label="Pesquisar vendas"
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Limpar pesquisa"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Cards de Lucro - Destaque */}
@@ -1124,7 +1208,11 @@ export default function ListaVendasPage() {
         {loading ? (
           <div className="text-center text-gray-500 py-20">Carregando vendas...</div>
         ) : vendasFiltradas.length === 0 ? (
-          <div className="text-center text-gray-500 py-20">Nenhuma venda encontrada no período selecionado.</div>
+          <div className="text-center text-gray-500 py-20">
+            {busca.trim()
+              ? 'Nenhuma venda encontrada para essa pesquisa no período selecionado.'
+              : 'Nenhuma venda encontrada no período selecionado.'}
+          </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
