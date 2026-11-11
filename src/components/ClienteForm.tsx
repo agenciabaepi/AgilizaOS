@@ -80,20 +80,28 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
   const cannotCreateClients = isTrial && limites && !podeCriar('clientes');
 
   const isDocumentoValido = () => {
-    if (!form.documento) return null;
-    return form.tipo === 'pf'
-      ? cpf.isValid(form.documento)
-      : cnpj.isValid(form.documento);
+    const digits = form.documento.replace(/\D/g, '');
+    if (!digits) return null;
+    return form.tipo === 'pf' ? cpf.isValid(digits) : cnpj.isValid(digits);
   };
 
   useEffect(() => {
     if (cliente) {
+      const docBruto = String(
+        cliente.documento || (cliente as { cpf?: string }).cpf || ''
+      ).replace(/\D/g, '');
+      const tipoIni =
+        cliente.tipo === 'pj' || cliente.tipo === 'pf'
+          ? cliente.tipo
+          : docBruto.length > 11
+            ? 'pj'
+            : 'pf';
       setForm({
         nome: cliente.nome || '',
         telefone: cliente.telefone || '',
         email: cliente.email || '',
-        documento: cliente.documento || '',
-        tipo: cliente.tipo || 'pf',
+        documento: docBruto,
+        tipo: tipoIni,
         observacoes: cliente.observacoes || '',
         responsavel: cliente.responsavel || '',
         senha: cliente.senha || '',
@@ -115,25 +123,47 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
   }, [cliente]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (e.target.name === 'cep') {
-      // Remove máscara para checar apenas números
-      const valorCep = e.target.value.replace(/\D/g, '');
+    const { name, value } = e.target;
+
+    // Troca PF/PJ: reinicia máscara e mantém só dígitos compatíveis
+    if (name === 'tipo') {
+      setForm((prev) => {
+        const digits = prev.documento.replace(/\D/g, '');
+        const maxLen = value === 'pf' ? 11 : 14;
+        return {
+          ...prev,
+          tipo: value,
+          documento: digits.slice(0, maxLen),
+          ...(value === 'pf'
+            ? {
+                inscricao_estadual: '',
+                ie_indicador: 'nao_contribuinte',
+                inscricao_municipal: '',
+              }
+            : {}),
+        };
+      });
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'cep') {
+      const valorCep = value.replace(/\D/g, '');
       if (valorCep.length === 8) {
         try {
           const response = await axios.get(`https://viacep.com.br/ws/${valorCep}/json/`);
           const data = response.data;
           if (!data.erro) {
-            setForm(prev => ({
+            setForm((prev) => ({
               ...prev,
-              rua: data.logradouro,
-              bairro: data.bairro,
-              cidade: data.localidade,
-              estado: data.uf
+              rua: data.logradouro || prev.rua,
+              bairro: data.bairro || prev.bairro,
+              cidade: data.localidade || prev.cidade,
+              estado: data.uf || prev.estado,
             }));
           }
-        } catch (error) {
-          // ignore error
+        } catch {
+          /* ignore */
         }
       }
     }
@@ -168,14 +198,15 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
     //   return;
     // }
 
-    if (form.documento) {
-      if (form.tipo === 'pf' && !cpf.isValid(form.documento)) {
-        alert("CPF inválido!");
+    const docDigits = form.documento.replace(/\D/g, '');
+    if (docDigits) {
+      if (form.tipo === 'pf' && !cpf.isValid(docDigits)) {
+        alert('CPF inválido!');
         setLoading(false);
         return;
       }
-      if (form.tipo === 'pj' && !cnpj.isValid(form.documento)) {
-        alert("CNPJ inválido!");
+      if (form.tipo === 'pj' && !cnpj.isValid(docDigits)) {
+        alert('CNPJ inválido!');
         setLoading(false);
         return;
       }
@@ -209,7 +240,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       nome: form.nome,
       telefone: form.telefone,
       email: form.email,
-      documento: form.documento,
+      documento: docDigits || form.documento,
       tipo: form.tipo,
       observacoes: form.observacoes,
       responsavel: form.responsavel,
@@ -223,7 +254,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       estado: form.estado,
       origem: form.origem,
       aniversario: form.aniversario && form.aniversario.trim() !== '' ? form.aniversario : null,
-      cpf: form.documento,
+      cpf: docDigits || form.documento,
       endereco: `${form.rua}, ${form.numero}, ${form.bairro}, ${form.cidade} - ${form.estado}`,
       data_cadastro: new Date().toISOString(),
       numero_cliente: numeroCliente,
@@ -392,30 +423,36 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
             />
             <div className="relative">
               <Cleave
+                key={`documento-${form.tipo}`}
                 options={{
                   delimiters: form.tipo === 'pf' ? ['.', '.', '-'] : ['.', '.', '/', '-'],
                   blocks: form.tipo === 'pf' ? [3, 3, 3, 2] : [2, 3, 3, 4, 2],
-                  numericOnly: true
+                  numericOnly: true,
                 }}
                 value={form.documento}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, documento: e.target.value })}
-                placeholder="CPF/CNPJ"
-                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  const maxLen = form.tipo === 'pf' ? 11 : 14;
+                  setForm((prev) => ({ ...prev, documento: digits.slice(0, maxLen) }));
+                }}
+                placeholder={form.tipo === 'pf' ? 'CPF' : 'CNPJ'}
+                inputMode="numeric"
+                className="w-full rounded-md border border-gray-300 px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {isDocumentoValido() === true && (
-                <Lottie 
-                  animationData={checkmarkAnimation} 
+                <Lottie
+                  animationData={checkmarkAnimation}
                   loop={false}
-                  style={{ width: 32, height: 32 }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  style={{ width: 28, height: 28 }}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
                 />
               )}
-              {isDocumentoValido() === false && (
-                <Lottie 
-                  animationData={errorAnimation} 
+              {isDocumentoValido() === false && form.documento.replace(/\D/g, '').length >= (form.tipo === 'pf' ? 11 : 14) && (
+                <Lottie
+                  animationData={errorAnimation}
                   loop={false}
-                  style={{ width: 32, height: 32 }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  style={{ width: 28, height: 28 }}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
                 />
               )}
             </div>
@@ -488,14 +525,39 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Cleave
+                name="cep"
                 options={{
                   delimiters: ['-'],
                   blocks: [5, 3],
-                  numericOnly: true
+                  numericOnly: true,
                 }}
                 value={form.cep}
-                onChange={handleChange}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setForm((prev) => ({ ...prev, cep: digits }));
+                  void (async () => {
+                    if (digits.length !== 8) return;
+                    try {
+                      const response = await axios.get(
+                        `https://viacep.com.br/ws/${digits}/json/`
+                      );
+                      const data = response.data;
+                      if (!data.erro) {
+                        setForm((prev) => ({
+                          ...prev,
+                          rua: data.logradouro || prev.rua,
+                          bairro: data.bairro || prev.bairro,
+                          cidade: data.localidade || prev.cidade,
+                          estado: data.uf || prev.estado,
+                        }));
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                  })();
+                }}
                 placeholder="CEP"
+                inputMode="numeric"
                 className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
