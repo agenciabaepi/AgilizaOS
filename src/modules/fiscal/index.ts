@@ -15,6 +15,8 @@ export { emitirNfseNacional } from './nfse/emitir';
 export type { EmitirNfseResult } from './nfse/emitir';
 export { cancelarNfseNacional } from './nfse/cancelar';
 export type { CancelarNfseResult } from './nfse/cancelar';
+export { cancelarNfeOuNfce } from './sefaz/cancelarNfe';
+export type { CancelarNfeResult } from './sefaz/cancelarNfe';
 export { assertFiscalAccess } from './guard';
 export { gerarDanfseNacional } from './nfse/danfse';
 export { gerarCupomNfse } from './nfse/cupom';

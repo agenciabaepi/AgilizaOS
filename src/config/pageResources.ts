@@ -12,6 +12,9 @@ export const PAGE_RESOURCES = {
   '/financeiro/contas-a-pagar/categorias': 'contas_a_pagar',
   '/financeiro/contas-a-receber': 'contas_a_receber',
   '/configuracoes/nota-fiscal': 'nota_fiscal',
+  '/financeiro/nfse': 'nota_fiscal',
+  '/financeiro/nfce': 'nota_fiscal',
+  '/financeiro/nfe': 'nota_fiscal',
 } as const;
 
 /** Permissão de aba em /configuracoes?tab=N → módulo premium */

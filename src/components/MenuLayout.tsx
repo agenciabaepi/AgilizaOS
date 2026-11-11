@@ -323,6 +323,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
     podeVerModulo('lucro-desempenho', 'financeiro') && temRecurso('lucro_desempenho');
   const podeVerContasAPagar =
     podeVerModulo('contas-a-pagar', 'financeiro') && temRecurso('contas_a_pagar');
+  const podeVerNotasFiscais =
+    podeVerModulo('financeiro', 'financeiro') && temRecurso('nota_fiscal');
   const dashboardPath = getDashboardPathForNivel(usuarioData?.nivel);
   const dashboardAtivo = isUserHomePath(pathname || '', usuarioData?.nivel);
 
@@ -451,7 +453,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (matchesSearch('Catálogo') || matchesSearch('Tabela de Preços') || matchesSearch('Tabela')) && (
             <SidebarButton path="/tabela-precos" icon={<FiStar size={22} strokeWidth={1.75} />} label="Tabela de Preços" isActive={pathname === '/tabela-precos' || pathname.startsWith('/tabela-precos/')} menuRecolhido={false} />
           )}
-          {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos')) && (
+          {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos') || matchesSearch('NFS-e') || matchesSearch('NFC-e') || matchesSearch('NF-e') || matchesSearch('Nota Fiscal')) && (
             <>
               <SidebarSectionHeader
                 icon={<FiBarChart size={22} strokeWidth={1.75} />}
@@ -478,6 +480,31 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                       menuRecolhido={false}
                       isSubmenu
                     />
+                  )}
+                  {podeVerNotasFiscais && (
+                    <>
+                      <SidebarButton
+                        path="/financeiro/nfse"
+                        label="NFS-e"
+                        isActive={pathname === '/financeiro/nfse'}
+                        menuRecolhido={false}
+                        isSubmenu
+                      />
+                      <SidebarButton
+                        path="/financeiro/nfce"
+                        label="NFC-e"
+                        isActive={pathname === '/financeiro/nfce'}
+                        menuRecolhido={false}
+                        isSubmenu
+                      />
+                      <SidebarButton
+                        path="/financeiro/nfe"
+                        label="NF-e"
+                        isActive={pathname === '/financeiro/nfe'}
+                        menuRecolhido={false}
+                        isSubmenu
+                      />
+                    </>
                   )}
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                     <SidebarButton
@@ -691,6 +718,31 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                           menuRecolhido={false}
                           isSubmenu
                         />
+                      )}
+                      {podeVerNotasFiscais && (
+                        <>
+                          <SidebarButton
+                            path="/financeiro/nfse"
+                            label="NFS-e"
+                            isActive={pathname === '/financeiro/nfse'}
+                            menuRecolhido={false}
+                            isSubmenu
+                          />
+                          <SidebarButton
+                            path="/financeiro/nfce"
+                            label="NFC-e"
+                            isActive={pathname === '/financeiro/nfce'}
+                            menuRecolhido={false}
+                            isSubmenu
+                          />
+                          <SidebarButton
+                            path="/financeiro/nfe"
+                            label="NF-e"
+                            isActive={pathname === '/financeiro/nfe'}
+                            menuRecolhido={false}
+                            isSubmenu
+                          />
+                        </>
                       )}
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                         <SidebarButton

@@ -19,6 +19,7 @@ import {
   FiMoreVertical,
   FiSearch,
   FiX,
+  FiSlash,
 } from 'react-icons/fi';
 import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
 import { parseProdutosVenda } from '@/utils/normalizarItemCupom';
@@ -212,6 +213,15 @@ export default function ListaVendasPage() {
     emitirNfce: boolean;
     erro?: string;
   } | null>(null);
+  const [modalCancelar, setModalCancelar] = useState(false);
+  const [cancelarAlvo, setCancelarAlvo] = useState<{
+    tipo: 'nfse' | 'nfce' | 'nfe';
+    id: string;
+    numero?: string | number | null;
+    vendaId: string;
+  } | null>(null);
+  const [cancelarJustificativa, setCancelarJustificativa] = useState('');
+  const [cancelando, setCancelando] = useState(false);
 
   // Calcular datas para lucro do dia e da semana usando useMemo
   const { dataInicioDia, dataFimDia, dataInicioSemana, dataFimSemana } = useMemo(() => {
@@ -663,6 +673,70 @@ export default function ListaVendasPage() {
       alertarErroFiscal('Falha ao emitir NFC-e', msg);
     } finally {
       setEmitindoVendaId(null);
+    }
+  };
+
+  const abrirModalCancelar = (
+    venda: Venda,
+    tipo: 'nfse' | 'nfce' | 'nfe',
+    id: string,
+    numero?: string | number | null
+  ) => {
+    setCancelarAlvo({ tipo, id, numero, vendaId: venda.id });
+    setCancelarJustificativa('');
+    setModalCancelar(true);
+  };
+
+  const confirmarCancelarNota = async () => {
+    if (!cancelarAlvo) return;
+    const xJust = cancelarJustificativa.replace(/\s+/g, ' ').trim();
+    if (xJust.length < 15) {
+      alertarErroFiscal(
+        'Justificativa inválida',
+        'A justificativa do cancelamento deve ter no mínimo 15 caracteres (exigência legal da SEFAZ/SEFIN).'
+      );
+      return;
+    }
+    setCancelando(true);
+    try {
+      const path =
+        cancelarAlvo.tipo === 'nfse'
+          ? `/api/fiscal/nfse/${cancelarAlvo.id}/cancelar`
+          : cancelarAlvo.tipo === 'nfce'
+            ? `/api/fiscal/nfce/${cancelarAlvo.id}/cancelar`
+            : `/api/fiscal/nfe/${cancelarAlvo.id}/cancelar`;
+      const res = await fiscalFetch(path, {
+        method: 'POST',
+        body: JSON.stringify({ xJust, xMotivo: xJust, justificativa: xJust }),
+      });
+      const json = await parseFiscalJson(res);
+      if (!res.ok || json.ok === false) {
+        alertarErroFiscal(
+          'Falha ao cancelar nota',
+          msgFiscalErro(json, 'Não foi possível cancelar a nota fiscal.')
+        );
+        return;
+      }
+
+      // Remove a nota autorizada da venda → volta a opção Emitir
+      setVendas((prev) =>
+        prev.map((v) => {
+          if (v.id !== cancelarAlvo.vendaId) return v;
+          if (cancelarAlvo.tipo === 'nfse') return { ...v, nfse: null };
+          if (cancelarAlvo.tipo === 'nfce') return { ...v, nfce: null };
+          return { ...v, nfe: null };
+        })
+      );
+      setModalCancelar(false);
+      setCancelarAlvo(null);
+      addToast(String(json.message || 'Nota cancelada com sucesso.'), 'success');
+    } catch (e) {
+      alertarErroFiscal(
+        'Falha ao cancelar nota',
+        e instanceof Error ? e.message : 'Erro ao cancelar nota fiscal'
+      );
+    } finally {
+      setCancelando(false);
     }
   };
 
@@ -1338,9 +1412,6 @@ export default function ListaVendasPage() {
                                   transform: menuAcoesPos.openUp ? 'translateY(-100%)' : undefined,
                                 }}
                               >
-                                <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                                  Imprimir
-                                </p>
                                 <button
                                   type="button"
                                   className={itemMenu}
@@ -1352,101 +1423,49 @@ export default function ListaVendasPage() {
                                   <FiPrinter size={14} />
                                   Cupom da venda
                                 </button>
-                                {podeNotaFiscal && venda.nfse?.id && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className={itemMenu}
-                                      onClick={async () => {
-                                        fecharMenu();
-                                        const r = await abrirDanfsePdf(venda.nfse!.id, {
-                                          formato: 'cupom',
-                                          autoPrint: true,
-                                        });
-                                        if (!r.ok) addToast(r.error, 'error');
-                                      }}
-                                    >
-                                      <FiFileText size={14} />
-                                      NFS-e (cupom)
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={itemMenu}
-                                      onClick={async () => {
-                                        fecharMenu();
-                                        const r = await abrirDanfsePdf(venda.nfse!.id, {
-                                          formato: 'a4',
-                                          autoPrint: true,
-                                        });
-                                        if (!r.ok) addToast(r.error, 'error');
-                                      }}
-                                    >
-                                      <FiFileText size={14} />
-                                      NFS-e A4
-                                    </button>
-                                  </>
-                                )}
-                                {podeNotaFiscal && venda.nfce?.id && (
-                                  <button
-                                    type="button"
-                                    className={itemMenu}
-                                    onClick={async () => {
-                                      fecharMenu();
-                                      const r = await abrirDanfeNfcePdf(venda.nfce!.id, {
-                                        autoPrint: true,
-                                      });
-                                      if (!r.ok) addToast(r.error, 'error');
-                                    }}
-                                  >
-                                    <FiFileText size={14} />
-                                    NFC-e (cupom)
-                                  </button>
-                                )}
-                                {podeNotaFiscal && venda.nfe?.id && (
-                                  <button
-                                    type="button"
-                                    className={itemMenu}
-                                    onClick={async () => {
-                                      fecharMenu();
-                                      const r = await abrirDanfeNfePdf(venda.nfe!.id, {
-                                        autoPrint: true,
-                                      });
-                                      if (!r.ok) addToast(r.error, 'error');
-                                    }}
-                                  >
-                                    <FiFileText size={14} />
-                                    NF-e A4 (DANFE)
-                                  </button>
-                                )}
-                                {podeNotaFiscal && venda.nfse?.id && venda.nfce?.id && (
-                                  <button
-                                    type="button"
-                                    className={itemMenu}
-                                    onClick={async () => {
-                                      fecharMenu();
-                                      const r = await abrirNotasConjuntasPdf({
-                                        nfseId: venda.nfse!.id,
-                                        nfceId: venda.nfce!.id,
-                                        formato: 'cupom',
-                                        autoPrint: true,
-                                      });
-                                      if (!r.ok) addToast(r.error, 'error');
-                                    }}
-                                  >
-                                    <FiPrinter size={14} />
-                                    Imprimir as 2 (cupom)
-                                  </button>
-                                )}
 
-                                {podeNotaFiscal &&
-                                  venda.numero_os &&
-                                  (!venda.nfse || (!venda.nfce && !venda.nfe)) && (
+                                {podeNotaFiscal && venda.numero_os && (
                                   <>
                                     <div className="my-1 border-t border-gray-100" />
                                     <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                                      Emitir
+                                      Notas fiscais
                                     </p>
-                                    {!venda.nfse && (
+
+                                    {venda.nfse?.id ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className={itemMenu}
+                                          onClick={async () => {
+                                            fecharMenu();
+                                            const r = await abrirDanfsePdf(venda.nfse!.id, {
+                                              formato: 'a4',
+                                              autoPrint: true,
+                                            });
+                                            if (!r.ok) addToast(r.error, 'error');
+                                          }}
+                                        >
+                                          <FiPrinter size={14} />
+                                          Imprimir NFS-e
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`${itemMenu} text-red-700 hover:bg-red-50`}
+                                          onClick={() => {
+                                            fecharMenu();
+                                            abrirModalCancelar(
+                                              venda,
+                                              'nfse',
+                                              venda.nfse!.id,
+                                              venda.nfse!.numero_nfse
+                                            );
+                                          }}
+                                        >
+                                          <FiSlash size={14} />
+                                          Cancelar NFS-e
+                                        </button>
+                                      </>
+                                    ) : (
                                       <button
                                         type="button"
                                         className={itemMenu}
@@ -1460,48 +1479,102 @@ export default function ListaVendasPage() {
                                         Emitir NFS-e
                                       </button>
                                     )}
-                                    {!venda.nfce && !venda.nfe && (
+
+                                    {venda.nfce?.id ? (
                                       <>
                                         <button
                                           type="button"
                                           className={itemMenu}
-                                          disabled={!!emitindoVendaId}
-                                          onClick={() => {
+                                          onClick={async () => {
                                             fecharMenu();
-                                            void abrirConfirmacaoNfce(venda);
+                                            const r = await abrirDanfeNfcePdf(venda.nfce!.id, {
+                                              autoPrint: true,
+                                            });
+                                            if (!r.ok) addToast(r.error, 'error');
                                           }}
                                         >
-                                          <FiFileText size={14} />
-                                          Emitir NFC-e
+                                          <FiPrinter size={14} />
+                                          Imprimir NFC-e
                                         </button>
                                         <button
                                           type="button"
-                                          className={itemMenu}
-                                          disabled={!!emitindoVendaId}
+                                          className={`${itemMenu} text-red-700 hover:bg-red-50`}
                                           onClick={() => {
                                             fecharMenu();
-                                            void emitirNfeVendaDireto(venda);
+                                            abrirModalCancelar(
+                                              venda,
+                                              'nfce',
+                                              venda.nfce!.id,
+                                              venda.nfce!.numero
+                                            );
                                           }}
                                         >
-                                          <FiFileText size={14} />
-                                          Emitir NF-e (A4)
+                                          <FiSlash size={14} />
+                                          Cancelar NFC-e
                                         </button>
                                       </>
-                                    )}
-                                    {!venda.nfse && !venda.nfce && !venda.nfe && (
+                                    ) : !venda.nfe?.id ? (
                                       <button
                                         type="button"
                                         className={itemMenu}
                                         disabled={!!emitindoVendaId}
                                         onClick={() => {
                                           fecharMenu();
-                                          void abrirConfirmacaoAmbas(venda);
+                                          void abrirConfirmacaoNfce(venda);
                                         }}
                                       >
                                         <FiFileText size={14} />
-                                        Emitir NFS-e + NFC-e
+                                        Emitir NFC-e
                                       </button>
-                                    )}
+                                    ) : null}
+
+                                    {venda.nfe?.id ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className={itemMenu}
+                                          onClick={async () => {
+                                            fecharMenu();
+                                            const r = await abrirDanfeNfePdf(venda.nfe!.id, {
+                                              autoPrint: true,
+                                            });
+                                            if (!r.ok) addToast(r.error, 'error');
+                                          }}
+                                        >
+                                          <FiPrinter size={14} />
+                                          Imprimir NF-e
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`${itemMenu} text-red-700 hover:bg-red-50`}
+                                          onClick={() => {
+                                            fecharMenu();
+                                            abrirModalCancelar(
+                                              venda,
+                                              'nfe',
+                                              venda.nfe!.id,
+                                              venda.nfe!.numero
+                                            );
+                                          }}
+                                        >
+                                          <FiSlash size={14} />
+                                          Cancelar NF-e
+                                        </button>
+                                      </>
+                                    ) : !venda.nfce?.id ? (
+                                      <button
+                                        type="button"
+                                        className={itemMenu}
+                                        disabled={!!emitindoVendaId}
+                                        onClick={() => {
+                                          fecharMenu();
+                                          void emitirNfeVendaDireto(venda);
+                                        }}
+                                      >
+                                        <FiFileText size={14} />
+                                        Emitir NF-e
+                                      </button>
+                                    ) : null}
                                   </>
                                 )}
                               </div>
@@ -1847,6 +1920,74 @@ export default function ListaVendasPage() {
               )}
             </div>
           </Dialog>
+        )}
+
+        {/* Cancelamento legal de nota fiscal */}
+        {modalCancelar && cancelarAlvo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-full overflow-hidden">
+              <div className="px-5 pt-5 pb-3 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Cancelar{' '}
+                  {cancelarAlvo.tipo === 'nfse'
+                    ? 'NFS-e'
+                    : cancelarAlvo.tipo === 'nfce'
+                      ? 'NFC-e'
+                      : 'NF-e'}
+                  {cancelarAlvo.numero != null && cancelarAlvo.numero !== ''
+                    ? ` nº ${cancelarAlvo.numero}`
+                    : ''}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Cancelamento oficial junto à SEFAZ/SEFIN. A justificativa é obrigatória (mín. 15
+                  caracteres). Em SP, o prazo usual de NF-e/NFC-e é de <strong>24 horas</strong> após
+                  a autorização.
+                </p>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Justificativa do cancelamento *
+                </label>
+                <textarea
+                  value={cancelarJustificativa}
+                  onChange={(e) => setCancelarJustificativa(e.target.value)}
+                  rows={4}
+                  maxLength={255}
+                  placeholder="Ex.: Nota emitida com valor incorreto / cliente desistiu da compra"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>
+                    {cancelarJustificativa.trim().length < 15
+                      ? `Faltam ${15 - cancelarJustificativa.trim().length} caracteres`
+                      : 'Justificativa válida'}
+                  </span>
+                  <span>{cancelarJustificativa.length}/255</span>
+                </div>
+              </div>
+              <div className="px-5 pb-5 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalCancelar(false);
+                    setCancelarAlvo(null);
+                  }}
+                  disabled={cancelando}
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarCancelarNota()}
+                  disabled={cancelando || cancelarJustificativa.trim().length < 15}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cancelando ? 'Cancelando…' : 'Confirmar cancelamento'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       </MenuLayout>

@@ -3,6 +3,11 @@ import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpres
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { assertFiscalAccess, cancelarNfseNacional } from '@/modules/fiscal';
 
+export const runtime = 'nodejs';
+export const preferredRegion = 'gru1';
+export const maxDuration = 60;
+
+/** Cancela NFS-e autorizada (evento 101101 na SEFIN Nacional). */
 export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
@@ -29,8 +34,19 @@ export async function POST(
     if (!nfse) return NextResponse.json({ error: 'NFS-e não encontrada' }, { status: 404 });
 
     const body = await req.json().catch(() => ({}));
+    const xMotivo = String(body.xMotivo || body.xJust || body.justificativa || '').trim();
+    if (xMotivo.length < 15) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: 'A justificativa do cancelamento deve ter no mínimo 15 caracteres.',
+        },
+        { status: 400 }
+      );
+    }
+
     const result = await cancelarNfseNacional(admin, empresaId, nfse.chave_acesso, {
-      xMotivo: body.xMotivo,
+      xMotivo,
     });
 
     if (!result.ok) {

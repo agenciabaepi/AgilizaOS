@@ -1,10 +1,15 @@
 import { SignedXml } from 'xml-crypto';
 
 /**
- * Assina o XML da NF-e/NFC-e (tag infNFe) com o mesmo algoritmo do node-sped-nfe,
+ * Assina XML fiscal (infNFe ou infEvento) com o mesmo algoritmo do node-sped-nfe,
  * sem depender de openssl/pem (lento/travado no Vercel).
  */
-export function assinarXmlNfe(xml: string, keyPem: string, certPem: string): string {
+export function assinarXmlNfe(
+  xml: string,
+  keyPem: string,
+  certPem: string,
+  tag: 'infNFe' | 'infEvento' = 'infNFe'
+): string {
   const certBody = certPem
     .replace(/-----BEGIN CERTIFICATE-----/g, '')
     .replace(/-----END CERTIFICATE-----/g, '')
@@ -20,7 +25,7 @@ export function assinarXmlNfe(xml: string, keyPem: string, certPem: string): str
   });
 
   sig.addReference({
-    xpath: `//*[local-name(.)='infNFe']`,
+    xpath: `//*[local-name(.)='${tag}']`,
     transforms: [
       'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
       'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
@@ -30,7 +35,7 @@ export function assinarXmlNfe(xml: string, keyPem: string, certPem: string): str
 
   sig.computeSignature(xml, {
     location: {
-      reference: `//*[local-name()='infNFe']`,
+      reference: `//*[local-name()='${tag}']`,
       action: 'after',
     },
   });

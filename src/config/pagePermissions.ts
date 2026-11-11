@@ -57,6 +57,9 @@ export const PAGE_PERMISSIONS = {
   // Financeiro
   '/financeiro': 'financeiro',
   '/financeiro/vendas': 'vendas',
+  '/financeiro/nfse': 'financeiro',
+  '/financeiro/nfce': 'financeiro',
+  '/financeiro/nfe': 'financeiro',
   '/financeiro/movimentacoes-caixa': 'movimentacao-caixa',
   '/financeiro/contas-a-pagar': 'contas-a-pagar',
   '/financeiro/contas-a-pagar/categorias': 'contas-a-pagar',
