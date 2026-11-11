@@ -10,7 +10,8 @@ import { emitirNfeNacional } from '@/modules/fiscal/nfe/emitir';
 import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const preferredRegion = 'gru1';
+export const maxDuration = 120;
 
 /** Emite NF-e (modelo 55 / DANFE A4) das peças a partir de uma venda vinculada a O.S. */
 export async function POST(req: NextRequest) {

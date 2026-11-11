@@ -8,6 +8,10 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { assertFiscalAccess, onlyDigitsDoc } from '@/modules/fiscal';
 import { emitirNfceNacional } from '@/modules/fiscal/nfce/emitir';
 
+export const runtime = 'nodejs';
+export const preferredRegion = 'gru1';
+export const maxDuration = 120;
+
 /**
  * Emite NFC-e (modelo 65) apenas com o valor das peças da O.S.
  */

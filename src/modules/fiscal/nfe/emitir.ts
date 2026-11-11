@@ -136,6 +136,8 @@ function extractProt(xml: string): {
 }
 
 function validateNfeXmlLocal(xml: string): string | null {
+  // Em serverless (Vercel) xmllint não existe / atrasa a emissão até estourar 504.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) return null;
   const schemaPath = path.join(
     process.cwd(),
     'node_modules/node-sped-nfe/schemas/PL_010b_V1.30/nfe_v4.00.xsd'
@@ -144,7 +146,6 @@ function validateNfeXmlLocal(xml: string): string | null {
   const tmpFile = path.join(os.tmpdir(), `nfe-val-${Date.now()}.xml`);
   try {
     fs.writeFileSync(tmpFile, xml, 'utf8');
-    // Em Vercel/serverless xmllint costuma não existir; timeout evita travar a emissão.
     const verif = spawnSync('xmllint', ['--noout', '--schema', schemaPath, tmpFile], {
       encoding: 'utf8',
       timeout: 4000,
@@ -172,8 +173,31 @@ function readPfxPem(
   pfxPath: string,
   password: string
 ): Promise<{ key: string; cert: string }> {
+  // OpenSSL direto costuma ser mais rápido/estável no Vercel do que o wrapper pem.
+  try {
+    const keyRes = spawnSync(
+      'openssl',
+      ['pkcs12', '-in', pfxPath, '-nocerts', '-nodes', '-passin', `pass:${password}`],
+      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
+    );
+    const certRes = spawnSync(
+      'openssl',
+      ['pkcs12', '-in', pfxPath, '-clcerts', '-nokeys', '-passin', `pass:${password}`],
+      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
+    );
+    const key = String(keyRes.stdout || '');
+    const cert = String(certRes.stdout || '');
+    if (!keyRes.error && !certRes.error && key.includes('PRIVATE KEY') && cert.includes('CERTIFICATE')) {
+      return Promise.resolve({ key, cert });
+    }
+  } catch {
+    /* fallback pem */
+  }
+
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout ao ler certificado A1')), 15000);
     pem.readPkcs12(pfxPath, { p12Password: password }, (err, myPem) => {
+      clearTimeout(timer);
       if (err) reject(err);
       else resolve({ key: myPem.key, cert: myPem.cert });
     });
@@ -619,7 +643,7 @@ export async function emitirNfeNacional(
       xmlAssinado: xmlSign,
       uf,
       tpAmb,
-      timeoutSec: 45,
+      timeoutSec: 90,
       pfxPath,
       password,
     });

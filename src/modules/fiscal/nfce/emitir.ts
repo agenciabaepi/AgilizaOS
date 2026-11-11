@@ -145,6 +145,7 @@ function validateNfceXmlLocal(xml: string): string | null {
     process.cwd(),
     'node_modules/node-sped-nfe/schemas/PL_010b_V1.30/nfe_v4.00.xsd'
   );
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) return null;
   if (!fs.existsSync(schemaPath)) return null;
   const tmpFile = path.join(os.tmpdir(), `nfce-val-${Date.now()}.xml`);
   try {
@@ -176,8 +177,30 @@ function readPfxPem(
   pfxPath: string,
   password: string
 ): Promise<{ key: string; cert: string }> {
+  try {
+    const keyRes = spawnSync(
+      'openssl',
+      ['pkcs12', '-in', pfxPath, '-nocerts', '-nodes', '-passin', `pass:${password}`],
+      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
+    );
+    const certRes = spawnSync(
+      'openssl',
+      ['pkcs12', '-in', pfxPath, '-clcerts', '-nokeys', '-passin', `pass:${password}`],
+      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
+    );
+    const key = String(keyRes.stdout || '');
+    const cert = String(certRes.stdout || '');
+    if (!keyRes.error && !certRes.error && key.includes('PRIVATE KEY') && cert.includes('CERTIFICATE')) {
+      return Promise.resolve({ key, cert });
+    }
+  } catch {
+    /* fallback pem */
+  }
+
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout ao ler certificado A1')), 15000);
     pem.readPkcs12(pfxPath, { p12Password: password }, (err, myPem) => {
+      clearTimeout(timer);
       if (err) reject(err);
       else resolve({ key: myPem.key, cert: myPem.cert });
     });
@@ -608,7 +631,7 @@ export async function emitirNfceNacional(
       xmlAssinado: xmlSign,
       uf,
       tpAmb,
-      timeoutSec: 45,
+      timeoutSec: 90,
       pfxPath,
       password,
     });

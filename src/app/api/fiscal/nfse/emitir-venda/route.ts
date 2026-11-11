@@ -8,6 +8,10 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { assertFiscalAccess, emitirNfseNacional, onlyDigitsDoc } from '@/modules/fiscal';
 import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
+export const runtime = 'nodejs';
+export const preferredRegion = 'gru1';
+export const maxDuration = 120;
+
 function digits(doc: string | null | undefined): string {
   return onlyDigitsDoc(String(doc || ''));
 }
