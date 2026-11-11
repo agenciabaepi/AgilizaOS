@@ -1,12 +1,9 @@
-import fs from 'fs';
-import https from 'https';
-import os from 'os';
-import path from 'path';
-import { spawnSync } from 'child_process';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import pem from 'pem';
-import { Make, Tools, UF2cUF, cMun2Mun } from 'node-sped-nfe';
+import { Make, UF2cUF, cMun2Mun } from 'node-sped-nfe';
 import { unsealPfx, onlyDigitsDoc } from '../crypto/certificado';
+import { pfxToPem } from '../crypto/pfxPem';
+import { assinarXmlNfe } from '../sefaz/assinarXml';
+import { enviarLoteSefaz, urlAutorizacaoNfeSp } from '../sefaz/enviarLote';
 import type { FiscalEmpresaConfig } from '../types';
 
 export type NfeItem = {
@@ -135,146 +132,6 @@ function extractProt(xml: string): {
   return { cStat, xMotivo, nProt, chNFe };
 }
 
-function validateNfeXmlLocal(xml: string): string | null {
-  // Em serverless (Vercel) xmllint não existe / atrasa a emissão até estourar 504.
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) return null;
-  const schemaPath = path.join(
-    process.cwd(),
-    'node_modules/node-sped-nfe/schemas/PL_010b_V1.30/nfe_v4.00.xsd'
-  );
-  if (!fs.existsSync(schemaPath)) return null;
-  const tmpFile = path.join(os.tmpdir(), `nfe-val-${Date.now()}.xml`);
-  try {
-    fs.writeFileSync(tmpFile, xml, 'utf8');
-    const verif = spawnSync('xmllint', ['--noout', '--schema', schemaPath, tmpFile], {
-      encoding: 'utf8',
-      timeout: 4000,
-    });
-    if (verif.error || verif.signal === 'SIGTERM') return null;
-    const err = String(verif.stderr || '');
-    if (err.includes('validates')) return null;
-    return err
-      .replace(/\/[^\s:]+\.xml/g, 'XML')
-      .replace(/\s{2,}/g, ' ')
-      .trim()
-      .slice(0, 500);
-  } catch {
-    return null;
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function readPfxPem(
-  pfxPath: string,
-  password: string
-): Promise<{ key: string; cert: string }> {
-  // OpenSSL direto costuma ser mais rápido/estável no Vercel do que o wrapper pem.
-  try {
-    const keyRes = spawnSync(
-      'openssl',
-      ['pkcs12', '-in', pfxPath, '-nocerts', '-nodes', '-passin', `pass:${password}`],
-      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
-    );
-    const certRes = spawnSync(
-      'openssl',
-      ['pkcs12', '-in', pfxPath, '-clcerts', '-nokeys', '-passin', `pass:${password}`],
-      { encoding: 'utf8', timeout: 12000, maxBuffer: 4 * 1024 * 1024 }
-    );
-    const key = String(keyRes.stdout || '');
-    const cert = String(certRes.stdout || '');
-    if (!keyRes.error && !certRes.error && key.includes('PRIVATE KEY') && cert.includes('CERTIFICATE')) {
-      return Promise.resolve({ key, cert });
-    }
-  } catch {
-    /* fallback pem */
-  }
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Timeout ao ler certificado A1')), 15000);
-    pem.readPkcs12(pfxPath, { p12Password: password }, (err, myPem) => {
-      clearTimeout(timer);
-      if (err) reject(err);
-      else resolve({ key: myPem.key, cert: myPem.cert });
-    });
-  });
-}
-
-async function enviarLoteNfeRaw(opts: {
-  xmlAssinado: string;
-  uf: string;
-  tpAmb: number;
-  timeoutSec: number;
-  pfxPath: string;
-  password: string;
-}): Promise<string> {
-  const nfeMatch = opts.xmlAssinado.match(/<NFe\b[\s\S]*<\/NFe>/);
-  if (!nfeMatch) throw new Error('XML assinado sem elemento NFe');
-
-  let nfeXml = nfeMatch[0];
-  if (!/\sxmlns=/.test(nfeXml.slice(0, 120))) {
-    nfeXml = nfeXml.replace('<NFe', '<NFe xmlns="http://www.portalfiscal.inf.br/nfe"');
-  }
-
-  const idLote = String(Date.now()).slice(-15);
-  const envi =
-    `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">` +
-    `<idLote>${idLote}</idLote><indSinc>1</indSinc>${nfeXml}</enviNFe>`;
-
-  const soap =
-    `<?xml version="1.0" encoding="utf-8"?>` +
-    `<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ` +
-    `xmlns:xsd="http://www.w3.org/2001/XMLSchema" ` +
-    `xmlns:soap="http://www.w3.org/2003/05/soap-envelope">` +
-    `<soap:Body>` +
-    `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4">${envi}</nfeDadosMsg>` +
-    `</soap:Body></soap:Envelope>`;
-
-  const url =
-    opts.uf === 'SP'
-      ? opts.tpAmb === 1
-        ? 'https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx'
-        : 'https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx'
-      : null;
-  if (!url) throw new Error(`Envio raw NF-e ainda não mapeado para UF ${opts.uf}.`);
-
-  const { key, cert } = await readPfxPem(opts.pfxPath, opts.password);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/soap+xml; charset=utf-8',
-          'Content-Length': Buffer.byteLength(soap, 'utf8'),
-        },
-        key,
-        cert,
-        rejectUnauthorized: false,
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => resolve(data));
-      }
-    );
-    req.setTimeout(opts.timeoutSec * 1000, () => {
-      req.destroy();
-      reject(new Error('Timeout ao enviar NF-e à SEFAZ'));
-    });
-    req.on('error', reject);
-    req.write(soap);
-    req.end();
-  });
-}
-
 async function nextNumero(
   admin: SupabaseClient,
   empresaId: string,
@@ -358,10 +215,22 @@ export async function emitirNfeNacional(
   if (certErr) return { ok: false, status: 'erro', message: certErr.message };
   if (!cert) return { ok: false, status: 'erro', message: 'Envie o certificado A1.' };
 
-  const { pfx, password } = unsealPfx(cert.pfx_ciphertext, cert.password_ciphertext);
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nfe-'));
-  const pfxPath = path.join(tmpDir, 'cert.pfx');
-  fs.writeFileSync(pfxPath, pfx);
+  let keyPem: string;
+  let certPem: string;
+  try {
+    const t0 = Date.now();
+    const { pfx, password } = unsealPfx(cert.pfx_ciphertext, cert.password_ciphertext);
+    const pemPair = pfxToPem(pfx, password);
+    keyPem = pemPair.key;
+    certPem = pemPair.cert;
+    console.log('[nfe] pfxToPem ms=', Date.now() - t0);
+  } catch (e) {
+    return {
+      ok: false,
+      status: 'erro',
+      message: e instanceof Error ? e.message : 'Falha ao ler certificado A1',
+    };
+  }
 
   const cfg = config as FiscalEmpresaConfig & {
     nfe_serie?: string;
@@ -393,7 +262,6 @@ export async function emitirNfeNacional(
   try {
     nNF = await nextNumero(admin, empresaId, serie);
   } catch (e) {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
     return { ok: false, status: 'erro', message: e instanceof Error ? e.message : 'Erro no contador' };
   }
 
@@ -422,23 +290,7 @@ export async function emitirNfeNacional(
   }
 
   try {
-    const tools = new Tools(
-      {
-        mod: '55',
-        tpAmb,
-        UF: uf,
-        versao: '4.00',
-        CSC: '',
-        CSCid: '',
-        timeout: 60,
-        xmllint: 'xmllint',
-        openssl: null,
-        CPF: '',
-        CNPJ: onlyDigitsDoc(cfg.cnpj),
-      },
-      { pfx: pfxPath, senha: password }
-    );
-
+    const tBuild = Date.now();
     const NFe = new Make();
     NFe.tagInfNFe({ Id: null, versao: '4.00' });
     NFe.tagIde({
@@ -627,26 +479,30 @@ export async function emitirNfeNacional(
 
     let xml = NFe.xml();
     xml = sanitizeNfeXml(xml);
-    const xmlSign = await tools.xmlSign(xml);
+    console.log('[nfe] build xml ms=', Date.now() - tBuild);
 
-    const schemaErr = validateNfeXmlLocal(xmlSign);
-    if (schemaErr) {
+    const tSign = Date.now();
+    const xmlSign = assinarXmlNfe(xml, keyPem, certPem);
+    console.log('[nfe] assinar ms=', Date.now() - tSign);
+
+    if (uf !== 'SP') {
       return {
         ok: false,
         status: 'erro',
-        codigo: '225',
-        message: `XML inválido (schema): ${schemaErr}`,
+        message: `Envio de NF-e ainda não mapeado para UF ${uf}.`,
       };
     }
 
-    const resposta = await enviarLoteNfeRaw({
+    const tSend = Date.now();
+    const resposta = await enviarLoteSefaz({
       xmlAssinado: xmlSign,
-      uf,
-      tpAmb,
-      timeoutSec: 90,
-      pfxPath,
-      password,
+      url: urlAutorizacaoNfeSp(tpAmb),
+      keyPem,
+      certPem,
+      timeoutMs: 25_000,
+      connectTimeoutMs: 12_000,
     });
+    console.log('[nfe] sefaz ms=', Date.now() - tSend, 'bytes=', String(resposta).length);
 
     const prot = extractProt(String(resposta));
     const chave = prot.chNFe || extractChaveFromXml(xmlSign) || '';
@@ -723,11 +579,5 @@ export async function emitirNfeNacional(
       status: 'erro',
       message: e instanceof Error ? e.message : 'Erro ao emitir NF-e',
     };
-  } finally {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
   }
 }
