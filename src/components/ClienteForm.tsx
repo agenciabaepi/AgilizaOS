@@ -38,6 +38,9 @@ interface Cliente {
   aniversario: string;
   status?: string;
   numero_cliente?: string;
+  inscricao_estadual?: string;
+  ie_indicador?: string;
+  inscricao_municipal?: string;
 }
 
 export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente; returnToOS?: boolean }) {
@@ -59,7 +62,10 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
         estado: '',
         origem: '',
         aniversario: '',
-        status: 'ativo', // <-- adicionado aqui
+        status: 'ativo',
+        inscricao_estadual: '',
+        ie_indicador: 'nao_contribuinte',
+        inscricao_municipal: '',
       });
     const [novoClienteId, setNovoClienteId] = useState<string | null>(null);
 
@@ -82,8 +88,30 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
 
   useEffect(() => {
     if (cliente) {
-        setForm({ ...cliente, status: cliente.status ?? 'ativo' });
-      }
+      setForm({
+        nome: cliente.nome || '',
+        telefone: cliente.telefone || '',
+        email: cliente.email || '',
+        documento: cliente.documento || '',
+        tipo: cliente.tipo || 'pf',
+        observacoes: cliente.observacoes || '',
+        responsavel: cliente.responsavel || '',
+        senha: cliente.senha || '',
+        cep: cliente.cep || '',
+        rua: cliente.rua || '',
+        numero: cliente.numero || '',
+        complemento: cliente.complemento || '',
+        bairro: cliente.bairro || '',
+        cidade: cliente.cidade || '',
+        estado: cliente.estado || '',
+        origem: cliente.origem || '',
+        aniversario: cliente.aniversario || '',
+        status: cliente.status ?? 'ativo',
+        inscricao_estadual: cliente.inscricao_estadual || '',
+        ie_indicador: cliente.ie_indicador || 'nao_contribuinte',
+        inscricao_municipal: cliente.inscricao_municipal || '',
+      });
+    }
   }, [cliente]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -153,6 +181,15 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       }
     }
 
+    if (form.tipo === 'pj' && form.ie_indicador === 'contribuinte') {
+      const ieDigits = form.inscricao_estadual.replace(/\D/g, '');
+      if (!ieDigits) {
+        alert('Informe a Inscrição Estadual (IE) do cliente contribuinte de ICMS.');
+        setLoading(false);
+        return;
+      }
+    }
+
     // Buscar o maior numero_cliente atual para a empresa e calcular o próximo, preservando ao editar
     let numeroCliente = cliente?.numero_cliente;
     if (!numeroCliente) {
@@ -192,6 +229,11 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       numero_cliente: numeroCliente,
       status: form.status,
       cadastrado_por: userData?.user?.user_metadata?.nome?.split(' ')[0] || userData?.user?.email || 'Desconhecido',
+      inscricao_estadual:
+        form.tipo === 'pj' ? form.inscricao_estadual.replace(/\D/g, '') || null : null,
+      ie_indicador: form.tipo === 'pj' ? form.ie_indicador || 'nao_contribuinte' : 'nao_contribuinte',
+      inscricao_municipal:
+        form.tipo === 'pj' ? form.inscricao_municipal.trim() || null : null,
     };
 
     if (cliente && cliente.id) {
@@ -401,6 +443,45 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
             />
           </div>
         </section>
+
+        {form.tipo === 'pj' && (
+          <section>
+            <h3 className="mb-1 text-base font-semibold text-gray-700">Dados fiscais (PJ)</h3>
+            <p className="mb-4 text-xs text-gray-500">
+              Necessário para emitir NF-e corretamente. Se a empresa for contribuinte de ICMS, informe a IE.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Select
+                name="ie_indicador"
+                value={form.ie_indicador}
+                onChange={handleChange}
+              >
+                <option value="nao_contribuinte">Não contribuinte de ICMS</option>
+                <option value="contribuinte">Contribuinte de ICMS (com IE)</option>
+                <option value="isento">Contribuinte isento de IE</option>
+              </Select>
+              <Input
+                type="text"
+                name="inscricao_estadual"
+                value={form.inscricao_estadual}
+                onChange={handleChange}
+                placeholder={
+                  form.ie_indicador === 'contribuinte'
+                    ? 'Inscrição Estadual (IE) *'
+                    : 'Inscrição Estadual (IE) — opcional'
+                }
+                required={form.ie_indicador === 'contribuinte'}
+              />
+              <Input
+                type="text"
+                name="inscricao_municipal"
+                value={form.inscricao_municipal}
+                onChange={handleChange}
+                placeholder="Inscrição Municipal (opcional)"
+              />
+            </div>
+          </section>
+        )}
 
         <section>
           <h3 className="mb-4 text-base font-semibold text-gray-700">Endereço</h3>

@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
         valor_servico,
         qtd_servico,
         cliente:cliente_id (
-          nome, cpf, documento, endereco, rua, numero, bairro, cidade, cep
+          nome, cpf, documento, endereco, rua, numero, complemento, bairro, cidade, estado, cep,
+          inscricao_estadual, ie_indicador, inscricao_municipal, tipo
         )
       `
       )
@@ -175,9 +176,14 @@ export async function POST(req: NextRequest) {
           endereco?: string | null;
           rua?: string | null;
           numero?: string | null;
+          complemento?: string | null;
           bairro?: string | null;
           cidade?: string | null;
+          estado?: string | null;
           cep?: string | null;
+          inscricao_estadual?: string | null;
+          ie_indicador?: string | null;
+          tipo?: string | null;
         }
       | Array<{
           nome?: string | null;
@@ -186,9 +192,14 @@ export async function POST(req: NextRequest) {
           endereco?: string | null;
           rua?: string | null;
           numero?: string | null;
+          complemento?: string | null;
           bairro?: string | null;
           cidade?: string | null;
+          estado?: string | null;
           cep?: string | null;
+          inscricao_estadual?: string | null;
+          ie_indicador?: string | null;
+          tipo?: string | null;
         }>
       | null;
     const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
@@ -199,6 +210,27 @@ export async function POST(req: NextRequest) {
           ok: false,
           status: 'erro',
           message: 'Cliente sem CPF/CNPJ. Cadastre o documento para emitir NF-e.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const ieIndicador = String(cliente?.ie_indicador || 'nao_contribuinte');
+    const ie = onlyDigitsDoc(String(cliente?.inscricao_estadual || ''));
+    const indIEDest: '1' | '2' | '9' =
+      ieIndicador === 'contribuinte' || (documento.length === 14 && ie)
+        ? '1'
+        : ieIndicador === 'isento'
+          ? '2'
+          : '9';
+
+    if (indIEDest === '1' && !ie) {
+      return NextResponse.json(
+        {
+          ok: false,
+          status: 'erro',
+          message:
+            'Cliente PJ contribuinte sem Inscrição Estadual. Edite o cliente e informe a IE em Dados fiscais.',
         },
         { status: 400 }
       );
@@ -225,11 +257,15 @@ export async function POST(req: NextRequest) {
         tomador: {
           documento,
           nome: String(cliente?.nome || '').trim() || undefined,
+          ie: ie || undefined,
+          indIEDest,
           endereco: {
             logradouro: logradouro || undefined,
             numero: String(cliente?.numero || '').trim() || undefined,
+            complemento: String(cliente?.complemento || '').trim() || undefined,
             bairro: String(cliente?.bairro || '').trim() || undefined,
             municipio: String(cliente?.cidade || '').trim() || undefined,
+            uf: String(cliente?.estado || '').trim() || undefined,
             cep: String(cliente?.cep || '').trim() || undefined,
           },
         },

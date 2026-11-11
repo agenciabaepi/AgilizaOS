@@ -23,6 +23,13 @@ export type EmitirNfeInput = {
   tomador: {
     documento: string;
     nome?: string;
+    /** IE do destinatário (só dígitos). Obrigatória se indIEDest=1 */
+    ie?: string;
+    /**
+     * 1=contribuinte ICMS, 2=isento, 9=não contribuinte
+     * Default: 9 (PF / PJ sem IE)
+     */
+    indIEDest?: '1' | '2' | '9';
     endereco?: {
       logradouro?: string;
       numero?: string;
@@ -344,14 +351,28 @@ export async function emitirNfeNacional(
     if (fone.length >= 6 && fone.length <= 14) enderEmit.fone = fone;
     NFe.tagEnderEmit(enderEmit);
 
-    NFe.tagDest({
+    const ieTom = onlyDigitsDoc(input.tomador?.ie || '');
+    let indIEDest: '1' | '2' | '9' = input.tomador?.indIEDest || '9';
+    if (ieTom && indIEDest === '9') indIEDest = '1';
+    if (indIEDest === '1' && !ieTom) {
+      return {
+        ok: false,
+        status: 'erro',
+        message:
+          'Cliente contribuinte de ICMS sem Inscrição Estadual. Cadastre a IE no cliente (PJ).',
+      };
+    }
+
+    const destTag: Record<string, string> = {
       ...(docTom.length === 11 ? { CPF: docTom } : { CNPJ: docTom }),
       xNome:
         tpAmb === 2
           ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
           : sanitizeXmlText(input.tomador?.nome || 'DESTINATARIO', 60),
-      indIEDest: '9',
-    });
+      indIEDest,
+    };
+    if (indIEDest === '1' && ieTom) destTag.IE = ieTom;
+    NFe.tagDest(destTag);
 
     // mod 55: tagDest cria enderDest vazio — preencher obrigatório (xLgr…)
     const endTom = input.tomador?.endereco || {};
