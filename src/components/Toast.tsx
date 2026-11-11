@@ -112,14 +112,14 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {toasts.map(({ id, type, content }) => (
           <div
             key={id}
-            className={`flex items-center max-w-xs w-full p-4 rounded-lg shadow-lg border transition-all ${
+            className={`flex items-start max-w-sm sm:max-w-md w-full p-4 rounded-lg shadow-lg border transition-all ${
               type === 'success' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-800' :
               type === 'error' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800' :
               type === 'warning' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800' :
               'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800'
             }`}
           >
-            <span className="flex-1 text-sm">{content}</span>
+            <span className="flex-1 text-sm whitespace-pre-wrap break-words">{content}</span>
             <button
               onClick={() => setToasts(prev => prev.filter(t => t.id !== id))}
               className="ml-2 shrink-0 rounded p-0.5 opacity-70 hover:opacity-100"

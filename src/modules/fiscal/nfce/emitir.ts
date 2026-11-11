@@ -151,8 +151,9 @@ function validateNfceXmlLocal(xml: string): string | null {
     fs.writeFileSync(tmpFile, xml, 'utf8');
     const verif = spawnSync('xmllint', ['--noout', '--schema', schemaPath, tmpFile], {
       encoding: 'utf8',
+      timeout: 4000,
     });
-    if (verif.error) return null;
+    if (verif.error || verif.signal === 'SIGTERM') return null;
     const err = String(verif.stderr || '');
     if (err.includes('validates')) return null;
     return err
@@ -607,7 +608,7 @@ export async function emitirNfceNacional(
       xmlAssinado: xmlSign,
       uf,
       tpAmb,
-      timeoutSec: 60,
+      timeoutSec: 45,
       pfxPath,
       password,
     });

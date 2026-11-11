@@ -9,6 +9,9 @@ import { assertFiscalAccess, onlyDigitsDoc } from '@/modules/fiscal';
 import { emitirNfceNacional } from '@/modules/fiscal/nfce/emitir';
 import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 /**
  * Emite NFC-e das peças a partir de uma venda vinculada a O.S.
  */

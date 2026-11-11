@@ -29,14 +29,8 @@ import {
   abrirDanfsePdf,
   abrirNotasConjuntasPdf,
 } from '@/lib/fiscal/abrirDanfse';
-import { fiscalFetch } from '@/lib/api/fiscalFetch';
+import { fiscalFetch, parseFiscalJson, msgFiscalErro } from '@/lib/api/fiscalFetch';
 import { useToast as useToastUi } from '@/components/Toast';
-
-function msgFiscalErro(json: Record<string, unknown>, fallback: string): string {
-  const base = String(json.message || json.error || fallback);
-  const codigo = json.codigo != null ? String(json.codigo) : '';
-  return codigo ? `[${codigo}] ${base}` : base;
-}
 
 interface VendaItem {
   id: string;
@@ -150,11 +144,20 @@ export default function ListaVendasPage() {
     crescimento: 0
   });
   const { empresaData, temRecurso } = useAuth();
-  const { addToast: pushToast } = useToastUi();
+  const { addToast: pushToast, showModal } = useToastUi();
   const addToast = (
     message: string,
     type: 'success' | 'error' | 'info' | 'warning' = 'info'
   ) => pushToast(type, message);
+  const alertarErroFiscal = (titulo: string, mensagem: string) => {
+    addToast(mensagem, 'error');
+    showModal({
+      title: titulo,
+      message: mensagem,
+      type: 'error',
+      confirmLabel: 'Entendi',
+    });
+  };
   const podeNotaFiscal = temRecurso('nota_fiscal');
   const [emitindoVendaId, setEmitindoVendaId] = useState<string | null>(null);
   const [erroEmissaoFiscal, setErroEmissaoFiscal] = useState<string | null>(null);
@@ -605,18 +608,19 @@ export default function ListaVendasPage() {
         method: 'POST',
         body: JSON.stringify({ vendaId: venda.id }),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = await parseFiscalJson(res);
+      const nfceJa = json.nfce as NfceInfo | undefined;
 
-      if (json.status === 'ja_emitida' && json.nfce) {
+      if (json.status === 'ja_emitida' && nfceJa) {
         const nf: NfceInfo = {
-          id: json.nfce.id,
-          chave_acesso: json.nfce.chave_acesso,
-          numero: json.nfce.numero,
-          status: json.nfce.status || 'autorizada',
+          id: nfceJa.id,
+          chave_acesso: nfceJa.chave_acesso,
+          numero: nfceJa.numero,
+          status: nfceJa.status || 'autorizada',
         };
         setVendas((prev) => prev.map((v) => (v.id === venda.id ? { ...v, nfce: nf } : v)));
         setModalNfceVenda(false);
-        addToast(json.message || 'NFC-e já emitida. Abrindo impressão…', 'info');
+        addToast(String(json.message || 'NFC-e já emitida. Abrindo impressão…'), 'info');
         if (nf.id) {
           const print = await abrirDanfeNfcePdf(nf.id, { autoPrint: true });
           if (!print.ok) addToast(print.error, 'error');
@@ -627,15 +631,15 @@ export default function ListaVendasPage() {
       if (!res.ok || json.ok === false) {
         const msg = msgFiscalErro(json, 'Falha ao emitir NFC-e');
         setErroEmissaoFiscal(msg);
-        addToast(msg, 'error');
+        alertarErroFiscal('Falha ao emitir NFC-e', msg);
         return;
       }
 
       if (json.status === 'autorizada') {
         const nf: NfceInfo = {
-          id: json.nfceId,
-          chave_acesso: json.chaveAcesso,
-          numero: json.numero,
+          id: String(json.nfceId || ''),
+          chave_acesso: String(json.chaveAcesso || ''),
+          numero: Number(json.numero) || null,
           status: 'autorizada',
         };
         setVendas((prev) => prev.map((v) => (v.id === venda.id ? { ...v, nfce: nf } : v)));
@@ -645,18 +649,18 @@ export default function ListaVendasPage() {
           'success'
         );
         if (json.nfceId) {
-          const print = await abrirDanfeNfcePdf(json.nfceId, { autoPrint: true });
+          const print = await abrirDanfeNfcePdf(String(json.nfceId), { autoPrint: true });
           if (!print.ok) addToast(print.error, 'error');
         }
       } else {
         const msg = msgFiscalErro(json, 'Resposta inesperada ao emitir NFC-e');
         setErroEmissaoFiscal(msg);
-        addToast(msg, 'error');
+        alertarErroFiscal('Falha ao emitir NFC-e', msg);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao emitir NFC-e';
       setErroEmissaoFiscal(msg);
-      addToast(msg, 'error');
+      alertarErroFiscal('Falha ao emitir NFC-e', msg);
     } finally {
       setEmitindoVendaId(null);
     }
@@ -664,7 +668,10 @@ export default function ListaVendasPage() {
 
   const emitirNfeVendaDireto = async (venda: Venda) => {
     if (!venda.numero_os) {
-      addToast('Só é possível emitir NF-e de vendas vinculadas a uma O.S.', 'error');
+      alertarErroFiscal(
+        'Não foi possível emitir NF-e',
+        'Só é possível emitir NF-e de vendas vinculadas a uma O.S.'
+      );
       return;
     }
     setEmitindoVendaId(venda.id);
@@ -674,17 +681,18 @@ export default function ListaVendasPage() {
         method: 'POST',
         body: JSON.stringify({ vendaId: venda.id }),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = await parseFiscalJson(res);
+      const nfeJa = json.nfe as NfeInfo | undefined;
 
-      if (json.status === 'ja_emitida' && json.nfe) {
+      if (json.status === 'ja_emitida' && nfeJa) {
         const nf: NfeInfo = {
-          id: json.nfe.id,
-          chave_acesso: json.nfe.chave_acesso,
-          numero: json.nfe.numero,
-          status: json.nfe.status || 'autorizada',
+          id: nfeJa.id,
+          chave_acesso: nfeJa.chave_acesso,
+          numero: nfeJa.numero,
+          status: nfeJa.status || 'autorizada',
         };
         setVendas((prev) => prev.map((v) => (v.id === venda.id ? { ...v, nfe: nf } : v)));
-        addToast(json.message || 'NF-e já emitida. Abrindo DANFE…', 'info');
+        addToast(String(json.message || 'NF-e já emitida. Abrindo DANFE…'), 'info');
         if (nf.id) {
           const print = await abrirDanfeNfePdf(nf.id, { autoPrint: true });
           if (!print.ok) addToast(print.error, 'error');
@@ -695,15 +703,15 @@ export default function ListaVendasPage() {
       if (!res.ok || json.ok === false) {
         const msg = msgFiscalErro(json, 'Falha ao emitir NF-e');
         setErroEmissaoFiscal(msg);
-        addToast(msg, 'error');
+        alertarErroFiscal('Falha ao emitir NF-e', msg);
         return;
       }
 
       if (json.status === 'autorizada') {
         const nf: NfeInfo = {
-          id: json.nfeId,
-          chave_acesso: json.chaveAcesso,
-          numero: json.numero,
+          id: String(json.nfeId || ''),
+          chave_acesso: String(json.chaveAcesso || ''),
+          numero: Number(json.numero) || null,
           status: 'autorizada',
         };
         setVendas((prev) => prev.map((v) => (v.id === venda.id ? { ...v, nfe: nf } : v)));
@@ -712,16 +720,16 @@ export default function ListaVendasPage() {
           'success'
         );
         if (json.nfeId) {
-          const print = await abrirDanfeNfePdf(json.nfeId, { autoPrint: true });
+          const print = await abrirDanfeNfePdf(String(json.nfeId), { autoPrint: true });
           if (!print.ok) addToast(print.error, 'error');
         }
       } else {
         const msg = msgFiscalErro(json, 'Resposta inesperada ao emitir NF-e');
-        addToast(msg, 'error');
+        alertarErroFiscal('Falha ao emitir NF-e', msg);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao emitir NF-e';
-      addToast(msg, 'error');
+      alertarErroFiscal('Falha ao emitir NF-e', msg);
     } finally {
       setEmitindoVendaId(null);
     }

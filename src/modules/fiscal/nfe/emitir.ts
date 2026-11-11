@@ -144,10 +144,12 @@ function validateNfeXmlLocal(xml: string): string | null {
   const tmpFile = path.join(os.tmpdir(), `nfe-val-${Date.now()}.xml`);
   try {
     fs.writeFileSync(tmpFile, xml, 'utf8');
+    // Em Vercel/serverless xmllint costuma não existir; timeout evita travar a emissão.
     const verif = spawnSync('xmllint', ['--noout', '--schema', schemaPath, tmpFile], {
       encoding: 'utf8',
+      timeout: 4000,
     });
-    if (verif.error) return null;
+    if (verif.error || verif.signal === 'SIGTERM') return null;
     const err = String(verif.stderr || '');
     if (err.includes('validates')) return null;
     return err
@@ -617,7 +619,7 @@ export async function emitirNfeNacional(
       xmlAssinado: xmlSign,
       uf,
       tpAmb,
-      timeoutSec: 60,
+      timeoutSec: 45,
       pfxPath,
       password,
     });
