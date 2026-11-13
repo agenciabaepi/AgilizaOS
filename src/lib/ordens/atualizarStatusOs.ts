@@ -74,7 +74,8 @@ function mapTecnicoParaOS(statusTec: string): string {
   if (/^ORCAMENTO\s*CONCLUIDO$/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
   if (/^AGUARDANDO\s*PECA$/.test(n)) return 'AGUARDANDO PEÇA';
   if (/^EM\s*EXECUCAO$/.test(n)) return 'APROVADO';
-  if (/^REPARO\s*CONCLUIDO$/.test(n) || /^CONCLUIDO$/.test(n)) return 'CONCLUIDO';
+  // Reparo pronto na bancada ≠ entrega/faturamento: aparelho segue na loja aguardando retirada.
+  if (/^REPARO\s*CONCLUIDO$/.test(n) || /^CONCLUIDO$/.test(n)) return 'AGUARDANDO RETIRADA';
   if (/^SEM\s*REPARO$/.test(n)) return 'SEM REPARO';
   if (/^APROVADO$/.test(n)) return 'APROVADO';
   if (/^AGUARDANDO\s*APROVACAO$/.test(n) || /^AGUARDANDO\s*RETIRADA$/.test(n) || /^CLIENTE\s*RECUSOU$/.test(n)) {
@@ -313,6 +314,60 @@ export async function atualizarStatusOs(
     if (!seraFinalizada) {
       delete dadosAtualizacao.valor_faturado;
       delete dadosAtualizacao.data_entrega;
+    }
+
+    // Proteção: bancada/mobile às vezes reenvia valor_servico/peca = 0 por falha de parse
+    // do texto "Nome - Valor: R$ X" (formato do atendente). Não zerar valor já gravado.
+    const parseMoney = (v: unknown): number => {
+      if (v == null || v === '') return 0;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const s = String(v).trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const valorServicoAnterior = parseMoney((osAnterior as any).valor_servico);
+    const valorPecaAnterior = parseMoney((osAnterior as any).valor_peca);
+    const valorServicoNovo =
+      dadosAtualizacao.valor_servico !== undefined ? parseMoney(dadosAtualizacao.valor_servico) : null;
+    const valorPecaNovo =
+      dadosAtualizacao.valor_peca !== undefined ? parseMoney(dadosAtualizacao.valor_peca) : null;
+
+    if (valorServicoNovo === 0 && valorServicoAnterior > 0) {
+      const textoServico = String(
+        dadosAtualizacao.servico !== undefined ? dadosAtualizacao.servico : (osAnterior as any).servico || ''
+      );
+      const textoIndicaValor = /R\$\s*[\d.,]+/i.test(textoServico) && !/R\$\s*0([.,]0+)?\s*$/i.test(textoServico.trim());
+      const textoVazio = !textoServico.trim();
+      if (textoIndicaValor || textoVazio) {
+        delete dadosAtualizacao.valor_servico;
+        if (
+          dadosAtualizacao.servico !== undefined &&
+          (/ - R\$\s*0([.,]0+)?\s*$/i.test(String(dadosAtualizacao.servico)) ||
+            !String(dadosAtualizacao.servico).trim()) &&
+          (osAnterior as any).servico
+        ) {
+          dadosAtualizacao.servico = (osAnterior as any).servico;
+        }
+      }
+    }
+
+    if (valorPecaNovo === 0 && valorPecaAnterior > 0) {
+      const textoPeca = String(
+        dadosAtualizacao.peca !== undefined ? dadosAtualizacao.peca : (osAnterior as any).peca || ''
+      );
+      const textoIndicaValor = /R\$\s*[\d.,]+/i.test(textoPeca) && !/R\$\s*0([.,]0+)?\s*$/i.test(textoPeca.trim());
+      const textoVazio = !textoPeca.trim();
+      if (textoIndicaValor || textoVazio) {
+        delete dadosAtualizacao.valor_peca;
+        if (
+          dadosAtualizacao.peca !== undefined &&
+          (/ - R\$\s*0([.,]0+)?\s*$/i.test(String(dadosAtualizacao.peca)) ||
+            !String(dadosAtualizacao.peca).trim()) &&
+          (osAnterior as any).peca
+        ) {
+          dadosAtualizacao.peca = (osAnterior as any).peca;
+        }
+      }
     }
 
     // Definir data_entrega automaticamente se a OS está sendo finalizada

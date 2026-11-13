@@ -496,25 +496,29 @@ export default function DetalheBancadaPage() {
 
       // Preparar dados para salvar (sem campos JSON por enquanto)
       
-      // ✅ CORREÇÃO: Sempre atualizar produtos/serviços, mesmo que vazios (para permitir remoção)
       // NÃO enviar newStatus/status remapeados: a API espelha a partir de newStatusTecnico.
       // Enviar newStatus remapeado fazia a API achar que o "atendente" mudou o status e
-      // sobrescrevia AGUARDANDO RETIRADA → CONCLUIDO (O.S. "finalizada" indevidamente).
+      // sobrescrevia AGUARDANDO RETIRADA (O.S. "finalizada" indevidamente).
+      const valorServicoCalc = servicosValidos.length > 0 ? calcularTotalServicos() : 0;
+      const valorPecaCalc = produtosValidos.length > 0 ? calcularTotalProdutos() : 0;
+      const valorServicoAnterior = parseFloat(String(os?.valor_servico || '0')) || 0;
+      const valorPecaAnterior = parseFloat(String(os?.valor_peca || '0')) || 0;
+      // Se a lista veio vazia/mal parseada mas a OS já tinha valor, preservar (não zerar).
+      const preservarServico =
+        valorServicoCalc === 0 && valorServicoAnterior > 0 && servicosValidos.length === 0;
+      const preservarPeca =
+        valorPecaCalc === 0 && valorPecaAnterior > 0 && produtosValidos.length === 0;
+
       const updateData: any = {
-        // ✅ Sempre atualizar produtos e serviços (permitir limpar quando removidos)
-        peca: produtosText,
-        servico: servicosText,
-        // ✅ Sempre atualizar valores monetários (permitir zerar quando removidos)
-        valor_peca: produtosValidos.length > 0 ? calcularTotalProdutos().toString() : '0',
-        valor_servico: servicosValidos.length > 0 ? calcularTotalServicos().toString() : '0',
+        ...(preservarPeca ? {} : { peca: produtosText, valor_peca: valorPecaCalc.toString() }),
+        ...(preservarServico
+          ? {}
+          : { servico: servicosText, valor_servico: valorServicoCalc.toString() }),
         // NÃO gravar valor_faturado aqui: faturamento/encerramento só na entrega pelo atendente.
-        // ✅ PRESERVAR dados existentes se não há novos dados (apenas para laudo e observações)
         ...(laudo && { laudo }),
         ...(observacoes && { observacao: observacoes }),
-        // ✅ Imagens e vídeos do técnico - sempre enviar (incluindo vazio) para permitir remoção
         imagens_tecnico: imagensTecnicoString || '',
         videos_tecnico: videosTecnicoString || '',
-        // ✅ SALVAR checklist se foi modificado
         ...(checklistData && { checklist_entrada: JSON.stringify(checklistData) })
       };
       
@@ -551,8 +555,8 @@ export default function DetalheBancadaPage() {
           ...os, 
           status: statusOsAtualizado,
           status_tecnico: statusTecnicoParaSalvar,
-          valor_peca: calcularTotalProdutos().toString(),
-          valor_servico: calcularTotalServicos().toString(),
+          valor_peca: preservarPeca ? os.valor_peca : valorPecaCalc.toString(),
+          valor_servico: preservarServico ? os.valor_servico : valorServicoCalc.toString(),
         });
       }
 
@@ -769,8 +773,8 @@ export default function DetalheBancadaPage() {
     
     const itens = [];
     
-    // Tentar primeiro o formato com vírgulas (formato atual da bancada)
-    const itensComVirgula = texto.split(',').filter(item => item.trim());
+    // Split por vírgula+espaço ou quebra — NÃO por vírgula sozinha (quebra "R$ 100,00")
+    const itensComVirgula = texto.split(/,\s+|\n/).map((item) => item.trim()).filter(Boolean);
     if (itensComVirgula.length > 0) {
       for (const itemTexto of itensComVirgula) {
         if (tipo === 'produto') {
