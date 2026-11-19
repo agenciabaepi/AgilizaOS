@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     const { data: pagamento, error: dbError } = await supabase
       .from('pagamentos')
       .insert({
+        id: crypto.randomUUID(),
         empresa_id: assinatura.empresa_id,
         usuario_id: assinatura.empresa_id, // Usar empresa_id como usuário
         valor: assinatura.valor,

@@ -264,6 +264,7 @@ export async function POST(req: NextRequest) {
 
     let pagamentoId: string = payment.id;
     const insertBase: Record<string, unknown> = {
+      id: crypto.randomUUID(),
       empresa_id: usuario.empresa_id,
       mercadopago_payment_id: payment.id,
       status: payment.status || 'PENDING',

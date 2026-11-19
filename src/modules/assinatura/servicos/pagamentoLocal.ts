@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type PagamentoLocalRow = {
@@ -59,6 +60,8 @@ export async function garantirPagamentoLocal(
   if (existing?.id) return { pagamento: existing };
 
   const insertPayload: Record<string, unknown> = {
+    // Tabela live exige id (sem DEFAULT); gerar UUID no insert.
+    id: randomUUID(),
     empresa_id: empresaId,
     mercadopago_payment_id: asaasPaymentId,
     status: params.status || 'approved',
